@@ -472,13 +472,17 @@ function buildPrintLayout(p, drills){
 }
 
 function getTeamLists(p, prefix, maxTeams){
-  // Returns array of {label, players} for non-empty team columns
-  const letters="abcd".slice(0,maxTeams);
+  // Try multiple naming conventions for team columns
+  const suffixSets={
+    "team_5v5": ["black","white","c","d"],
+    "team_4v4": ["a","b","c","d"]
+  };
+  const suffixes=(suffixSets[prefix]||["a","b","c","d"]).slice(0,maxTeams);
   const teams=[];
-  for(const letter of letters){
-    const key=prefix+"_"+letter;
+  for(const suf of suffixes){
+    const key=prefix+"_"+suf;
     const names=(p[key]||"").split(",").map(n=>n.trim()).filter(n=>n);
-    if(names.length) teams.push({label:letter.toUpperCase(), players:names});
+    if(names.length) teams.push({label:suf.toUpperCase(), players:names});
   }
   return teams;
 }
