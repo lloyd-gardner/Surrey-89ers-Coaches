@@ -74,11 +74,11 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .t-coach{font-size:10px;font-weight:600;color:var(--blue);background:rgba(96,200,250,0.08);padding:2px 8px;border-radius:4px;border:1px solid rgba(96,200,250,0.15);white-space:nowrap}
 .t-title{font-size:14px;font-weight:700;color:var(--offwhite);margin-bottom:8px}
 .duration-badge{float:right;font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:var(--green);opacity:0.45}
-.t-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px}
-.t-tag{font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:0.5px}
-.tag-personnel{background:rgba(96,200,250,0.1);color:var(--blue);border:1px solid rgba(96,200,250,0.2)}
-.tag-tactical{background:var(--green-dim);color:var(--green);border:1px solid rgba(0,131,72,0.3)}
-.tag-skill{background:rgba(245,158,11,0.1);color:var(--amber);border:1px solid rgba(245,158,11,0.2)}
+.t-tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+.t-tag{font-size:8px;font-weight:600;padding:1.5px 7px;border-radius:8px;letter-spacing:0.4px;opacity:0.7}
+.tag-personnel{background:rgba(96,200,250,0.06);color:rgba(96,200,250,0.8);border:1px solid rgba(96,200,250,0.12)}
+.tag-tactical{background:rgba(0,131,72,0.08);color:rgba(0,180,100,0.8);border:1px solid rgba(0,131,72,0.15)}
+.tag-skill{background:rgba(245,158,11,0.06);color:rgba(245,158,11,0.8);border:1px solid rgba(245,158,11,0.12)}
 .t-focus{font-size:11px;color:var(--muted);font-style:italic;padding:7px 10px;background:rgba(0,131,72,0.06);border-radius:5px;margin-top:6px}
 
 /* SIDEBAR */
@@ -108,27 +108,39 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .ts-bar-fill{height:100%;background:var(--green);border-radius:2px}
 
 /* PRINT STYLES */
+/* PRINT — compact one-page layout */
+.print-layout{display:none}
 @media print {
-  body{background:#fff !important;color:#111 !important}
-  .topbar, .sidebar, #login-screen, .practice-nav, .btn{display:none !important}
-  .content{grid-template-columns:1fr !important;padding:0 !important;max-width:100% !important}
-  .practice-header{background:#fff !important;border:2px solid #111 !important;color:#111 !important;page-break-inside:avoid}
-  .practice-num{color:#ddd !important}
-  .meta-pill{border:1px solid #999 !important;color:#333 !important;background:#fff !important}
-  .pill-coach{border:1px solid #60a0c8 !important;color:#0066aa !important;background:#fff !important}
-  .t-card{background:#fff !important;border:1px solid #ccc !important;page-break-inside:avoid}
-  .t-segment, .t-time, .t-focus{color:#666 !important}
-  .t-title{color:#111 !important}
-  .t-coach{background:#fff !important;border:1px solid #60a0c8 !important;color:#0066aa !important}
-  .t-tag{border:1px solid #999 !important;background:#fff !important;color:#333 !important}
-  .t-dot{background:#111 !important;border-color:#fff !important;box-shadow:none !important}
-  .t-connector{background:#ccc !important}
-  .t-focus{background:#f5f5f5 !important}
-  .duration-badge{color:#ccc !important}
-  .print-only{display:block !important}
-  @page{margin:1.5cm}
+  body{background:#fff !important;color:#111 !important;font-size:10px}
+  #app > .topbar, #login-screen, .content{display:none !important}
+  .print-layout{display:block !important}
+  @page{margin:1cm;size:A4 portrait}
+
+  .print-header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:6px;margin-bottom:8px}
+  .print-title{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;color:#111}
+  .print-date{font-size:10px;color:#555;margin-top:2px}
+  .print-meta{display:flex;gap:6px;margin-top:5px}
+  .print-pill{font-size:8px;font-weight:700;padding:2px 8px;border:1px solid #999;border-radius:3px;color:#333;text-transform:uppercase;letter-spacing:0.5px}
+  .print-num{font-family:'Space Grotesk',sans-serif;font-size:36px;font-weight:700;color:#ddd}
+
+  .print-body{display:grid;grid-template-columns:1fr 150px;gap:12px}
+  .print-timeline{display:flex;flex-direction:column;gap:4px}
+  .print-row{display:grid;grid-template-columns:32px 1fr;gap:8px;border-bottom:1px solid #eee;padding:4px 0;page-break-inside:avoid}
+  .print-time{font-size:9px;font-weight:700;color:#008348;text-align:right}
+  .print-seg{font-size:7px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#999}
+  .print-drill-title{font-size:10px;font-weight:700;color:#111;display:flex;justify-content:space-between;align-items:baseline}
+  .print-coach{font-size:8px;color:#0066aa;font-weight:600}
+  .print-tags{font-size:7px;color:#999;margin-top:1px}
+  .print-focus{font-size:8.5px;color:#666;font-style:italic;margin-top:2px;line-height:1.3}
+
+  .print-sidebar{border-left:1px solid #ddd;padding-left:10px}
+  .print-side-title{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#008348;margin-bottom:4px;margin-top:8px}
+  .print-side-title:first-child{margin-top:0}
+  .print-roster-row{font-size:9px;color:#333;padding:1px 0}
+  .print-unavail{font-size:8px;color:#c00;padding:1px 0}
+
+  .print-footer{margin-top:10px;border-top:1px solid #ddd;padding-top:4px;font-size:7px;color:#aaa;text-align:right}
 }
-.print-only{display:none}
 </style>
 </head>
 <body>
@@ -200,6 +212,9 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
       </div>
     </div>
   </div>
+
+  <!-- PRINT-ONLY LAYOUT -->
+  <div class="print-layout" id="print-layout"></div>
 </div>
 
 <script>
@@ -315,16 +330,19 @@ function renderPractice(){
   document.getElementById("p-num").textContent=p.practice_num;
   document.getElementById("practice-nav-label").textContent="Practice "+p.practice_num;
 
-  document.getElementById("p-meta").innerHTML=`
-    <span class="meta-pill pill-amber">${p.gd_status||""}</span>
-    <span class="meta-pill pill-green">${p.load||""}</span>
-    <span class="meta-pill pill-blue">${p.total_minutes||""} mins</span>
-    <span class="meta-pill pill-coach">👤 ${p.leading_coach||"TBC"}</span>
-  `;
-
   // Timeline — drills for this practice
   const practiceDrills=DRILLS.filter(d=>d.practice_num===p.practice_num)
     .sort((a,b)=>parseInt(a.order||0)-parseInt(b.order||0));
+
+  // Calculate total minutes from the segments themselves
+  const calcTotalMinutes=practiceDrills.reduce((sum,d)=>sum+(parseInt(d.minutes)||0),0);
+
+  document.getElementById("p-meta").innerHTML=`
+    <span class="meta-pill pill-amber">${p.gd_status||""}</span>
+    <span class="meta-pill pill-green">${p.load||""}</span>
+    <span class="meta-pill pill-blue">${calcTotalMinutes} mins</span>
+    <span class="meta-pill pill-coach">👤 ${p.leading_coach||"TBC"}</span>
+  `;
 
   document.getElementById("practice-timeline").innerHTML=practiceDrills.map(d=>{
     const tags=(d["tags (comma separated)"]||"").split(",").map(t=>t.trim()).filter(t=>t);
@@ -337,7 +355,7 @@ function renderPractice(){
           <div class="t-segment">${d.segment||""}</div>
           <div class="t-coach">👤 ${d.leading_coach||"TBC"}</div>
         </div>
-        <div class="t-title"><span class="duration-badge">${mins>0?mins+'<small style="font-size:10px">min</small>':""}</span>${d["drill_id_or_name"]||""}</div>
+        <div class="t-title"><span class="duration-badge">${mins>0?mins+'<small style="font-size:10px">min</small>':""}</span>${(d["drill_id_or_name"]||"").replace(/\s*\([A-Z]\d{3}\)/g,"")}</div>
         ${tags.length?`<div class="t-tags">${tags.map(t=>`<span class="t-tag ${tagClass(t)}">${t}</span>`).join("")}</div>`:""}
         ${d.focus_note?`<div class="t-focus">🎯 ${d.focus_note}</div>`:""}
       </div>
@@ -346,14 +364,71 @@ function renderPractice(){
 
   renderRoster(p.practice_num);
   renderTagSummary();
+  buildPrintLayout(p, practiceDrills);
+}
+
+function buildPrintLayout(p, drills){
+  const team5=(p.team_5v5||"").split(",").map(n=>n.trim()).filter(n=>n);
+  const team4=(p.team_4v4||"").split(",").map(n=>n.trim()).filter(n=>n);
+  const unavailable=ROSTER.filter(r=>{
+    const s=(r.statuses[p.practice_num]||"").toUpperCase();
+    return ["X","I","A","S"].includes(s);
+  });
+  const statusLabel={X:"Not Avail",I:"Injured",A:"Away",S:"Suspended"};
+
+  const rows=drills.map(d=>{
+    const mins=parseInt(d.minutes)||0;
+    const tags=(d["tags (comma separated)"]||"").split(",").map(t=>t.trim()).filter(t=>t);
+    const cleanTitle=(d["drill_id_or_name"]||"").replace(/\s*\([A-Z]\d{3}\)/g,"");
+    return `<div class="print-row">
+      <div class="print-time">${mins>0?mins+"'":""}</div>
+      <div>
+        <div class="print-seg">${d.segment||""}</div>
+        <div class="print-drill-title"><span>${cleanTitle}</span><span class="print-coach">${d.leading_coach||""}</span></div>
+        ${tags.length?`<div class="print-tags">${tags.join(" · ")}</div>`:""}
+        ${d.focus_note?`<div class="print-focus">${d.focus_note}</div>`:""}
+      </div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("print-layout").innerHTML=`
+    <div class="print-header">
+      <div>
+        <div class="print-title">Practice #${p.practice_num}</div>
+        <div class="print-date">${p.date||""} · Week ${p.week||""}</div>
+        <div class="print-meta">
+          <span class="print-pill">${p.gd_status||""}</span>
+          <span class="print-pill">${p.load||""}</span>
+          <span class="print-pill">${drills.reduce((sum,d)=>sum+(parseInt(d.minutes)||0),0)} mins</span>
+          <span class="print-pill">${p.leading_coach||"TBC"}</span>
+        </div>
+      </div>
+      <div class="print-num">${p.practice_num}</div>
+    </div>
+    <div class="print-body">
+      <div class="print-timeline">${rows}</div>
+      <div class="print-sidebar">
+        <div class="print-side-title">5v5 Team</div>
+        ${team5.map((n,i)=>`<div class="print-roster-row">${i+1}. ${n}</div>`).join("")||'<div class="print-roster-row">—</div>'}
+        <div class="print-side-title">4v4 Team</div>
+        ${team4.map((n,i)=>`<div class="print-roster-row">${i+1}. ${n}</div>`).join("")||'<div class="print-roster-row">—</div>'}
+        <div class="print-side-title">Unavailable</div>
+        ${unavailable.length?unavailable.map(r=>{
+          const s=(r.statuses[p.practice_num]||"").toUpperCase();
+          return `<div class="print-unavail">${r.player} — ${statusLabel[s]||s}</div>`;
+        }).join(""):'<div class="print-roster-row">Everyone available</div>'}
+      </div>
+    </div>
+    <div class="print-footer">Surrey 89ers Basketball — Confidential — Coaching staff use only</div>
+  `;
 }
 
 function renderRoster(practiceNum){
-  // Available players for this practice
-  const available=ROSTER.filter(r=>{
-    const s=(r.statuses[practiceNum]||"").toUpperCase();
-    return s==="O"||s==="";
-  }).map(r=>r.player);
+  const p=PRACTICES[currentIdx];
+
+  // Get assigned teams from Practices tab (comma-separated names)
+  const team5Names=(p.team_5v5||"").split(",").map(n=>n.trim()).filter(n=>n);
+  const team4Names=(p.team_4v4||"").split(",").map(n=>n.trim()).filter(n=>n);
 
   const unavailable=ROSTER.filter(r=>{
     const s=(r.statuses[practiceNum]||"").toUpperCase();
@@ -362,18 +437,21 @@ function renderRoster(practiceNum){
 
   const statusLabel={X:"Not Avail",I:"Injured",A:"Away",S:"Suspended"};
 
-  // Split available roughly into 5v5 / 4v4 (first 7 = 5v5 pool, rest = 4v4 pool)
-  const half=Math.ceil(available.length/2);
-  const team5=available.slice(0,half);
-  const team4=available.slice(half);
+  if(team5Names.length){
+    document.getElementById("roster-5v5").innerHTML=team5Names.map((name,i)=>`
+      <div class="roster-player"><span class="r-num">${i+1}</span><span class="r-name">${name}</span></div>
+    `).join("");
+  }else{
+    document.getElementById("roster-5v5").innerHTML='<div style="font-size:10px;color:var(--muted)">No team assigned — add to team_5v5 column in Practices tab</div>';
+  }
 
-  document.getElementById("roster-5v5").innerHTML=team5.map((name,i)=>`
-    <div class="roster-player"><span class="r-num">${i+1}</span><span class="r-name">${name}</span></div>
-  `).join("")||'<div style="font-size:10px;color:var(--muted)">No players assigned</div>';
-
-  document.getElementById("roster-4v4").innerHTML=team4.map((name,i)=>`
-    <div class="roster-player"><span class="r-num">${i+1}</span><span class="r-name">${name}</span></div>
-  `).join("")||'<div style="font-size:10px;color:var(--muted)">No players assigned</div>';
+  if(team4Names.length){
+    document.getElementById("roster-4v4").innerHTML=team4Names.map((name,i)=>`
+      <div class="roster-player"><span class="r-num">${i+1}</span><span class="r-name">${name}</span></div>
+    `).join("");
+  }else{
+    document.getElementById("roster-4v4").innerHTML='<div style="font-size:10px;color:var(--muted)">No team assigned — add to team_4v4 column in Practices tab</div>';
+  }
 
   document.getElementById("roster-unavailable").innerHTML=unavailable.length?unavailable.map(r=>{
     const s=(r.statuses[practiceNum]||"").toUpperCase();
