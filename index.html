@@ -205,11 +205,11 @@ function parseCSV(text){
   for(let i=0;i<text.length;i++){
     const ch=text[i],next=text[i+1];
     if(inQ){
-      if(ch===\'"\'&&next===\'"\'){cur+=\'"\';i++;}
-      else if(ch===\'"\'){inQ=false;}
+      if(ch==='"'&&next==='"'){cur+='"';i++;}
+      else if(ch==='"'){inQ=false;}
       else{cur+=ch;}
     }else{
-      if(ch===\'"\'){inQ=true;}
+      if(ch==='"'){inQ=true;}
       else if(ch===","){row.push(cur);cur="";}
       else if(ch==="\\r"){}
       else if(ch==="\\n"){row.push(cur);rows.push(row);row=[];cur="";}
