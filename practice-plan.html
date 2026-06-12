@@ -90,6 +90,25 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .team-section{margin-bottom:10px}
 .team-section:last-child{margin-bottom:0}
 .team-label{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:6px}
+.team-grid-2col{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.team-col{border-right:1px solid var(--border-soft)}
+.team-col:last-child,.team-col:nth-child(2n){border-right:none}
+.team-col-inner{padding-right:0}
+.team-sub-label{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.team-extra{grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-soft)}
+
+/* RPE / Phase pills */
+.pill-rpe{background:rgba(224,85,85,0.08);color:#ff8a8a;border:1px solid rgba(224,85,85,0.18)}
+.pill-phase{background:rgba(168,140,255,0.08);color:#c4b5fd;border:1px solid rgba(168,140,255,0.18)}
+
+/* Synergy card */
+.synergy-card{background:linear-gradient(135deg,rgba(0,131,72,0.08),var(--card));border:1px solid var(--border);border-radius:10px;padding:13px 15px;display:flex;gap:13px;align-items:center;cursor:pointer;transition:border-color 0.15s;text-decoration:none;margin-top:8px}
+.synergy-card:hover{border-color:var(--green)}
+.synergy-icon{width:40px;height:40px;border-radius:8px;background:rgba(0,131,72,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;color:#4ade80}
+.synergy-info{flex:1;min-width:0}
+.synergy-title{font-size:12.5px;font-weight:700;color:var(--offwhite);margin-bottom:2px}
+.synergy-sub{font-size:10.5px;color:var(--muted)}
+.synergy-arrow{font-size:14px;color:var(--green);flex-shrink:0}
 .roster-player{display:flex;align-items:center;gap:7px;padding:3.5px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
 .roster-player:last-child{border-bottom:none}
 .r-num{font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:700;color:var(--green);width:16px;text-align:right;flex-shrink:0}
@@ -181,6 +200,8 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
       </div>
       <div class="practice-num" id="p-num"></div>
     </div>
+
+    <div id="synergy-card-wrap" style="grid-column:1/-1"></div>
 
     <div class="print-only" style="grid-column:1/-1;margin:-8px 0 8px;font-size:10px;color:#999;text-align:right">
       Surrey 89ers Basketball — Confidential — Printed for coaching staff use only
@@ -341,6 +362,8 @@ function renderPractice(){
     <span class="meta-pill pill-amber">${p.gd_status||""}</span>
     <span class="meta-pill pill-green">${p.load||""}</span>
     <span class="meta-pill pill-blue">${calcTotalMinutes} mins</span>
+    ${p.rpe_target?`<span class="meta-pill pill-rpe">RPE ${p.rpe_target}</span>`:""}
+    ${p.phase_of_season?`<span class="meta-pill pill-phase">${p.phase_of_season}</span>`:""}
     <span class="meta-pill pill-coach">👤 ${p.leading_coach||"TBC"}</span>
   `;
 
@@ -364,7 +387,24 @@ function renderPractice(){
 
   renderRoster(p.practice_num);
   renderTagSummary();
+  renderSynergyCard(p);
   buildPrintLayout(p, practiceDrills);
+}
+
+function renderSynergyCard(p){
+  const wrap=document.getElementById("synergy-card-wrap");
+  if(p.synergy_url && p.synergy_url.trim()){
+    wrap.innerHTML=`<a class="synergy-card" href="${p.synergy_url}" target="_blank">
+      <div class="synergy-icon">▶</div>
+      <div class="synergy-info">
+        <div class="synergy-title">Watch on Synergy</div>
+        <div class="synergy-sub">Practice ${p.practice_num} — Full Session Film</div>
+      </div>
+      <div class="synergy-arrow">↗</div>
+    </a>`;
+  }else{
+    wrap.innerHTML="";
+  }
 }
 
 function buildPrintLayout(p, drills){
@@ -408,6 +448,8 @@ function buildPrintLayout(p, drills){
           <span class="print-pill">${p.gd_status||""}</span>
           <span class="print-pill">${p.load||""}</span>
           <span class="print-pill">${drills.reduce((sum,d)=>sum+(parseInt(d.minutes)||0),0)} mins</span>
+          ${p.rpe_target?`<span class="print-pill">RPE ${p.rpe_target}</span>`:""}
+          ${p.phase_of_season?`<span class="print-pill">${p.phase_of_season}</span>`:""}
           <span class="print-pill">${p.leading_coach||"TBC"}</span>
         </div>
       </div>
@@ -441,20 +483,36 @@ function getTeamLists(p, prefix, maxTeams){
   return teams;
 }
 
-function renderTeamGroup(containerId, teams, emptyMsg){
+function renderTeamGroup(containerId, teams, emptyMsg, labelOverrides){
   const el=document.getElementById(containerId);
   if(!teams.length){
     el.innerHTML=`<div style="font-size:10px;color:var(--muted)">${emptyMsg}</div>`;
     return;
   }
-  el.innerHTML=teams.map(team=>`
-    <div style="margin-bottom:8px">
-      <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Team ${team.label}</div>
+
+  function teamHtml(team, idx){
+    const label = (labelOverrides && labelOverrides[idx]) ? labelOverrides[idx] : ("Team "+team.label);
+    return `<div class="team-col-inner">
+      <div class="team-sub-label">${label}</div>
       ${team.players.map((name,i)=>`
         <div class="roster-player"><span class="r-num">${i+1}</span><span class="r-name">${name}</span></div>
       `).join("")}
-    </div>
-  `).join("");
+    </div>`;
+  }
+
+  // First two teams side by side, any extra teams below spanning full width
+  const firstTwo = teams.slice(0,2);
+  const rest = teams.slice(2);
+
+  let html = `<div class="team-grid-2col">`;
+  html += firstTwo.map((t,i)=>`<div class="team-col">${teamHtml(t,i)}</div>`).join("");
+  if(rest.length){
+    html += `<div class="team-extra"><div class="team-grid-2col">`;
+    html += rest.map((t,i)=>`<div class="team-col">${teamHtml(t,i+2)}</div>`).join("");
+    html += `</div></div>`;
+  }
+  html += `</div>`;
+  el.innerHTML=html;
 }
 
 function renderRoster(practiceNum){
@@ -470,8 +528,8 @@ function renderRoster(practiceNum){
 
   const statusLabel={X:"Not Avail",I:"Injured",A:"Away",S:"Suspended"};
 
-  renderTeamGroup("roster-5v5", teams5, "No teams assigned — fill team_5v5_a / b / c in Practices tab");
-  renderTeamGroup("roster-4v4", teams4, "No teams assigned — fill team_4v4_a / b / c / d in Practices tab");
+  renderTeamGroup("roster-5v5", teams5, "No teams assigned — fill team_5v5_a / b / c in Practices tab", ["Team Light","Team Dark"]);
+  renderTeamGroup("roster-4v4", teams4, "No teams assigned — fill team_4v4_a / b / c / d in Practices tab", ["Team Light","Team Dark"]);
 
   document.getElementById("roster-unavailable").innerHTML=unavailable.length?unavailable.map(r=>{
     const s=(r.statuses[practiceNum]||"").toUpperCase();
