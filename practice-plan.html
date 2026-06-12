@@ -474,7 +474,7 @@ function buildPrintLayout(p, drills){
 function getTeamLists(p, prefix, maxTeams){
   // Try multiple naming conventions for team columns
   const suffixSets={
-    "team_5v5": ["black","white","c","d"],
+    "team_5v5": ["Black","White","c","d"],
     "team_4v4": ["a","b","c","d"]
   };
   const suffixes=(suffixSets[prefix]||["a","b","c","d"]).slice(0,maxTeams);
