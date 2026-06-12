@@ -193,11 +193,11 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
         <div class="side-header">Roster — Available</div>
         <div class="side-body">
           <div class="team-section">
-            <div class="team-label">5v5 Team</div>
+            <div class="team-label">5v5 Teams</div>
             <div id="roster-5v5"></div>
           </div>
           <div class="team-section">
-            <div class="team-label">4v4 Team</div>
+            <div class="team-label">4v4 Teams</div>
             <div id="roster-4v4"></div>
           </div>
         </div>
@@ -368,13 +368,21 @@ function renderPractice(){
 }
 
 function buildPrintLayout(p, drills){
-  const team5=(p.team_5v5||"").split(",").map(n=>n.trim()).filter(n=>n);
-  const team4=(p.team_4v4||"").split(",").map(n=>n.trim()).filter(n=>n);
+  const teams5=getTeamLists(p,"team_5v5",3);
+  const teams4=getTeamLists(p,"team_4v4",4);
   const unavailable=ROSTER.filter(r=>{
     const s=(r.statuses[p.practice_num]||"").toUpperCase();
     return ["X","I","A","S"].includes(s);
   });
   const statusLabel={X:"Not Avail",I:"Injured",A:"Away",S:"Suspended"};
+
+  function teamBlockHtml(teams,sectionLabel){
+    if(!teams.length) return `<div class="print-side-title">${sectionLabel}</div><div class="print-roster-row">—</div>`;
+    return teams.map(team=>`
+      <div class="print-side-title">${sectionLabel} ${team.label}</div>
+      ${team.players.map((n,i)=>`<div class="print-roster-row">${i+1}. ${n}</div>`).join("")}
+    `).join("");
+  }
 
   const rows=drills.map(d=>{
     const mins=parseInt(d.minutes)||0;
@@ -408,10 +416,8 @@ function buildPrintLayout(p, drills){
     <div class="print-body">
       <div class="print-timeline">${rows}</div>
       <div class="print-sidebar">
-        <div class="print-side-title">5v5 Team</div>
-        ${team5.map((n,i)=>`<div class="print-roster-row">${i+1}. ${n}</div>`).join("")||'<div class="print-roster-row">—</div>'}
-        <div class="print-side-title">4v4 Team</div>
-        ${team4.map((n,i)=>`<div class="print-roster-row">${i+1}. ${n}</div>`).join("")||'<div class="print-roster-row">—</div>'}
+        ${teamBlockHtml(teams5,"5v5")}
+        ${teamBlockHtml(teams4,"4v4")}
         <div class="print-side-title">Unavailable</div>
         ${unavailable.length?unavailable.map(r=>{
           const s=(r.statuses[p.practice_num]||"").toUpperCase();
@@ -423,12 +429,39 @@ function buildPrintLayout(p, drills){
   `;
 }
 
+function getTeamLists(p, prefix, maxTeams){
+  // Returns array of {label, players} for non-empty team columns
+  const letters="abcd".slice(0,maxTeams);
+  const teams=[];
+  for(const letter of letters){
+    const key=prefix+"_"+letter;
+    const names=(p[key]||"").split(",").map(n=>n.trim()).filter(n=>n);
+    if(names.length) teams.push({label:letter.toUpperCase(), players:names});
+  }
+  return teams;
+}
+
+function renderTeamGroup(containerId, teams, emptyMsg){
+  const el=document.getElementById(containerId);
+  if(!teams.length){
+    el.innerHTML=`<div style="font-size:10px;color:var(--muted)">${emptyMsg}</div>`;
+    return;
+  }
+  el.innerHTML=teams.map(team=>`
+    <div style="margin-bottom:8px">
+      <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Team ${team.label}</div>
+      ${team.players.map((name,i)=>`
+        <div class="roster-player"><span class="r-num">${i+1}</span><span class="r-name">${name}</span></div>
+      `).join("")}
+    </div>
+  `).join("");
+}
+
 function renderRoster(practiceNum){
   const p=PRACTICES[currentIdx];
 
-  // Get assigned teams from Practices tab (comma-separated names)
-  const team5Names=(p.team_5v5||"").split(",").map(n=>n.trim()).filter(n=>n);
-  const team4Names=(p.team_4v4||"").split(",").map(n=>n.trim()).filter(n=>n);
+  const teams5=getTeamLists(p,"team_5v5",3);
+  const teams4=getTeamLists(p,"team_4v4",4);
 
   const unavailable=ROSTER.filter(r=>{
     const s=(r.statuses[practiceNum]||"").toUpperCase();
@@ -437,21 +470,8 @@ function renderRoster(practiceNum){
 
   const statusLabel={X:"Not Avail",I:"Injured",A:"Away",S:"Suspended"};
 
-  if(team5Names.length){
-    document.getElementById("roster-5v5").innerHTML=team5Names.map((name,i)=>`
-      <div class="roster-player"><span class="r-num">${i+1}</span><span class="r-name">${name}</span></div>
-    `).join("");
-  }else{
-    document.getElementById("roster-5v5").innerHTML='<div style="font-size:10px;color:var(--muted)">No team assigned — add to team_5v5 column in Practices tab</div>';
-  }
-
-  if(team4Names.length){
-    document.getElementById("roster-4v4").innerHTML=team4Names.map((name,i)=>`
-      <div class="roster-player"><span class="r-num">${i+1}</span><span class="r-name">${name}</span></div>
-    `).join("");
-  }else{
-    document.getElementById("roster-4v4").innerHTML='<div style="font-size:10px;color:var(--muted)">No team assigned — add to team_4v4 column in Practices tab</div>';
-  }
+  renderTeamGroup("roster-5v5", teams5, "No teams assigned — fill team_5v5_a / b / c in Practices tab");
+  renderTeamGroup("roster-4v4", teams4, "No teams assigned — fill team_4v4_a / b / c / d in Practices tab");
 
   document.getElementById("roster-unavailable").innerHTML=unavailable.length?unavailable.map(r=>{
     const s=(r.statuses[practiceNum]||"").toUpperCase();
