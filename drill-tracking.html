@@ -142,6 +142,10 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .sort-btn{cursor:pointer;user-select:none}
 .sort-btn:hover{color:var(--offwhite)}
 .sort-arrow{font-size:9px;margin-left:3px}
+.section-group{margin-bottom:18px}
+.section-group-title{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.section-group-title::before{content:'';display:block;width:3px;height:12px;background:var(--green);border-radius:2px}
+.section-group-count{font-size:10px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0}
 </style>
 </head>
 <body>
@@ -183,18 +187,13 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
       <input class="search-input" id="search-input" placeholder="Search drills...">
     </div>
 
-    <div class="card">
+    <div id="section-groups"></div>
+
+    <div class="card" id="excluded-card" style="margin-top:6px;display:none">
+      <div class="card-header"><div class="card-title">Excluded From Tracking</div></div>
       <div class="card-body" style="padding:0;overflow-x:auto">
         <table class="drill-table">
-          <thead>
-            <tr>
-              <th class="sort-btn num" data-sort="count" style="width:90px">Times Used <span class="sort-arrow">▼</span></th>
-              <th class="sort-btn" data-sort="name">Drill</th>
-              <th class="sort-btn num" data-sort="minutes" style="width:90px">Total Mins</th>
-              <th style="width:160px">Record</th>
-            </tr>
-          </thead>
-          <tbody id="drill-rows"></tbody>
+          <tbody id="excluded-rows"></tbody>
         </table>
       </div>
     </div>
@@ -275,18 +274,21 @@ async function init(){
   const tagsIdx=libHeader.indexOf("tags (comma separated)");
   const recordValIdx=libHeader.indexOf("record_value");
   const recordNoteIdx=libHeader.indexOf("record_note");
+  const excludeIdx=libHeader.indexOf("exclude_from_tracking");
 
   // Build library lookup by normalized name
   const library={};
   libRows.forEach(r=>{
     const name=r[nameIdx]||"";
+    const excludeVal=(excludeIdx>=0?(r[excludeIdx]||""):"").trim().toUpperCase();
     library[normName(name)]={
       id: r[idIdx]||"",
       name: name,
-      section: r[sectionIdx]||"",
+      section: r[sectionIdx]||"Uncategorised",
       tags: (r[tagsIdx]||"").split(",").map(t=>t.trim()).filter(t=>t),
       recordValue: r[recordValIdx]||"",
-      recordNote: r[recordNoteIdx]||""
+      recordNote: r[recordNoteIdx]||"",
+      excluded: excludeVal==="TRUE"||excludeVal==="YES"||excludeVal==="Y"
     };
   });
 
@@ -314,11 +316,12 @@ async function init(){
     const use=usage[norm]||{count:0, minutes:0, displayName: lib?lib.name:norm};
     return {
       name: lib?lib.name:use.displayName,
-      section: lib?lib.section:"",
+      section: lib?lib.section:"Uncategorised",
       tags: lib?lib.tags:[],
       record: lib?{value:lib.recordValue, note:lib.recordNote}:null,
       count: use.count,
-      minutes: use.minutes
+      minutes: use.minutes,
+      excluded: lib?lib.excluded:false
     };
   });
 
@@ -334,14 +337,6 @@ async function init(){
   render();
 
   document.getElementById("search-input").addEventListener("input",render);
-  document.querySelectorAll(".sort-btn").forEach(th=>{
-    th.addEventListener("click",()=>{
-      const key=th.dataset.sort;
-      if(currentSort===key){sortDesc=!sortDesc;}
-      else{currentSort=key;sortDesc=true;}
-      render();
-    });
-  });
 }
 
 function tagPillClass(cat){
@@ -351,6 +346,34 @@ function tagPillClass(cat){
   return "tag-other-pill";
 }
 
+function sortRows(rows){
+  return [...rows].sort((a,b)=>{
+    let av=a[currentSort], bv=b[currentSort];
+    if(currentSort==="name"){av=av.toLowerCase();bv=bv.toLowerCase();return sortDesc?bv.localeCompare(av):av.localeCompare(bv);}
+    return sortDesc?(bv-av):(av-bv);
+  });
+}
+
+function drillRowHtml(d){
+  const neverUsed=d.count===0;
+  return `<tr class="${neverUsed?'never-used-row':''}">
+    <td class="num" style="width:90px"><span class="count-badge">${d.count}</span></td>
+    <td>
+      <div class="drill-name">${d.name}</div>
+      ${d.tags.length?`<div class="drill-tags">${d.tags.map(t=>`<span class="drill-tag-pill ${tagPillClass('')}">${t}</span>`).join("")}</div>`:""}
+    </td>
+    <td class="num" style="width:90px"><span class="mins-val">${d.minutes}</span></td>
+    <td style="width:160px">${d.record&&d.record.value?`<div class="record-cell">${d.record.value}</div>${d.record.note?`<div class="record-empty">${d.record.note}</div>`:""}`:`<span class="record-empty">No record set</span>`}</td>
+  </tr>`;
+}
+
+const TABLE_HEADER=`<tr>
+  <th class="sort-btn num" data-sort="count" style="width:90px">Times Used <span class="sort-arrow"></span></th>
+  <th class="sort-btn" data-sort="name">Drill</th>
+  <th class="sort-btn num" data-sort="minutes" style="width:90px">Total Mins</th>
+  <th style="width:160px">Record</th>
+</tr>`;
+
 function render(){
   const search=(document.getElementById("search-input").value||"").toLowerCase();
 
@@ -359,30 +382,53 @@ function render(){
     rows=rows.filter(d=>d.name.toLowerCase().includes(search) || d.section.toLowerCase().includes(search) || d.tags.some(t=>t.toLowerCase().includes(search)));
   }
 
-  rows.sort((a,b)=>{
-    let av=a[currentSort], bv=b[currentSort];
-    if(currentSort==="name"){av=av.toLowerCase();bv=bv.toLowerCase();return sortDesc?bv.localeCompare(av):av.localeCompare(bv);}
-    return sortDesc?(bv-av):(av-bv);
+  const included=rows.filter(d=>!d.excluded);
+  const excluded=rows.filter(d=>d.excluded);
+
+  // Group included by section
+  const sections={};
+  const sectionOrder=[];
+  included.forEach(d=>{
+    const sec=d.section||"Uncategorised";
+    if(!sections[sec]){sections[sec]=[];sectionOrder.push(sec);}
+    sections[sec].push(d);
   });
+  sectionOrder.sort((a,b)=>a==="Uncategorised"?1:b==="Uncategorised"?-1:a.localeCompare(b));
 
-  // Update sort arrows
+  const groupsEl=document.getElementById("section-groups");
+  groupsEl.innerHTML=sectionOrder.map(sec=>{
+    const sortedRows=sortRows(sections[sec]);
+    return `<div class="section-group">
+      <div class="section-group-title">${sec} <span class="section-group-count">(${sections[sec].length} drills)</span></div>
+      <div class="card"><div class="card-body" style="padding:0;overflow-x:auto">
+        <table class="drill-table">
+          <thead>${TABLE_HEADER}</thead>
+          <tbody>${sortedRows.map(drillRowHtml).join("")}</tbody>
+        </table>
+      </div></div>
+    </div>`;
+  }).join("") || `<div style="text-align:center;color:var(--muted);padding:24px">No drills match your search.</div>`;
+
+  // Re-attach sort listeners (new elements)
+  document.querySelectorAll(".sort-btn").forEach(th=>{
+    th.addEventListener("click",()=>{
+      const key=th.dataset.sort;
+      if(currentSort===key){sortDesc=!sortDesc;}
+      else{currentSort=key;sortDesc=true;}
+      render();
+    });
+  });
   document.querySelectorAll(".sort-arrow").forEach(a=>a.textContent="");
-  const activeTh=document.querySelector(`[data-sort="${currentSort}"] .sort-arrow`);
-  if(activeTh) activeTh.textContent=sortDesc?"▼":"▲";
+  document.querySelectorAll(`[data-sort="${currentSort}"] .sort-arrow`).forEach(a=>a.textContent=sortDesc?"▼":"▲");
 
-  document.getElementById("drill-rows").innerHTML=rows.map(d=>{
-    const neverUsed=d.count===0;
-    return `<tr class="${neverUsed?'never-used-row':''}">
-      <td class="num"><span class="count-badge">${d.count}</span></td>
-      <td>
-        <div class="drill-name">${d.name}</div>
-        ${d.section?`<div class="drill-section">${d.section}</div>`:""}
-        ${d.tags.length?`<div class="drill-tags">${d.tags.map(t=>`<span class="drill-tag-pill ${tagPillClass('')}">${t}</span>`).join("")}</div>`:""}
-      </td>
-      <td class="num"><span class="mins-val">${d.minutes}</span></td>
-      <td>${d.record&&d.record.value?`<div class="record-cell">${d.record.value}</div>${d.record.note?`<div class="record-empty">${d.record.note}</div>`:""}`:`<span class="record-empty">No record set</span>`}</td>
-    </tr>`;
-  }).join("") || `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">No drills match your search.</td></tr>`;
+  // Excluded card
+  const excludedCard=document.getElementById("excluded-card");
+  if(excluded.length){
+    document.getElementById("excluded-rows").innerHTML=`<thead>${TABLE_HEADER}</thead><tbody>${sortRows(excluded).map(drillRowHtml).join("")}</tbody>`;
+    excludedCard.style.display="block";
+  }else{
+    excludedCard.style.display="none";
+  }
 }
 
 window.addEventListener("load",()=>{
