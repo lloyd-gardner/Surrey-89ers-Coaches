@@ -137,6 +137,10 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .tag-tactical-fill{background:var(--green)}
 .tag-skill-fill{background:var(--amber)}
 .tag-other-fill{background:var(--purple)}
+.tag-extra1-fill{background:#f472b6}
+.tag-extra2-fill{background:#22d3ee}
+.tag-unrecognised-fill{background:var(--red)}
+.unrecognised-note{font-size:10px;color:var(--red);margin-top:6px;font-style:italic}
 
 .unused-tags{display:flex;flex-wrap:wrap;gap:6px}
 .unused-tag-pill{font-size:11px;font-weight:600;padding:4px 11px;border-radius:6px;background:rgba(224,85,85,0.08);color:#ff8a8a;border:1px solid rgba(224,85,85,0.18)}
@@ -177,12 +181,7 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
       <div class="stat-card"><div class="stat-val" id="stat-least" style="color:var(--amber)">—</div><div class="stat-label">Least Used</div></div>
     </div>
 
-    <div class="filter-row" id="filter-row">
-      <div class="filter-pill active" data-cat="All">All</div>
-      <div class="filter-pill" data-cat="Personnel">Personnel</div>
-      <div class="filter-pill" data-cat="Tactical">Tactical</div>
-      <div class="filter-pill" data-cat="Skill">Skill</div>
-    </div>
+    <div class="filter-row" id="filter-row"></div>
 
     <div id="tag-sections"></div>
 
@@ -247,7 +246,9 @@ async function fetchCSV(url){
   }catch(e){console.error("fetch failed",url,e);return [];}
 }
 
-let TAG_INFO={}, ALL_DATA={}, currentFilter="All";
+let TAG_INFO={}, TAG_LOOKUP={}, ALL_DATA={}, currentFilter="All", CATEGORY_ORDER=[];
+
+function normTag(s){return (s||"").trim().toLowerCase().replace(/\s+/g," ");}
 
 async function init(){
   const [tagsRaw, drillsRaw] = await Promise.all([
@@ -255,12 +256,23 @@ async function init(){
     fetchCSV(PRACTICE_URLS.drills)
   ]);
 
-  // Parse tags
-  const tagsHeader=tagsRaw[0];
+  // Parse tags - build canonical list + lookup for fuzzy matching
   const tagRows=tagsRaw.slice(1).filter(r=>r[0]&&!r[0].startsWith("#"));
+  const seenCats=[];
   tagRows.forEach(r=>{
-    TAG_INFO[r[0]]={category: r[1]||"Other"};
+    const canonical=r[0].trim();
+    const category=(r[1]||"").trim()||"Other";
+    TAG_INFO[canonical]={category};
+    TAG_LOOKUP[normTag(canonical)]={canonical, category};
+    if(!seenCats.includes(category)) seenCats.push(category);
   });
+  // Order: Personnel, Tactical, Skill first if present, then any others, Other last
+  const priority=["Personnel","Tactical","Skill"];
+  CATEGORY_ORDER=[
+    ...priority.filter(c=>seenCats.includes(c)),
+    ...seenCats.filter(c=>!priority.includes(c)&&c!=="Other"),
+    ...(seenCats.includes("Other")?["Other"]:[])
+  ];
 
   // Parse drills
   const drillsHeader=drillsRaw[0];
@@ -283,12 +295,22 @@ async function init(){
 
     const tagsStr=r[tagsColIdx]||"";
     const tags=tagsStr.split(",").map(t=>t.trim()).filter(t=>t);
-    tags.forEach(tag=>{
-      if(!agg[tag]) agg[tag]={minutes:0,count:0,category:(TAG_INFO[tag]||{}).category||"Other"};
-      agg[tag].minutes+=mins;
-      agg[tag].count+=1;
+    tags.forEach(rawTag=>{
+      // Fuzzy match against known tags
+      const norm=normTag(rawTag);
+      const match=TAG_LOOKUP[norm];
+      const canonical=match?match.canonical:rawTag;
+      const category=match?match.category:"Unrecognised";
+
+      if(!agg[canonical]) agg[canonical]={minutes:0,count:0,category};
+      agg[canonical].minutes+=mins;
+      agg[canonical].count+=1;
     });
   });
+
+  if(Object.values(agg).some(a=>a.category==="Unrecognised") && !CATEGORY_ORDER.includes("Unrecognised")){
+    CATEGORY_ORDER.push("Unrecognised");
+  }
 
   ALL_DATA={agg, practiceNums, totalMinutes, allTags:Object.keys(TAG_INFO)};
 
@@ -302,9 +324,11 @@ async function init(){
     document.getElementById("stat-least").textContent=sortedByMins[sortedByMins.length-1][0];
   }
 
-  render();
+  // Build filter pills dynamically
+  const filterRow=document.getElementById("filter-row");
+  filterRow.innerHTML=`<div class="filter-pill active" data-cat="All">All</div>` +
+    CATEGORY_ORDER.map(cat=>`<div class="filter-pill" data-cat="${cat}">${cat}</div>`).join("");
 
-  // Filter pills
   document.querySelectorAll(".filter-pill").forEach(pill=>{
     pill.addEventListener("click",()=>{
       document.querySelectorAll(".filter-pill").forEach(p=>p.classList.remove("active"));
@@ -313,20 +337,24 @@ async function init(){
       render();
     });
   });
+
+  render();
 }
 
+const CAT_COLORS=["tag-personnel-fill","tag-tactical-fill","tag-skill-fill","tag-other-fill","tag-extra1-fill","tag-extra2-fill"];
 function catFillClass(cat){
   if(cat==="Personnel")return "tag-personnel-fill";
   if(cat==="Tactical")return "tag-tactical-fill";
   if(cat==="Skill")return "tag-skill-fill";
-  return "tag-other-fill";
+  if(cat==="Unrecognised")return "tag-unrecognised-fill";
+  const idx=CATEGORY_ORDER.indexOf(cat);
+  return CAT_COLORS[idx % CAT_COLORS.length] || "tag-other-fill";
 }
 
 function render(){
   const {agg, allTags, totalMinutes} = ALL_DATA;
 
-  // Group tags by category, in the order Personnel, Tactical, Skill, Other
-  const categories=["Personnel","Tactical","Skill","Other"];
+  const categories=CATEGORY_ORDER;
   const sections=document.getElementById("tag-sections");
   let html="";
 
@@ -345,6 +373,9 @@ function render(){
     html+=`<div class="cat-section">
       <div class="cat-section-title">${cat}</div>
       <div class="card"><div class="card-body">`;
+    if(cat==="Unrecognised"){
+      html+=`<div class="unrecognised-note">These tags don't match any entry in the Tags sheet — check spelling or add them to Tags.</div>`;
+    }
 
     tagsInCat.forEach(([tag,data])=>{
       const pct=(data.minutes/maxMinutes)*100;
