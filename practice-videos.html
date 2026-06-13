@@ -144,6 +144,12 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .pill-rpe{background:rgba(224,85,85,0.08);color:#ff8a8a;border:1px solid rgba(224,85,85,0.18)}
 .pill-phase{background:rgba(168,140,255,0.08);color:#c4b5fd;border:1px solid rgba(168,140,255,0.18)}
 .pill-coach{background:rgba(96,200,250,0.08);color:var(--blue);border:1px solid rgba(96,200,250,0.15)}
+.meta-pill{font-size:10px;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:1px;text-transform:uppercase;display:inline-block}
+.pill-green{background:rgba(0,131,72,0.15);color:#4ade80;border:1px solid rgba(0,131,72,0.3)}
+.pill-amber{background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.2)}
+.pill-rpe{background:rgba(224,85,85,0.08);color:#ff8a8a;border:1px solid rgba(224,85,85,0.18)}
+.pill-phase{background:rgba(168,140,255,0.08);color:#c4b5fd;border:1px solid rgba(168,140,255,0.18)}
+.pill-coach{background:rgba(96,200,250,0.08);color:#60c8fa;border:1px solid rgba(96,200,250,0.15)}
 </style>
 </head>
 <body>
@@ -235,9 +241,11 @@ async function fetchCSV(url){
 async function init(){
   const practicesRaw=await fetchCSV(PRACTICE_URLS.practices);
   const header=practicesRaw[0];
-  const records=practicesRaw.slice(1).filter(r=>r[0]).map(r=>{
-    const o={};header.forEach((h,i)=>o[h.trim()]=r[i]||"");return o;
-  });
+  const records=practicesRaw.slice(1)
+    .filter(r=>r[0]&&r[0]!=="practice_num")
+    .map(r=>{
+      const o={};header.forEach((h,i)=>o[h.trim()]=r[i]||"");return o;
+    });
 
   // Filter to practices that have a synergy_url, newest first
   const withVideo=records
