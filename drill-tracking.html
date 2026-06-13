@@ -143,9 +143,10 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .sort-btn:hover{color:var(--offwhite)}
 .sort-arrow{font-size:9px;margin-left:3px}
 .section-group{margin-bottom:18px}
-.section-group-title{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.section-group-title{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:10px}
 .section-group-title::before{content:'';display:block;width:3px;height:12px;background:var(--green);border-radius:2px}
 .section-group-count{font-size:10px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0}
+.section-total-badge{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:var(--green);background:var(--green-dim);padding:2px 10px;border-radius:6px;border:1px solid rgba(0,131,72,0.25);text-transform:none;letter-spacing:0}
 </style>
 </head>
 <body>
@@ -268,7 +269,6 @@ async function init(){
   const libHeader=libraryRaw[0];
   const libRows=libraryRaw.slice(1).filter(r=>r[0]);
 
-  const idIdx=libHeader.indexOf("drill_id");
   const nameIdx=libHeader.indexOf("drill_name");
   const sectionIdx=libHeader.indexOf("category_section");
   const tagsIdx=libHeader.indexOf("tags (comma separated)");
@@ -276,52 +276,37 @@ async function init(){
   const recordNoteIdx=libHeader.indexOf("record_note");
   const excludeIdx=libHeader.indexOf("exclude_from_tracking");
 
-  // Build library lookup by normalized name
-  const library={};
-  libRows.forEach(r=>{
-    const name=r[nameIdx]||"";
-    const excludeVal=(excludeIdx>=0?(r[excludeIdx]||""):"").trim().toUpperCase();
-    library[normName(name)]={
-      id: r[idIdx]||"",
-      name: name,
-      section: r[sectionIdx]||"Uncategorised",
-      tags: (r[tagsIdx]||"").split(",").map(t=>t.trim()).filter(t=>t),
-      recordValue: r[recordValIdx]||"",
-      recordNote: r[recordNoteIdx]||"",
-      excluded: excludeVal==="TRUE"||excludeVal==="YES"||excludeVal==="Y"
-    };
-  });
-
-  // Parse practice drills, aggregate by normalized drill name
+  // Parse practice drills usage - aggregate by normalized drill name
   const drillsHeader=drillsRaw[0];
   const drillNameIdx=drillsHeader.indexOf("drill_id_or_name");
   const minutesIdx=drillsHeader.indexOf("minutes");
   const drillRows=drillsRaw.slice(1).filter(r=>r[0]);
 
-  const usage={}; // normName -> {count, minutes, displayName}
+  const usage={}; // normName -> {count, minutes}
   drillRows.forEach(r=>{
     const rawName=r[drillNameIdx]||"";
     if(!rawName) return;
     const norm=normName(rawName);
     const mins=parseInt(r[minutesIdx])||0;
-    if(!usage[norm]) usage[norm]={count:0, minutes:0, displayName:rawName.replace(/\s*\([A-Z]\d{3}\)/g,"").trim()};
+    if(!usage[norm]) usage[norm]={count:0, minutes:0};
     usage[norm].count+=1;
     usage[norm].minutes+=mins;
   });
 
-  // Merge: every library drill, plus any used drills not in library
-  const allNorms=new Set([...Object.keys(library), ...Object.keys(usage)]);
-  ALL_DRILLS=[...allNorms].map(norm=>{
-    const lib=library[norm];
-    const use=usage[norm]||{count:0, minutes:0, displayName: lib?lib.name:norm};
+  // ALL_DRILLS comes from Drill Library only - usage merged in
+  ALL_DRILLS=libRows.map(r=>{
+    const name=r[nameIdx]||"";
+    const norm=normName(name);
+    const use=usage[norm]||{count:0, minutes:0};
+    const excludeVal=(excludeIdx>=0?(r[excludeIdx]||""):"").trim().toUpperCase();
     return {
-      name: lib?lib.name:use.displayName,
-      section: lib?lib.section:"Uncategorised",
-      tags: lib?lib.tags:[],
-      record: lib?{value:lib.recordValue, note:lib.recordNote}:null,
+      name: name,
+      section: r[sectionIdx]||"Uncategorised",
+      tags: (r[tagsIdx]||"").split(",").map(t=>t.trim()).filter(t=>t),
+      record: {value:r[recordValIdx]||"", note:r[recordNoteIdx]||""},
       count: use.count,
       minutes: use.minutes,
-      excluded: lib?lib.excluded:false
+      excluded: excludeVal==="TRUE"||excludeVal==="YES"||excludeVal==="Y"
     };
   });
 
@@ -329,7 +314,7 @@ async function init(){
   document.getElementById("stat-total-drills").textContent=libRows.length;
   const used=ALL_DRILLS.filter(d=>d.count>0);
   document.getElementById("stat-used").textContent=used.length;
-  const neverUsed=ALL_DRILLS.filter(d=>d.count===0 && d.section); // only count library drills
+  const neverUsed=ALL_DRILLS.filter(d=>d.count===0 && !d.excluded);
   document.getElementById("stat-never-used").textContent=neverUsed.length;
   const sortedByCount=[...used].sort((a,b)=>b.count-a.count);
   if(sortedByCount.length) document.getElementById("stat-most-used").textContent=sortedByCount[0].name;
@@ -398,8 +383,13 @@ function render(){
   const groupsEl=document.getElementById("section-groups");
   groupsEl.innerHTML=sectionOrder.map(sec=>{
     const sortedRows=sortRows(sections[sec]);
+    const sectionTotal=sections[sec].reduce((sum,d)=>sum+d.count,0);
     return `<div class="section-group">
-      <div class="section-group-title">${sec} <span class="section-group-count">(${sections[sec].length} drills)</span></div>
+      <div class="section-group-title">
+        ${sec}
+        <span class="section-group-count">${sections[sec].length} drills</span>
+        <span class="section-total-badge">${sectionTotal} total</span>
+      </div>
       <div class="card"><div class="card-body" style="padding:0;overflow-x:auto">
         <table class="drill-table">
           <thead>${TABLE_HEADER}</thead>
