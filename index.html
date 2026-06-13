@@ -211,8 +211,8 @@ function parseCSV(text){
     }else{
       if(ch==='"'){inQ=true;}
       else if(ch===","){row.push(cur);cur="";}
-      else if(ch==="\\r"){}
-      else if(ch==="\\n"){row.push(cur);rows.push(row);row=[];cur="";}
+      else if(ch==="\r"){}
+      else if(ch==="\n"){row.push(cur);rows.push(row);row=[];cur="";}
       else{cur+=ch;}
     }
   }
