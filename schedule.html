@@ -149,11 +149,14 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .week-allday-cell:last-child{border-right:none}
 .wae{font-size:8.5px;font-weight:600;padding:2px 6px;border-radius:3px;cursor:pointer;display:block;margin-bottom:2px}
 .week-body{display:grid;grid-template-columns:52px repeat(7,1fr)}
-.week-time{font-size:9px;color:var(--muted);height:44px;text-align:right;padding:4px 6px 0;border-right:1px solid var(--border-soft)}
-.week-cell{height:44px;border-right:1px solid var(--border-soft);border-bottom:1px solid rgba(255,255,255,0.03);position:relative;padding:1px}
-.week-cell:last-child{border-right:none}
-.week-cell.tc{background:rgba(0,131,72,0.03)}
-.we{position:absolute;left:2px;right:2px;top:1px;border-radius:3px;padding:1px 4px;font-size:8.5px;font-weight:600;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.week-time{font-size:9px;color:var(--muted);height:44px;text-align:right;padding:4px 6px 0;border-right:1px solid var(--border-soft);flex-shrink:0}
+.week-col{flex:1;border-right:1px solid var(--border-soft);position:relative;}
+.week-col:last-child{border-right:none}
+.week-col.tc{background:rgba(0,131,72,0.03)}
+.week-hour-line{height:44px;border-bottom:1px solid rgba(255,255,255,0.03);}
+.we{position:absolute;left:1px;right:1px;border-radius:4px;padding:2px 5px;font-size:8.5px;font-weight:600;cursor:pointer;overflow:hidden;z-index:1;box-shadow:0 1px 3px rgba(0,0,0,0.3)}
+.we-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.we-time{font-size:7.5px;opacity:0.75;margin-top:1px}
 
 /* DAY */
 .day-bar{background:linear-gradient(135deg,var(--green-deep),var(--green-dark));border-radius:10px;padding:16px 20px;margin-bottom:14px}
@@ -376,7 +379,8 @@ function renderMonth(){
     h+=`<div class="md${tc}" onclick="dayClick(${y},${m},${day})"><div class="md-num">${day}</div>`;
     evs.slice(0,3).forEach((ev,i)=>{
       const idx=EVENTS.indexOf(ev);
-      h+=`<div class="me" style="${cs(ev.category)}" onclick="event.stopPropagation();showEv(${idx})">${ev.title}</div>`;
+      const timeStr=ev.start_time&&ev.all_day!=="TRUE"?ev.start_time+' ':'';
+      h+=`<div class="me" style="${cs(ev.category)}" onclick="event.stopPropagation();showEv(${idx})">${timeStr}${ev.title}</div>`;
     });
     if(evs.length>3)h+=`<div class="mm">+${evs.length-3} more</div>`;
     h+='</div>';
@@ -415,17 +419,79 @@ function renderWeek(){
   });
   h+='</div>';
 
-  // Time slots
-  HOURS.forEach(hr=>{
-    h+=`<div class="week-body"><div class="week-time">${hr}:00</div>`;
-    days.forEach(d=>{
-      const tc=isToday(d)?' tc':'';
-      const evs=forDay(d).filter(e=>e.all_day!=="TRUE"&&e.start_time&&+e.start_time.split(':')[0]===hr);
-      h+=`<div class="week-cell${tc}">${evs.map(ev=>`<div class="we" style="${cs(ev.category)}" onclick="showEv(${EVENTS.indexOf(ev)})">${ev.title}</div>`).join('')}</div>`;
+  // Time grid — column-based with absolute positioned events
+  const PX_PER_HOUR=44;
+  const START_HOUR=HOURS[0];
+
+  // Time labels column + day columns
+  h+='<div style="display:flex">';
+  // Time labels
+  h+='<div style="flex-shrink:0;width:52px">';
+  HOURS.forEach(hr=>h+=`<div class="week-time">${hr}:00</div>`);
+  h+='</div>';
+
+  // Day columns
+  days.forEach(d=>{
+    const tc=isToday(d)?' tc':'';
+    const totalH=HOURS.length*PX_PER_HOUR;
+    const dayEvs=forDay(d).filter(e=>e.all_day!=="TRUE"&&e.start_time);
+
+    // Group overlapping events into columns
+    function toMins(t){const[h2,m]=t.split(':').map(Number);return h2*60+(m||0);}
+    function endMins(ev){return ev.end_time?toMins(ev.end_time):toMins(ev.start_time)+60;}
+
+    // Sort by start time
+    const sorted=[...dayEvs].sort((a,b)=>toMins(a.start_time)-toMins(b.start_time));
+
+    // Assign columns for overlapping events
+    const cols=[];
+    sorted.forEach(ev=>{
+      const start=toMins(ev.start_time);
+      const end=endMins(ev);
+      let placed=false;
+      for(let c=0;c<cols.length;c++){
+        const last=cols[c][cols[c].length-1];
+        if(toMins(last.start_time)<=start&&endMins(last)<=start){
+          cols[c].push(ev);placed=true;break;
+        }
+      }
+      if(!placed)cols.push([ev]);
+      ev._col=cols.findIndex(c=>c.includes(ev));
+      ev._totalCols=1; // will update below
+    });
+
+    // Set total cols for each event based on overlaps
+    sorted.forEach(ev=>{
+      const start=toMins(ev.start_time);
+      const end=endMins(ev);
+      let maxCol=ev._col;
+      sorted.forEach(ev2=>{
+        const s2=toMins(ev2.start_time),e2=endMins(ev2);
+        if(ev2!==ev&&s2<end&&e2>start)maxCol=Math.max(maxCol,ev2._col);
+      });
+      ev._totalCols=maxCol+1;
+    });
+
+    h+=`<div class="week-col${tc}" style="height:${totalH}px">`;
+    // Hour lines
+    HOURS.forEach(()=>h+='<div class="week-hour-line"></div>');
+    // Events
+    sorted.forEach(ev=>{
+      const startM=toMins(ev.start_time);
+      const endM=endMins(ev);
+      const top=((startM-START_HOUR*60)/60)*PX_PER_HOUR;
+      const height=Math.max(((endM-startM)/60)*PX_PER_HOUR-2,18);
+      const colW=100/ev._totalCols;
+      const left=ev._col*colW;
+      const idx=EVENTS.indexOf(ev);
+      h+=`<div class="we" style="${cs(ev.category)};top:${top}px;height:${height}px;left:calc(${left}% + 1px);width:calc(${colW}% - 2px)" onclick="showEv(${idx})">
+        <div class="we-title">${ev.title}</div>
+        ${height>22?`<div class="we-time">${ev.start_time}${ev.end_time?' – '+ev.end_time:''}</div>`:''}
+      </div>`;
     });
     h+='</div>';
   });
-  h+='</div>';
+  h+='</div></div>';
   document.getElementById("cal").innerHTML=h;
 }
 
