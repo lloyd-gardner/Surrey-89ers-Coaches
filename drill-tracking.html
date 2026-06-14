@@ -366,14 +366,21 @@ function sortRows(rows){
 
 function drillRowHtml(d){
   const neverUsed=d.count===0;
+  const lastUsedHtml=d.lastPractice
+    ?`<span style="font-size:9px;font-weight:600;color:var(--muted);margin-left:6px;white-space:nowrap">${d.lastPractice}${d.lastDate?" · "+d.lastDate:""}</span>`
+    :`<span style="font-size:9px;color:var(--muted);margin-left:6px">Never used</span>`;
   return `<tr class="${neverUsed?'never-used-row':''}">
-    <td class="num" style="width:90px"><span class="count-badge">${d.count}</span></td>
+    <td class="num" style="width:120px">
+      <div style="display:flex;align-items:center;gap:6px;justify-content:center;flex-wrap:wrap">
+        <span class="count-badge">${d.count}</span>
+        ${lastUsedHtml}
+      </div>
+    </td>
     <td>
       <div class="drill-name">${d.name}</div>
-      ${d.tags.length?`<div class="drill-tags">${d.tags.map(t=>`<span class="drill-tag-pill ${tagPillClass('')}">${t}</span>`).join("")}</div>`:""}
+      ${d.record&&d.record.value?`<div style="font-size:10.5px;color:var(--green);margin-top:3px">🏆 ${d.record.value}${d.record.note?` <span style="color:var(--muted)">— ${d.record.note}</span>`:""}</div>`:""}
     </td>
-    <td class="num" style="width:90px"><span class="mins-val">${d.minutes}</span></td>
-    <td style="width:160px">${d.record&&d.record.value?`<div class="record-cell">${d.record.value}</div>${d.record.note?`<div class="record-empty">${d.record.note}</div>`:""}`:`<span class="record-empty">No record set</span>`}</td>
+    <td class="num" style="width:80px"><span class="mins-val">${d.minutes}</span></td>
   </tr>`;
 }
 
