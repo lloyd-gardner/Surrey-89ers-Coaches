@@ -249,7 +249,7 @@ const SCHEDULE_URL="SCHEDULE_CSV_URL_PLACEHOLDER";
 const CAT_COLORS={"Practice": {"bg": "rgba(0,131,72,0.15)", "color": "#4ade80", "border": "rgba(0,131,72,0.3)"}, "Game": {"bg": "rgba(224,85,85,0.15)", "color": "#ff8a8a", "border": "rgba(224,85,85,0.3)"}, "Staff Meeting": {"bg": "rgba(96,200,250,0.12)", "color": "#60c8fa", "border": "rgba(96,200,250,0.25)"}, "Strength & Conditioning": {"bg": "rgba(245,158,11,0.12)", "color": "#f59e0b", "border": "rgba(245,158,11,0.25)"}, "Treatment": {"bg": "rgba(167,139,250,0.12)", "color": "#a78bfa", "border": "rgba(167,139,250,0.25)"}, "Scout": {"bg": "rgba(34,211,238,0.12)", "color": "#22d3ee", "border": "rgba(34,211,238,0.25)"}, "Travel": {"bg": "rgba(251,191,36,0.12)", "color": "#fbbf24", "border": "rgba(251,191,36,0.25)"}, "Off Day": {"bg": "rgba(250,249,246,0.05)", "color": "rgba(250,249,246,0.4)", "border": "rgba(250,249,246,0.1)"}, "Off Court": {"bg": "rgba(52,211,153,0.12)", "color": "#34d399", "border": "rgba(52,211,153,0.25)"}, "International": {"bg": "rgba(244,114,182,0.12)", "color": "#f472b6", "border": "rgba(244,114,182,0.25)"}};
 
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
-const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const HOURS=Array.from({length:15},(_, i)=>i+7); // 7am-9pm
 
 let ALL_EVENTS=[], currentView="month", currentDate=new Date(), activeCategories=new Set();
@@ -326,7 +326,7 @@ async function init(){
     const rows=parseCSV(text);
     const header=rows[0];
     console.log("CSV rows loaded:", rows.length, "Header:", rows[0]);
-    ALL_EVENTS=rows.slice(1).filter(r=>r[0]&&r[0]!=="date").map(r=>{
+    ALL_EVENTS=rows.slice(1).filter(r=>r[0]&&r[0]!=="date"&&r[6]&&r[7]).map(r=>{
       const o={};header.forEach((h,i)=>o[h.trim()]=clean(r[i]));
       o._date=parseDate(o.date);
       o._multiEnd=o.multi_day_end?parseDate(o.multi_day_end):null;
@@ -393,7 +393,9 @@ function renderView(){
 function renderMonth(){
   const y=currentDate.getFullYear(),m=currentDate.getMonth();
   document.getElementById("nav-label").textContent=`${MONTHS[m]} ${y}`;
-  const firstDay=new Date(y,m,1).getDay();
+  // getDay() 0=Sun..6=Sat, convert to Mon=0..Sun=6
+  const rawFirst=new Date(y,m,1).getDay();
+  const firstDay=(rawFirst+6)%7; // Mon=0, Tue=1...Sun=6
   const daysInMonth=new Date(y,m+1,0).getDate();
   const prevDays=new Date(y,m,0).getDate();
 
@@ -402,7 +404,6 @@ function renderMonth(){
 
   // Prev month filler
   for(let i=firstDay-1;i>=0;i--){
-    const d=new Date(y,m-1,prevDays-i);
     html+=`<div class="month-day other-month"><div class="month-day-num">${prevDays-i}</div></div>`;
   }
   // Current month
@@ -434,7 +435,7 @@ function dayClick(y,m,day){currentDate=new Date(y,m,day);setView("day",document.
 // ── WEEK VIEW ──
 function renderWeek(){
   const dow=currentDate.getDay();
-  const monday=new Date(currentDate.getTime()-(dow===0?6:dow-1)*86400000);
+  const monday=new Date(currentDate.getTime()-(dow===0?6:dow-1)*86400000); // Mon-start
   const days=Array.from({length:7},(_,i)=>new Date(monday.getTime()+i*86400000));
 
   document.getElementById("nav-label").textContent=`${fmtDateShort(days[0])} – ${fmtDateShort(days[6])} ${days[6].getFullYear()}`;
