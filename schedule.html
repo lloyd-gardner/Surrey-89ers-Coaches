@@ -501,32 +501,83 @@ function renderDay(){
   document.getElementById("nav-label").textContent=fmt(CUR,{day:'numeric',month:'long',year:'numeric'});
 
   const allDay=evs.filter(e=>e.all_day==="TRUE");
-  const timed=evs.filter(e=>e.all_day!=="TRUE");
+  const timed=evs.filter(e=>e.all_day!=="TRUE"&&e.start_time);
 
   let h=`<div class="day-bar"><div class="day-bar-date">${dayName}</div><div class="day-bar-sub">${evs.length} event${evs.length!==1?'s':''}</div></div>`;
 
   if(allDay.length){
     h+=`<div class="day-allday"><div class="day-allday-lbl">All Day</div>`;
-    allDay.forEach(ev=>{h+=`<div class="day-ev" style="${cs(ev.category)}" onclick="showEv(${EVENTS.indexOf(ev)})"><div class="day-ev-title">${ev.title}</div>${ev.notes?`<div class="day-ev-meta">${ev.notes}</div>`:''}</div>`;});
+    allDay.forEach(ev=>{
+      h+=`<div class="day-ev" style="${cs(ev.category)}" onclick="showEv(${EVENTS.indexOf(ev)})">
+        <div class="day-ev-title">${ev.title}</div>
+        ${ev.notes?`<div class="day-ev-meta">${ev.notes}</div>`:''}
+      </div>`;
+    });
     h+='</div>';
   }
 
   if(timed.length===0&&allDay.length===0){
     h+='<div class="day-empty">📅<br><br>Nothing scheduled for this day.</div>';
-  }else{
-    HOURS.forEach(hr=>{
-      const hevs=timed.filter(e=>e.start_time&&+e.start_time.split(':')[0]===hr);
-      h+=`<div class="day-row"><div class="day-time">${hr}:00</div><div class="day-slot">`;
-      hevs.forEach(ev=>{
-        h+=`<div class="day-ev" style="${cs(ev.category)}" onclick="showEv(${EVENTS.indexOf(ev)})">
-          <div class="day-ev-title">${ev.title}</div>
-          <div class="day-ev-meta">${ev.start_time||''}${ev.end_time?' – '+ev.end_time:''}${ev.location?' · '+ev.location:''}</div>
-          ${ev.notes?`<div class="day-ev-meta" style="margin-top:3px">${ev.notes}</div>`:''}
-        </div>`;
-      });
-      h+='</div></div>';
-    });
+    document.getElementById("cal").innerHTML=h;
+    return;
   }
+
+  const PX=60; // px per hour — bigger for day view
+  const START=HOURS[0];
+  const TOTAL=HOURS.length*PX;
+  const toMins=t=>{const[hh,mm]=t.split(':').map(Number);return hh*60+(mm||0);};
+  const endMins=ev=>ev.end_time?toMins(ev.end_time):toMins(ev.start_time)+60;
+
+  // Overlap columns (same as week view)
+  const sorted=[...timed].sort((a,b)=>toMins(a.start_time)-toMins(b.start_time));
+  const cols=[];
+  sorted.forEach(ev=>{
+    const start=toMins(ev.start_time),end=endMins(ev);
+    let placed=false;
+    for(let c=0;c<cols.length;c++){
+      const last=cols[c][cols[c].length-1];
+      if(endMins(last)<=start){cols[c].push(ev);placed=true;break;}
+    }
+    if(!placed)cols.push([ev]);
+    ev._col=cols.findIndex(c=>c.includes(ev));
+  });
+  sorted.forEach(ev=>{
+    const start=toMins(ev.start_time),end=endMins(ev);
+    let maxCol=ev._col;
+    sorted.forEach(ev2=>{
+      if(ev2!==ev&&toMins(ev2.start_time)<end&&endMins(ev2)>start)maxCol=Math.max(maxCol,ev2._col);
+    });
+    ev._totalCols=maxCol+1;
+  });
+
+  // Build time grid
+  h+=`<div style="display:flex;gap:0">`;
+  // Time labels
+  h+=`<div style="width:60px;flex-shrink:0">`;
+  HOURS.forEach(hr=>h+=`<div style="height:${PX}px;font-size:11px;color:var(--muted);font-weight:600;text-align:right;padding-right:12px;padding-top:4px;border-right:1px solid var(--border-soft)">${hr}:00</div>`);
+  h+=`</div>`;
+  // Events column
+  h+=`<div style="flex:1;position:relative;height:${TOTAL}px;border-left:1px solid var(--border-soft)">`;
+  // Hour lines
+  HOURS.forEach((hr,i)=>{
+    h+=`<div style="position:absolute;top:${i*PX}px;left:0;right:0;height:${PX}px;border-bottom:1px solid rgba(255,255,255,0.04)"></div>`;
+  });
+  // Events
+  sorted.forEach(ev=>{
+    const startM=toMins(ev.start_time);
+    const endM=endMins(ev);
+    const top=((startM-START*60)/60)*PX;
+    const height=Math.max(((endM-startM)/60)*PX-3,24);
+    const colW=100/ev._totalCols;
+    const left=ev._col*colW;
+    const idx=EVENTS.indexOf(ev);
+    h+=`<div style="${cs(ev.category)};position:absolute;top:${top}px;height:${height}px;left:calc(${left}% + 2px);width:calc(${colW}% - 4px);border-radius:7px;padding:8px 12px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.3);overflow:hidden" onclick="showEv(${idx})">
+      <div style="font-size:13px;font-weight:700">${ev.title}</div>
+      <div style="font-size:11px;opacity:0.75;margin-top:3px">${ev.start_time}${ev.end_time?' – '+ev.end_time:''}${ev.location?' · '+ev.location:''}</div>
+      ${height>60&&ev.notes?`<div style="font-size:11px;opacity:0.6;margin-top:4px">${ev.notes}</div>`:''}
+    </div>`;
+  });
+  h+=`</div></div>`;
   document.getElementById("cal").innerHTML=h;
 }
 
