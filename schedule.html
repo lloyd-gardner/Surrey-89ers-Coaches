@@ -467,7 +467,7 @@ function renderWeek(){
     <div class="week-time-col" style="background:#080f0b"><div class="week-time-label" style="height:auto;padding:10px 6px"></div></div>`;
   days.forEach(d=>{
     const todCls=isToday(d)?" today-col":"";
-    html+=`<div class="week-day-header${todCls}"><div class="week-day-name">${DAYS[d.getDay()]}</div><div class="week-day-date${isToday(d)?" today":""}">${d.getDate()}</div></div>`;
+    html+=`<div class="week-day-header${todCls}"><div class="week-day-name">${DAYS[(d.getDay()+6)%7]}</div><div class="week-day-date${isToday(d)?' today':''}">${d.getDate()}</div></div>`;
   });
   html+=`</div>`;
   html+=allDayHtml;
