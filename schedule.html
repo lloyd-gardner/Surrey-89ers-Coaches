@@ -490,7 +490,7 @@ function renderDay(){
   }
 
   // Day header
-  const todCls=isToday(currentDate)?" style="border-color:var(--green)"":" ";
+  const todCls=isToday(currentDate)?" style='border-color:var(--green)'": "";
   html+=`<div class="day-header-bar"${todCls}>
     <div class="day-header-date">${currentDate.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</div>
     <div class="day-header-sub">${currentDate.getFullYear()} · ${timed.length+allDay.length} events</div>
