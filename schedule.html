@@ -220,7 +220,7 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 
 <div class="content" style="max-width:1200px;margin:0 auto;padding:24px">
   <div class="page-title">Season Schedule</div>
-  <div class="page-sub">Surrey 89ers Pro Team · August 2026 – May 2027 · Super League Basketball</div>
+  <div class="page-sub">Super League Basketball · Season 2026-27</div>
 
   <div class="schedule-controls">
     <div class="view-tabs">
@@ -288,9 +288,20 @@ function parseCSV(text){
 
 function parseDate(str){
   if(!str)return null;
-  const [d,m,y]=str.split("/");
-  if(!d||!m||!y)return null;
-  return new Date(parseInt(y),parseInt(m)-1,parseInt(d));
+  str=str.trim();
+  // Handle DD/MM/YYYY
+  if(str.includes("/")){
+    const [d,m,y]=str.split("/");
+    if(!d||!m||!y)return null;
+    const dt=new Date(parseInt(y),parseInt(m)-1,parseInt(d));
+    return isNaN(dt)?null:dt;
+  }
+  // Handle YYYY-MM-DD
+  if(str.includes("-")){
+    const dt=new Date(str);
+    return isNaN(dt)?null:dt;
+  }
+  return null;
 }
 function fmtDate(d){return d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"});}
 function fmtDateShort(d){return d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});}
@@ -314,6 +325,7 @@ async function init(){
     const text=await res.text();
     const rows=parseCSV(text);
     const header=rows[0];
+    console.log("CSV rows loaded:", rows.length, "Header:", rows[0]);
     ALL_EVENTS=rows.slice(1).filter(r=>r[0]&&r[0]!=="date").map(r=>{
       const o={};header.forEach((h,i)=>o[h.trim()]=clean(r[i]));
       o._date=parseDate(o.date);
@@ -321,9 +333,10 @@ async function init(){
       return o;
     }).filter(e=>e._date);
   }catch(e){
-    console.error(e);
+    console.error("Schedule fetch error:", e);
     ALL_EVENTS=[];
   }
+  console.log("Events loaded:", ALL_EVENTS.length, ALL_EVENTS.slice(0,2));
   buildCatFilters(ALL_EVENTS);
   renderView();
 }
