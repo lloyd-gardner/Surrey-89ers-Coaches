@@ -305,11 +305,9 @@ async function init(){
 
   drillRows.forEach(r=>{
     const mins=parseInt(r[minutesColIdx])||0;
-    const pNum=r[practiceColIdx];
+    const pNum=r[practiceColIdx]||"";
     if(pNum) practiceNums.add(pNum);
     totalMinutes+=mins;
-
-    const pNum=r[practiceColIdx]||"";
     const tagsStr=r[tagsColIdx]||"";
     const tags=tagsStr.split(",").map(t=>t.trim()).filter(t=>t);
     tags.forEach(rawTag=>{
