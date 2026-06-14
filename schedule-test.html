@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schedule Test</title>
+<style>
+body{font-family:sans-serif;background:#080f0b;color:#FAF9F6;padding:24px}
+.event{background:#0f1f16;border:1px solid rgba(0,131,72,0.3);border-radius:8px;padding:12px;margin-bottom:8px}
+.event-title{font-weight:700;font-size:14px}
+.event-meta{font-size:11px;color:rgba(250,249,246,0.5);margin-top:4px}
+.cat-pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(0,131,72,0.15);color:#4ade80;border:1px solid rgba(0,131,72,0.3);margin-right:6px}
+h2{color:#4ade80;margin-bottom:16px;font-size:16px;letter-spacing:2px;text-transform:uppercase}
+#status{color:rgba(250,249,246,0.5);font-size:12px;margin-bottom:16px}
+</style>
+</head>
+<body>
+<h2>Schedule — Data Test</h2>
+<div id="status">Loading...</div>
+<div id="events"></div>
+<script>
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTxFit7jrGqaHcbBTuK15aBvfn4AVsd5MWK4tMLgDyoQdCJSHvQM7F4cRFK-3w91n65RlfMlNISYFD8/pub?gid=0&single=true&output=csv";
+
+function parseCSV(text){
+  const rows=[];let row=[],cur="",inQ=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i],next=text[i+1];
+    if(inQ){if(ch==='"'&&next==='"'){cur+='"';i++;}else if(ch==='"'){inQ=false;}else{cur+=ch;}}
+    else{if(ch==='"'){inQ=true;}else if(ch===","){row.push(cur.trim());cur="";}else if(ch==="\r"){}else if(ch==="\n"){row.push(cur.trim());rows.push(row);row=[];cur="";}else{cur+=ch;}}
+  }
+  if(cur.length||row.length){row.push(cur.trim());rows.push(row);}
+  return rows.filter(r=>r.length>1||r[0]!=="");
+}
+
+async function load(){
+  try{
+    const res = await fetch(CSV_URL);
+    const text = await res.text();
+    const rows = parseCSV(text);
+    const header = rows[0];
+    document.getElementById("status").textContent = "CSV loaded: "+rows.length+" rows, "+header.length+" columns";
+
+    const events = rows.slice(1)
+      .filter(r=>r[0]&&r[0]!=="date"&&r[6]&&r[7])
+      .map(r=>{
+        const o={};
+        header.forEach((h,i)=>o[h]=r[i]||"");
+        return o;
+      });
+
+    document.getElementById("events").innerHTML = events.length
+      ? events.map(e=>`<div class="event">
+          <div class="event-title"><span class="cat-pill">${e.category}</span>${e.title}</div>
+          <div class="event-meta">${e.date} · ${e.start_time||"All Day"}${e.end_time?" – "+e.end_time:""} · ${e.location||""}</div>
+        </div>`).join("")
+      : "<p style='color:#f59e0b'>No events found with category+title filled</p>";
+
+  }catch(err){
+    document.getElementById("status").textContent = "ERROR: "+err.message;
+  }
+}
+load();
+</script>
+</body>
+</html>
