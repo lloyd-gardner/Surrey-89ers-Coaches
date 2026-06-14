@@ -274,7 +274,9 @@ function showApp(){
   document.getElementById("app").style.display="block";
   init();
 }
-if(sessionStorage.getItem("89ers_auth")==="1") showApp();
+if(sessionStorage.getItem("89ers_auth")==="1"){
+  document.addEventListener("DOMContentLoaded", showApp);
+}
 
 async function fetchCSV(url){
   try{const res=await fetch(url);return parseCSV(await res.text());}

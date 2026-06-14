@@ -181,7 +181,9 @@ function showApp(){
   init();
 }
 
-if(sessionStorage.getItem("89ers_auth")==="1") showApp();
+if(sessionStorage.getItem("89ers_auth")==="1"){
+  document.addEventListener("DOMContentLoaded", showApp);
+}
 
 function ini(name){return name.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase();}
 
