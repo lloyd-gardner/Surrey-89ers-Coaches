@@ -341,7 +341,7 @@ async function init(){
   document.getElementById("stat-used").textContent=used.length;
   const neverUsed=ALL_DRILLS.filter(d=>d.count===0 && !d.excluded);
   document.getElementById("stat-never-used").textContent=neverUsed.length;
-  const sortedByCount=[...used].sort((a,b)=>b.count-a.count);
+  const sortedByCount=[...used].filter(d=>!d.excluded).sort((a,b)=>b.count-a.count);
   if(sortedByCount.length) document.getElementById("stat-most-used").textContent=sortedByCount[0].name;
 
   render();
