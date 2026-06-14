@@ -275,7 +275,11 @@ function showApp(){
   init();
 }
 if(sessionStorage.getItem("89ers_auth")==="1"){
-  document.addEventListener("DOMContentLoaded", showApp);
+  if(document.readyState==="loading"){
+    document.addEventListener("DOMContentLoaded", showApp);
+  }else{
+    showApp();
+  }
 }
 
 async function fetchCSV(url){
