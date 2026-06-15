@@ -183,17 +183,7 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-header"><div class="card-title">Quick Links</div></div>
-          <div class="card-body">
-            <div class="quicklink-grid">
-              <a class="quicklink" href="practice-plan.html"><div class="ql-icon">📋</div><div class="ql-label">Practice Plan</div><div class="ql-sub" id="ql-practice-sub">Loading...</div></a>
-              <a class="quicklink" href="time-tracking.html"><div class="ql-icon">⏱</div><div class="ql-label">Time Tracking</div><div class="ql-sub">Season tag breakdown</div></a>
-              <a class="quicklink" href="attendance.html"><div class="ql-icon">🩺</div><div class="ql-label">Attendance Log</div><div class="ql-sub">Squad availability</div></a>
-              <a class="quicklink" href="recruitment.html"><div class="ql-icon">🔍</div><div class="ql-label">Recruitment</div><div class="ql-sub">Scouting dashboard</div></a>
-            </div>
-          </div>
-        </div>
+  
       </div>
 
       <div class="card week-sched-card" id="week-sched-wrap">
@@ -347,11 +337,7 @@ async function init(){
       </a>`).join("");
   }
 
-  // Quick link sub for practice plan - show latest practice number
-  if(records.length){
-    const latest=records[records.length-1];
-    document.getElementById("ql-practice-sub").textContent=`Practice ${latest.practice_num} · ${latest.date||""}`;
-  }
+
 }
 
 window.addEventListener("load",()=>{
@@ -359,6 +345,93 @@ window.addEventListener("load",()=>{
   const tl=document.getElementById("topbar-logo");
   if(tl) tl.src="data:image/jpeg;base64,"+LOGO;
 });
+
+const CAT_COLORS_SCHED={
+  "Practice":["rgba(0,131,72,0.15)","#4ade80"],
+  "Game":["rgba(224,85,85,0.15)","#ff8a8a"],
+  "Staff Meeting":["rgba(96,200,250,0.12)","#60c8fa"],
+  "Strength & Conditioning":["rgba(245,158,11,0.12)","#f59e0b"],
+  "Treatment":["rgba(167,139,250,0.12)","#a78bfa"],
+  "Scout":["rgba(34,211,238,0.12)","#22d3ee"],
+  "Travel":["rgba(251,191,36,0.12)","#fbbf24"],
+  "Off Day":["rgba(250,249,246,0.05)","rgba(250,249,246,0.4)"],
+  "Off Court":["rgba(52,211,153,0.12)","#34d399"],
+  "International":["rgba(244,114,182,0.12)","#f472b6"],
+};
+
+function pd2(s){
+  if(!s)return null;
+  s=s.trim();
+  if(s.includes("/")){
+    const[d,m,y]=s.split("/");
+    if(!d||!m||!y)return null;
+    const yr=y.length===2?"20"+y:y;
+    return new Date(+yr,+m-1,+d);
+  }
+  return null;
+}
+function sd2(a,b){return a&&b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();}
+
+async function renderWeekSchedule(){
+  try{
+    const res=await fetch(SCHEDULE_CSV);
+    const text=await res.text();
+    const rows=parseCSV(text);
+    const hdr=rows[0];
+    const events=rows.slice(1).filter(r=>r[0]&&r[0]!=="date"&&r[6]&&r[7]).map(r=>{
+      const o={};hdr.forEach((h,i)=>o[h.trim()]=r[i]||"");
+      o._d=pd2(o.date);
+      return o;
+    }).filter(e=>e._d);
+
+    const now=new Date();
+    const dow=now.getDay();
+    const mon=new Date(now.getTime()-(dow===0?6:dow-1)*86400000);
+    const days=Array.from({length:7},(_,i)=>new Date(mon.getTime()+i*86400000));
+    const dayNames=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+    let h="";
+    days.forEach((d,i)=>{
+      const dayEvs=events
+        .filter(e=>sd2(e._d,d)&&e.all_day!=="TRUE")
+        .sort((a,b)=>(a.start_time||"").localeCompare(b.start_time||""));
+      const allDayEvs=events.filter(e=>sd2(e._d,d)&&e.all_day==="TRUE");
+      const allEvs=[...allDayEvs,...dayEvs];
+      const isT=sd2(d,now);
+      const dateStr=d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+
+      h+=`<div class="week-sched-day${isT?" wsd-today":""}">
+        <div class="wsd-header">
+          <span class="wsd-dayname">${dayNames[i]}</span>
+          <span class="wsd-date">${dateStr}</span>
+        </div>`;
+
+      if(allEvs.length){
+        h+=`<div class="wsd-events">`;
+        allEvs.forEach(ev=>{
+          const c=(CAT_COLORS_SCHED[ev.category]||["rgba(255,255,255,0.1)","var(--muted)"])[1];
+          const meta=[ev.start_time&&ev.end_time?ev.start_time+" – "+ev.end_time:ev.start_time,ev.location].filter(Boolean).join(" · ");
+          h+=`<div class="wsd-ev">
+            <div class="wsd-dot" style="background:${c}"></div>
+            <div class="wsd-ev-info">
+              <div class="wsd-ev-title">${ev.title}</div>
+              ${meta?`<div class="wsd-ev-meta">${meta}</div>`:""}
+            </div>
+          </div>`;
+        });
+        h+=`</div>`;
+      }else{
+        h+=`<div class="wsd-empty">Nothing scheduled</div>`;
+      }
+      h+=`</div>`;
+    });
+
+    document.getElementById("week-sched-body").innerHTML=h;
+  }catch(e){
+    console.error("Schedule load error:",e);
+    document.getElementById("week-sched-body").innerHTML='<div style="padding:14px;font-size:11px;color:var(--muted)">Could not load schedule.</div>';
+  }
+}
 </script>
 </body>
 </html>
