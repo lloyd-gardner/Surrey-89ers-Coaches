@@ -2056,8 +2056,8 @@ function printSingleSlide(idx, playerName){
   const el=document.getElementById("slide-"+idx);
   if(!el) return;
   const w=window.open("","_blank");
-  const playerName = el.querySelector('.slide-card') ? 
-    el.querySelector('[style*="font-size:17px"]')?.textContent?.trim() || 'player' : 'player';
+  // playerName is a function parameter — use it directly
+  // (el-based fallback removed to avoid duplicate const)
   w.document.write(`<!DOCTYPE html><html><head>
     <meta charset="UTF-8"><title>${playerName} — Scout Slide</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet">
