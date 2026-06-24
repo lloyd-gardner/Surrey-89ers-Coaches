@@ -1784,273 +1784,255 @@ function buildSlides(db,teamName){
   }
 }
 
-function slideCard(p,idx){
-  const name = fmtName(p.name||"");
-  const numDisplay = p.number||"";
+function slideCard(p, idx){
+  // ── Data prep ─────────────────────────────────────────────────────────
+  const name      = fmtName(p.name||'');
+  const num       = p.number||'—';
+  const paintPct  = Math.round((p.paint_pct||0)*100);
+  const ftPct     = Math.round((p.ft_pct||0)*100);
+  const midPct    = Math.round((p.mid_pct||0)*100);
+  const threePct  = Math.round((p.three_pct||0)*100);
+  const photoSrc  = p.imageUrl || p.imageB64 || '';
 
-  // Photo — use base64 if present, else URL from Data sheet col C, else placeholder
-  const photoSrc = p.imageB64 || p.imageUrl || "";
+  // PBP shot types
+  function pbpTypes(shots3or2, types){
+    if(!shots3or2.length) return [];
+    return types.map(function(t){
+      var ms = shots3or2.filter(function(s){ return t.keys.indexOf(s['Sub Type']||'') >= 0; });
+      var made = ms.filter(function(s){ return s.Success==1||s.Success==='1'; }).length;
+      return {label:t.label, n:ms.length, pct:Math.round(ms.length/shots3or2.length*100), madeRate:ms.length?Math.round(made/ms.length*100):0};
+    }).filter(function(t){ return t.n>0; }).sort(function(a,b){ return b.pct-a.pct; });
+  }
+  function matchName(pbpName, dataName){
+    if(!pbpName||!dataName) return false;
+    var pb = (pbpName||'').toLowerCase();
+    var parts = dataName.split(',');
+    var sur = (parts[0]||'').trim().toLowerCase();
+    var fst = (parts[1]||'').trim().toLowerCase();
+    return pb.indexOf(sur)>=0 || (fst.charAt(0)&&pb.indexOf(fst.charAt(0)+'. '+sur)>=0);
+  }
+  var allPbp   = (DB&&DB.raw&&DB.raw.pbp)||[];
+  var shots3   = allPbp.filter(function(r){ return r.Action==='3pt'      && matchName(r.Player,p.name||''); });
+  var shots2   = allPbp.filter(function(r){ return r.Action==='2pt'      && matchName(r.Player,p.name||''); });
+  var tovRows  = allPbp.filter(function(r){ return r.Action==='turnover' && matchName(r.Player,p.name||''); });
 
-  // Shot zones (0-1 → %)
-  const paintPct = Math.round((p.paint_pct||0)*100);
-  const ftPct    = Math.round((p.ft_pct||0)*100);
-  const midPct   = Math.round((p.mid_pct||0)*100);
-  const threePct = Math.round((p.three_pct||0)*100);
+  var types3 = pbpTypes(shots3,[
+    {label:'Catch & Shoot', keys:['jumpshot']},
+    {label:'Pull-Up',       keys:['pullupjumpshot']},
+    {label:'Step-Back',     keys:['stepbackjumpshot']},
+    {label:'Fadeaway',      keys:['fadeaway','turnaroundjumpshot']},
+  ]);
+  var types2 = pbpTypes(shots2,[
+    {label:'Layup/Drive', keys:['layup','drivinglayup','reverselayup']},
+    {label:'Dunk',        keys:['dunk','alleyoopdunk','alleyoop','tipindunk','tipinlayup']},
+    {label:'Floater',     keys:['floatingjumpshot']},
+    {label:'Mid-Range',   keys:['jumpshot']},
+    {label:'Pull-Up',     keys:['pullupjumpshot','stepbackjumpshot']},
+    {label:'Hook/Post',   keys:['hookshot','turnaroundjumpshot','fadeaway']},
+  ]);
 
-  // Shot type breakdown from PBP
-  const playerShots3 = (DB&&DB.raw&&DB.raw.pbp||[]).filter(r=>
-    r.Action==="3pt" && matchPlayerName(r.Player, p.name||"")
-  );
-  const playerShots2 = (DB&&DB.raw&&DB.raw.pbp||[]).filter(r=>
-    r.Action==="2pt" && matchPlayerName(r.Player, p.name||"")
-  );
-  const playerTovs = (DB&&DB.raw&&DB.raw.pbp||[]).filter(r=>
-    r.Action==="turnover" && matchPlayerName(r.Player, p.name||"")
-  );
+  var liveTov  = tovRows.filter(function(r){ return ['badpass','ballhandling'].indexOf(r['Sub Type']||'')>=0; }).length;
+  var totalTov = tovRows.length;
+  var livePct  = totalTov ? Math.round(liveTov/totalTov*100) : 0;
 
-  function shotTypePct(shots, types){
-    if(!shots.length) return [];
-    return types.map(t=>{
-      const m = shots.filter(s=>t.keys.includes(s["Sub Type"]||""));
-      const made = m.filter(s=>s.Success==1||s.Success==="1").length;
-      return {...t, n:m.length, pct:Math.round(m.length/shots.length*100),
-              madeRate: m.length?Math.round(made/m.length*100):0};
-    }).filter(t=>t.n>0).sort((a,b)=>b.pct-a.pct);
+  // Guarding situations
+  var guardItems = [
+    ['PNR BALL HANDLER', p.ballhandler],
+    ['CATCH & SHOOT',    p.cs],
+    ['OFF DRIBBLE',      p.dribble],
+    ['ISOLATION',        p.iso],
+    ['POST UP',          p.post],
+    ['AS SCREENER',      p.screener],
+  ].filter(function(x){ return x[1]; });
+
+  // Stats row (matching Excel layout)
+  var statsRow = [
+    {v:fmtN(p.ppg),              l:'PPG'},
+    {v:fmtN(p.rpg),              l:'RPG'},
+    {v:fmtN(p.apg),              l:'APG'},
+    {v:fmtPct1(p.fgp),           l:'FG%'},
+    {v:fmtPct1(p.threepct),      l:'3P%'},
+    {v:fmtN(p.threepm),          l:'3PR'},
+    {v:fmtN(p.fta),              l:'FTA'},
+    {v:fmtPct1(p.ftpct),         l:'FT%'},
+    {v:fmtN(p.oreb),             l:'OFF'},
+    {v:fmtN(p.tpg),              l:'TO'},
+    {v:fmtN(p.fbp),              l:'FBK'},
+    {v:fmtN(p.pip),              l:'PIP'},
+  ];
+
+  var grades = [
+    {l:'IMPACT',     g:p.impact||p.scoring||'—'},
+    {l:'SCORING',    g:p.scoring||'—'},
+    {l:'DEFENCE',    g:p.defence||'—'},
+    {l:'REBOUNDING', g:p.rebounding||'—'},
+    {l:'PLAYMAKING', g:p.playmaking||'—'},
+  ];
+
+  // Build bar rows for shot types
+  function barRows(types, colour){
+    return types.map(function(t){
+      return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
+        + '<div style="font-size:9px;color:var(--muted);width:90px;flex-shrink:0">'+t.label+'</div>'
+        + '<div style="flex:1;height:4px;background:rgba(250,249,246,0.06);border-radius:2px">'
+        +   '<div style="height:100%;width:'+t.pct+'%;background:'+colour+';border-radius:2px"></div>'
+        + '</div>'
+        + '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:9px;font-weight:700;width:26px;text-align:right">'+t.pct+'%</div>'
+        + '<div style="font-size:8px;color:var(--muted);width:28px">'+t.madeRate+'%✓</div>'
+      + '</div>';
+    }).join('');
   }
 
-  const types3 = shotTypePct(playerShots3,[
-    {label:"Catch & Shoot", keys:["jumpshot"]},
-    {label:"Pull-Up",       keys:["pullupjumpshot"]},
-    {label:"Step-Back",     keys:["stepbackjumpshot"]},
-    {label:"Fadeaway/Turn", keys:["fadeaway","turnaroundjumpshot"]},
-  ]);
-  const types2 = shotTypePct(playerShots2,[
-    {label:"Layup/Drive", keys:["layup","drivinglayup","reverselayup"]},
-    {label:"Dunk",        keys:["dunk","alleyoopdunk","alleyoop","tipindunk","tipinlayup"]},
-    {label:"Floater",     keys:["floatingjumpshot"]},
-    {label:"Mid-Range",   keys:["jumpshot"]},
-    {label:"Pull-Up",     keys:["pullupjumpshot","stepbackjumpshot"]},
-    {label:"Hook/Post",   keys:["hookshot","turnaroundjumpshot","fadeaway"]},
-  ]);
+  // ── HTML ──────────────────────────────────────────────────────────────
+  var photoHTML = photoSrc
+    ? '<img src="'+photoSrc+'" style="width:100%;height:100%;object-fit:cover;object-position:top center" alt="'+name+'">'
+    : '<div style="text-align:center;color:rgba(250,249,246,0.15);padding:16px">'
+      + '<div style="font-size:36px;margin-bottom:6px">👤</div>'
+      + '<div style="font-size:8px;letter-spacing:1px">NO PHOTO</div>'
+      + '<div style="font-size:7px;color:rgba(250,249,246,0.08);margin-top:4px;line-height:1.5">'
+        + (p._expectedPhotoUrl ? p._expectedPhotoUrl.split('/').pop() : 'firstname_lastname.jpg')
+      + '</div>'
+    + '</div>';
 
-  const liveTov  = playerTovs.filter(r=>["badpass","ballhandling"].includes(r["Sub Type"]||"")).length;
-  const totalTov = playerTovs.length;
-  const livePct  = totalTov ? Math.round(liveTov/totalTov*100) : 0;
+  var gradeHTML = grades.map(function(gr){
+    return '<div style="background:var(--card3);border-radius:6px;padding:8px 4px;text-align:center">'
+      + '<div class="grade-badge '+gradeClass(gr.g)+'" style="font-size:15px;padding:3px 10px;display:block;margin-bottom:4px">'+gr.g+'</div>'
+      + '<div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">'+gr.l+'</div>'
+    + '</div>';
+  }).join('');
 
-  // Guarding situations with their rating text
-  const guardSituations = [
-    ["PNR BALL HANDLER", p.ballhandler],
-    ["CATCH & SHOOT",    p.cs],
-    ["OFF DRIBBLE",      p.dribble],
-    ["ISOLATION",        p.iso],
-    ["POST UP",          p.post],
-    ["AS SCREENER",      p.screener],
-  ].filter(([,v])=>v);
+  var statsHTML = statsRow.map(function(s){
+    return '<div style="background:var(--card3);border-radius:4px;padding:8px 2px;text-align:center">'
+      + '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:13px;font-weight:700">'+s.v+'</div>'
+      + '<div style="font-size:7px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px">'+s.l+'</div>'
+    + '</div>';
+  }).join('');
 
-  // Stats matching screenshot exactly
-  // PPG RPG APG FG% 3P% 3PR FTA FT% OFF TO FBK PIP
-  const stats = [
-    {v:fmtN(p.ppg),    l:"PPG"},
-    {v:fmtN(p.rpg),    l:"RPG"},
-    {v:fmtN(p.apg),    l:"APG"},
-    {v:fmtPct1(p.fgp), l:"FG%"},
-    {v:fmtPct1(p.threepct), l:"3P%"},
-    {v:fmtN(p.threepm),l:"3PR"},
-    {v:fmtN(p.fta),    l:"FTA"},
-    {v:fmtPct1(p.ftpct),l:"FT%"},
-    {v:fmtN(p.oreb),   l:"OFF"},
-    {v:fmtN(p.tpg),    l:"TO"},
-    {v:fmtN(p.fbp),    l:"FBK"},
-    {v:fmtN(p.pip),    l:"PIP"},
-  ];
+  var guardHTML = guardItems.length
+    ? guardItems.map(function(g){
+        return '<div style="background:rgba(0,0,0,0.2);border-radius:5px;padding:7px 10px;text-align:center;margin-bottom:5px">'
+          + '<div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(250,249,246,0.4);margin-bottom:2px">'+g[0]+'</div>'
+          + '<div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:0.5px">'+g[1]+'</div>'
+        + '</div>';
+      }).join('')
+    : '<div style="font-size:10px;color:rgba(250,249,246,0.3)">No notes entered</div>';
 
-  // Grades — IMPACT SCORING DEFENCE REBOUNDING PLAYMAKING
-  const grades = [
-    {l:"IMPACT",    g:p.impact||p.scoring},
-    {l:"SCORING",   g:p.scoring},
-    {l:"DEFENCE",   g:p.defence},
-    {l:"REBOUNDING",g:p.rebounding},
-    {l:"PLAYMAKING",g:p.playmaking},
-  ];
+  var shotZoneHTML = [
+    ['PAINT',   paintPct, '#ff8a8a'],
+    ['MIDRANGE', midPct,  'var(--amber)'],
+    ['FTs',      ftPct,   'var(--purple)'],
+    ['3s',       threePct,'var(--blue)'],
+  ].map(function(z){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">'
+      + '<span style="font-size:11px;color:rgba(250,249,246,0.7)">'+z[0]+'</span>'
+      + '<span style="font-family:\'Space Grotesk\',sans-serif;font-size:13px;font-weight:700;color:'+z[2]+'">'+z[1]+'%</span>'
+    + '</div>';
+  }).join('');
 
-  return `<div class="slide-card" id="slide-${idx}" style="page-break-before:always;break-before:page;page-break-inside:avoid">
+  var whoHTML = (p.whoWhat||p.forcing||p.stopping)
+    ? (p.whoWhat ? '<div style="margin-bottom:10px"><div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">WHO IS HE</div><div style="font-size:10px;color:var(--offwhite);line-height:1.5">'+p.whoWhat+'</div></div>' : '')
+    + (p.forcing  ? '<div style="margin-bottom:10px"><div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:4px">WHAT TO FORCE</div><div style="font-size:10px;color:var(--offwhite);line-height:1.5">'+p.forcing+'</div></div>' : '')
+    + (p.stopping ? '<div><div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#ff8a8a;margin-bottom:4px">WHAT TO STOP</div><div style="font-size:10px;color:var(--offwhite);line-height:1.5">'+p.stopping+'</div></div>' : '')
+    : '<div style="color:var(--muted);font-size:10px;font-style:italic">Add WHO / FORCE / STOP text to the Lions Data sheet col 15, 16, 17</div>';
 
-    <!-- ══ SLIDE LAYOUT — matches A3 landscape ══ -->
-    <div style="display:grid;grid-template-columns:200px 1fr;min-height:360px;border-radius:10px;overflow:hidden">
+  var shotTypeHTML = ''
+    + (types3.length ? '<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--blue);margin-bottom:5px">3PT CREATION</div>' + barRows(types3,'var(--blue)') : '')
+    + (types2.length ? '<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#ff8a8a;margin-bottom:5px;margin-top:8px">2PT CREATION</div>' + barRows(types2,'#ff8a8a') : '')
+    + '<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--amber);margin-bottom:5px;margin-top:8px">TURNOVERS</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">'
+      + '<div style="background:var(--card3);border-radius:4px;padding:6px;text-align:center"><div style="font-family:\'Space Grotesk\',sans-serif;font-size:14px;font-weight:700">'+fmtN(p.tpg)+'</div><div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">TOV/G</div></div>'
+      + '<div style="background:var(--card3);border-radius:4px;padding:6px;text-align:center"><div style="font-family:\'Space Grotesk\',sans-serif;font-size:14px;font-weight:700;color:#ff8a8a">'+livePct+'%</div><div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">LIVE</div></div>'
+      + '<div style="background:var(--card3);border-radius:4px;padding:6px;text-align:center"><div style="font-family:\'Space Grotesk\',sans-serif;font-size:14px;font-weight:700;color:var(--amber)">'+(100-livePct)+'%</div><div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">DEAD</div></div>'
+    + '</div>';
 
-      <!-- ── LEFT: Photo + Profile + Shot Menu + How To Guard ── -->
-      <div class="slide-header" style="padding:0;display:flex;flex-direction:column">
+  // Surrey logo for top right
+  var surreyLogoHTML = LOGOS['SURREY 89ERS']
+    ? '<div style="width:36px;height:36px;background:#fff;border-radius:6px;padding:3px;display:flex;align-items:center;justify-content:center"><img src="'+LOGOS['SURREY 89ERS']+'" style="width:30px;height:30px;object-fit:contain"></div>'
+    : '';
 
-        <!-- Photo -->
-        <div style="height:220px;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">
-          ${photoSrc
-            ? `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover;object-position:top" alt="${name}" onerror="this.parentElement.innerHTML='<div style=\"text-align:center;color:rgba(250,249,246,0.2);padding:20px\"><div style=\"font-size:40px\">👤</div><div style=\"font-size:9px;letter-spacing:1px\">PHOTO NOT FOUND</div></div>'">`
-            : `<div style="text-align:center;color:rgba(250,249,246,0.2);padding:20px">
-                 <div style="font-size:40px;margin-bottom:8px">👤</div>
-                 <div style="font-size:9px;letter-spacing:1px;margin-bottom:4px">NO PHOTO</div>
-                 <div style="font-size:8px;color:rgba(250,249,246,0.08);line-height:1.5">Upload to:<br>data/photos/london-lions/<br>${(p._expectedPhotoUrl||"").split("/").pop()||"firstname_lastname.jpg"}</div>
-               </div>`}
-        </div>
+  return '<div class="slide-card" id="slide-'+idx+'">'
+    // ── Outer grid: left 220px | right 1fr ──
+    + '<div style="display:grid;grid-template-columns:220px 1fr;min-height:420px;border-radius:10px;overflow:hidden">'
 
-        <!-- Player Profile box -->
-        <div style="padding:10px 12px;border-bottom:1px solid var(--border-soft)">
-          <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:6px">PLAYER PROFILE</div>
-          <div style="font-size:12px;font-weight:700">${p.height||"—"} &nbsp;·&nbsp; ${p.position||"—"}</div>
-          <div style="font-size:11px;color:rgba(250,249,246,0.6);margin-top:3px">${(p.handed||"").replace(" HANDED","").replace("RIGHT","RIGHT HANDED").replace("LEFT","LEFT HANDED")}</div>
-        </div>
+      // ── LEFT COLUMN ──
+      + '<div class="slide-header" style="padding:0;display:flex;flex-direction:column">'
 
-        <!-- Shot Menu -->
-        <div style="padding:10px 12px;border-bottom:1px solid var(--border-soft)">
-          <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:6px">SHOT MENU</div>
-          ${[["PAINT",paintPct,"#ff8a8a"],["MIDRANGE",midPct,"var(--amber)"],["FTs",ftPct,"var(--purple)"],["3s",threePct,"var(--blue)"]].map(([l,v,c])=>`
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <span style="font-size:11px;color:rgba(250,249,246,0.7)">${l}</span>
-            <span style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:${c}">${v}%</span>
-          </div>`).join("")}
-        </div>
+        // Photo — tall, fills column
+        + '<div style="height:240px;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'
+          + photoHTML
+        + '</div>'
 
-        <!-- How To Guard -->
-        <div style="padding:10px 12px;flex:1">
-          <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:8px">HOW TO GUARD</div>
-          <div style="display:flex;flex-direction:column;gap:5px">
-            ${guardSituations.map(([l,v])=>`
-            <div style="background:rgba(0,0,0,0.25);border-radius:5px;padding:6px 8px;text-align:center">
-              <div style="font-size:9px;font-weight:700;letter-spacing:0.5px;color:rgba(250,249,246,0.5);text-transform:uppercase;margin-bottom:2px">${l}</div>
-              <div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:0.5px">${v}</div>
-            </div>`).join("") || `<div style="font-size:10px;color:rgba(250,249,246,0.3)">No notes entered</div>`}
-          </div>
-        </div>
-      </div>
+        // Player Profile
+        + '<div style="padding:10px 14px;border-bottom:1px solid var(--border-soft)">'
+          + '<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:5px">PLAYER PROFILE</div>'
+          + '<div style="font-size:12px;font-weight:700">'+(p.height||'—')+' · '+(p.position||'—')+'</div>'
+          + '<div style="font-size:10px;color:rgba(250,249,246,0.5);margin-top:2px">'+((p.handed||'').replace(' HANDED',''))+'</div>'
+        + '</div>'
 
-      <!-- ── RIGHT: Name/Number, Grades, Stats, Statements, Shot Types ── -->
-      <div style="display:flex;flex-direction:column;padding:0;border-left:1px solid var(--border-soft)">
+        // Shot Menu
+        + '<div style="padding:10px 14px;border-bottom:1px solid var(--border-soft)">'
+          + '<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:6px">SHOT MENU</div>'
+          + shotZoneHTML
+        + '</div>'
 
-        <!-- Name header row -->
-        <div style="padding:14px 18px 10px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between">
-          <div>
-            <div style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.3px;text-transform:uppercase">${name}</div>
-            <div style="font-size:11px;color:rgba(250,249,246,0.4);margin-top:2px">#${numDisplay} · ${p.position||""} · ${p.height||""}</div>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center">
-            ${LOGOS["SURREY 89ERS"]?`<div style="width:32px;height:32px;background:#fff;border-radius:6px;padding:3px;display:flex;align-items:center;justify-content:center"><img src="${LOGOS["SURREY 89ERS"]}" style="width:26px;height:26px;object-fit:contain"></div>`:""}
-          </div>
-        </div>
+        // How To Guard
+        + '<div style="padding:10px 14px;flex:1;overflow:hidden">'
+          + '<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:6px">HOW TO GUARD</div>'
+          + guardHTML
+        + '</div>'
+      + '</div>'
 
-        <!-- Player Ratings -->
-        <div style="padding:12px 18px;border-bottom:1px solid var(--border-soft)">
-          <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">PLAYER RATINGS</div>
-          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
-            ${grades.map(({l,g})=>`
-            <div style="background:var(--card3);border-radius:6px;padding:8px 4px;text-align:center">
-              <div class="grade-badge ${gradeClass(g)}" style="font-size:16px;padding:4px 10px;display:block;margin-bottom:4px">${g||"—"}</div>
-              <div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">${l}</div>
-            </div>`).join("")}
-          </div>
-        </div>
+      // ── RIGHT COLUMN ──
+      + '<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft)">'
 
-        <!-- Key Statistics — exactly matching screenshot -->
-        <div style="padding:12px 18px;border-bottom:1px solid var(--border-soft)">
-          <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">KEY STATISTICS</div>
-          <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px">
-            ${stats.map(s=>`
-            <div style="background:var(--card3);border-radius:4px;padding:8px 2px;text-align:center">
-              <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700">${s.v}</div>
-              <div style="font-size:7px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px">${s.l}</div>
-            </div>`).join("")}
-          </div>
-        </div>
+        // Name header
+        + '<div style="padding:14px 20px 10px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between">'
+          + '<div>'
+            + '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;text-transform:uppercase">'+name+'</div>'
+            + '<div style="font-size:11px;color:rgba(250,249,246,0.4);margin-top:2px">#'+num+' · '+(p.position||'')+' · '+(p.height||'')+'</div>'
+          + '</div>'
+          + surreyLogoHTML
+        + '</div>'
 
-        <!-- Bottom section: WHO/FORCE/STOP + Shot type breakdown -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;flex:1">
+        // Player Ratings
+        + '<div style="padding:12px 20px;border-bottom:1px solid var(--border-soft)">'
+          + '<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">PLAYER RATINGS</div>'
+          + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">'+gradeHTML+'</div>'
+        + '</div>'
 
-          <!-- WHO / FORCE / STOP statements -->
-          <div style="padding:12px 18px;border-right:1px solid var(--border-soft)">
-            ${p.whoWhat?`
-            <div style="margin-bottom:12px">
-              <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">WHO IS HE</div>
-              <div style="font-size:11px;color:var(--offwhite);line-height:1.5">${p.whoWhat}</div>
-            </div>`:""}
-            ${p.forcing?`
-            <div style="margin-bottom:12px">
-              <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:5px">WHAT TO FORCE</div>
-              <div style="font-size:11px;color:var(--offwhite);line-height:1.5">${p.forcing}</div>
-            </div>`:""}
-            ${p.stopping?`
-            <div>
-              <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#ff8a8a;margin-bottom:5px">WHAT TO STOP</div>
-              <div style="font-size:11px;color:var(--offwhite);line-height:1.5">${p.stopping}</div>
-            </div>`:""}
-            ${!p.whoWhat&&!p.forcing&&!p.stopping?`<div style="color:var(--muted);font-size:11px;font-style:italic">Add WHO / FORCE / STOP text to Lions Data sheet</div>`:""}
-          </div>
+        // Key Statistics
+        + '<div style="padding:12px 20px;border-bottom:1px solid var(--border-soft)">'
+          + '<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">KEY STATISTICS</div>'
+          + '<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px">'+statsHTML+'</div>'
+        + '</div>'
 
-          <!-- Shot type breakdown -->
-          <div style="padding:12px 18px">
-            ${types3.length?`
-            <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--blue);margin-bottom:6px">3PT CREATION</div>
-            <div style="margin-bottom:10px">
-              ${types3.map(t=>`
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-                <div style="font-size:9px;color:var(--muted);width:90px;flex-shrink:0">${t.label}</div>
-                <div style="flex:1;height:4px;background:rgba(250,249,246,0.06);border-radius:2px"><div style="height:100%;width:${t.pct}%;background:var(--blue);border-radius:2px"></div></div>
-                <div style="font-family:'Space Grotesk',sans-serif;font-size:9px;font-weight:700;width:24px;text-align:right">${t.pct}%</div>
-                <div style="font-size:8px;color:var(--muted);width:26px">${t.madeRate}%✓</div>
-              </div>`).join("")}
-            </div>`:""}
+        // Bottom row: Who/Force/Stop | Shot types
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0">'
+          + '<div style="padding:12px 20px;border-right:1px solid var(--border-soft);overflow:auto">'+whoHTML+'</div>'
+          + '<div style="padding:12px 20px;overflow:auto">'+shotTypeHTML+'</div>'
+        + '</div>'
 
-            ${types2.length?`
-            <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#ff8a8a;margin-bottom:6px">2PT CREATION</div>
-            <div style="margin-bottom:10px">
-              ${types2.map(t=>`
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-                <div style="font-size:9px;color:var(--muted);width:90px;flex-shrink:0">${t.label}</div>
-                <div style="flex:1;height:4px;background:rgba(250,249,246,0.06);border-radius:2px"><div style="height:100%;width:${t.pct}%;background:#ff8a8a;border-radius:2px"></div></div>
-                <div style="font-family:'Space Grotesk',sans-serif;font-size:9px;font-weight:700;width:24px;text-align:right">${t.pct}%</div>
-                <div style="font-size:8px;color:var(--muted);width:26px">${t.madeRate}%✓</div>
-              </div>`).join("")}
-            </div>`:""}
-
-            <!-- TOV breakdown -->
-            <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--amber);margin-bottom:6px">TURNOVERS</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">
-              ${[
-                ["TOV/G", fmtN(p.tpg), "var(--offwhite)"],
-                ["LIVE",  livePct+"%",  "#ff8a8a"],
-                ["DEAD",  (100-livePct)+"%", "var(--amber)"],
-              ].map(([l,v,c])=>`
-              <div style="background:var(--card3);border-radius:4px;padding:6px 4px;text-align:center">
-                <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:${c}">${v}</div>
-                <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">${l}</div>
-              </div>`).join("")}
-            </div>
-          </div>
-        </div>
-
-        <!-- Print button -->
-        <div style="padding:10px 18px;border-top:1px solid var(--border-soft);display:flex;gap:8px" class="no-print">
-          <button class="btn btn-green" style="flex:1;font-size:11px" onclick="printSingleSlide(${idx}, '${name}')">🖨️ Print A3</button>
-        </div>
-      </div>
-    </div>
-  </div>`;
+        // Print button
+        + '<div style="padding:10px 20px;border-top:1px solid var(--border-soft)" class="no-print">'
+          + '<button class="btn btn-green" style="width:100%;font-size:11px" onclick="printSingleSlide('+idx+', \''+name.replace(/'/g,"\\'")+'\')">'
+          + '🖨️ Print A3</button>'
+        + '</div>'
+      + '</div>'
+    + '</div>'
+  + '</div>';
 }
 
-// Format % values from 0-1 range (e.g. 0.487 → "48.7")
-function fmtPct1(v){ return v!=null&&!isNaN(v)&&v!==0 ? (Number(v)*100).toFixed(1) : "—"; }
-
-// Helper: format number to 1dp for slides
-function fmtN(v){ return v!=null&&!isNaN(v)?Number(v).toFixed(1):"—"; }
-
-// Helper: match player name between PBP (short form) and Lions Data
+function fmtN(v){ return (v!=null&&!isNaN(v)&&v!==0) ? Number(v).toFixed(1) : '—'; }
+function fmtPct1(v){ return (v!=null&&!isNaN(v)&&v!==0) ? (Number(v)*100).toFixed(1)+'%' : '—'; }
 function matchPlayerName(pbpName, dataName){
   if(!pbpName||!dataName) return false;
-  const pbp = (pbpName||"").toLowerCase();
-  // dataName is "Phillip, Tarick" format — get surname
-  const parts = dataName.split(",");
-  const surname = (parts[0]||"").trim().toLowerCase();
-  const first = (parts[1]||"").trim().toLowerCase();
-  // PBP uses "T. Phillip" format
-  return pbp.includes(surname) || (first.charAt(0) && pbp.includes(first.charAt(0)+". "+surname));
+  var pb = (pbpName||'').toLowerCase();
+  var parts = dataName.split(',');
+  var sur = (parts[0]||'').trim().toLowerCase();
+  var fst = (parts[1]||'').trim().toLowerCase();
+  return pb.indexOf(sur)>=0 || (fst.charAt(0)&&pb.indexOf(fst.charAt(0)+'. '+sur)>=0);
 }
+
 
 function printSingleSlide(idx, playerName){
   const el=document.getElementById("slide-"+idx);
