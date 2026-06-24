@@ -290,7 +290,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
       <div class="card" style="margin-bottom:24px">
         <div class="table-scroll">
           <table class="data-table">
-            <thead><tr><th>#</th><th>Team</th><th>GP</th><th>W</th><th>L</th><th>Win%</th><th>PF</th><th>PA</th><th>PD</th><th>Home</th><th>Away</th></tr></thead>
+            <thead><tr><th>#</th><th>Team</th><th>GP</th><th>W</th><th>L</th><th>Win%</th><th>PPG</th><th>Opp PPG</th><th>PD</th><th>Home</th><th>Away</th></tr></thead>
             <tbody id="standings-body"><tr><td colspan="11"><div class="loading-state"><div class="loading-spinner"></div>Loading…</div></td></tr></tbody>
           </table>
         </div>
@@ -373,6 +373,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
             <div style="display:flex;align-items:center;gap:16px">
               <img id="no-team-logo" src="" alt="" style="width:52px;height:52px;object-fit:contain;display:none">
               <div class="opp-name" id="no-name">—</div>
+              <div id="no-notes-label" style="font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;color:var(--blue);margin-top:4px;letter-spacing:0.5px"></div>
             </div>
             <div class="opp-meta" id="no-meta">Loading…</div>
             <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap">
@@ -413,6 +414,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
           </div>
         </div>
 
+        <!-- Last 5 Games -->
+        <div class="section-header"><div class="section-label">Last 5 Games</div></div>
+        <div class="card" style="margin-bottom:24px">
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead><tr><th>Date</th><th>Opponent</th><th>Venue</th><th>Result</th><th>Score</th><th>OFF RTG</th><th>DEF RTG</th><th>NET</th><th>Pace</th><th>FG%</th><th>3P%</th><th>eFG%</th><th>TOV%</th></tr></thead>
+              <tbody id="no-last5-table"></tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Roster -->
         <div class="section-header">
           <div class="section-label">Depth Chart</div>
@@ -428,7 +440,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
 
         <!-- Key Stats vs League -->
         <div class="section-header"><div class="section-label">Key Stats vs League</div></div>
-        <div class="grid-4" id="no-key-stats" style="margin-bottom:24px"></div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:24px" id="no-key-stats"></div>
 
         <!-- Shot Chart -->
         <div class="section-header" style="margin-top:0"><div class="section-label">Team Shot Chart</div><span style="font-size:11px;color:var(--muted)">All attempts this season · 🟢 Make · 🔴 Miss</span></div>
@@ -522,9 +534,7 @@ const LOGOS = {
 const SURREY_LOGO = LOGOS['SURREY 89ERS'];
 
 // Depth chart data from team Data sheets
-const DEPTH_CHARTS = {
-  "LONDON LIONS": [{"pos":1,"name":"Phillip, Tarick","number":"22","position":"GUARD","handed":"RIGHT HANDED","scoring":"B-","defence":"B-","rebounding":"C+","playmaking":"B+","paint_pct":0.4093567251461988,"ft_pct":0.23976608187134502,"mid_pct":0.052631578947368474,"three_pct":0.2982456140350877,"iso":"","cs":"as catch shooter","dribble":"","post":"","screener":"if F or C","ballhandler":"if guard"},{"pos":2,"name":"Soluade, Mo","number":"12","position":"GUARD","handed":"RIGHT HANDED","scoring":"C-","defence":"D","rebounding":"C-","playmaking":"B-","paint_pct":0.08888888888888889,"ft_pct":0.06666666666666667,"mid_pct":0.0444444444444444,"three_pct":0.8,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":3,"name":"Sandy, Ciaran","number":"","position":"FORWARD","handed":"RIGHT HANDED","scoring":"C-","defence":"C","rebounding":"D","playmaking":"C-","paint_pct":0.45714285714285713,"ft_pct":0.18095238095238095,"mid_pct":0.07619047619047625,"three_pct":0.2857142857142857,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":4,"name":"Williams, Deane","number":"31","position":"FORWARD","handed":"RIGHT HANDED","scoring":"B-","defence":"B","rebounding":"B","playmaking":"B-","paint_pct":0.4540229885057471,"ft_pct":0.1896551724137931,"mid_pct":0.02873563218390801,"three_pct":0.3275862068965517,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":5,"name":"Scott, Joel","number":"","position":"CENTRE","handed":"","scoring":"B+","defence":"B-","rebounding":"A-","playmaking":"C+","paint_pct":0.5952380952380952,"ft_pct":0.21428571428571427,"mid_pct":0.011904761904761918,"three_pct":0.17857142857142858,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":6,"name":"Reynolds Jr, Shavar","number":"","position":"GUARD","handed":"","scoring":"B-","defence":"C-","rebounding":"C-","playmaking":"A-","paint_pct":0.40634920634920635,"ft_pct":0.17777777777777778,"mid_pct":0.1968253968253968,"three_pct":0.21904761904761905,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":7,"name":"McGusty, Kameron","number":"","position":"WING","handed":"","scoring":"B-","defence":"B-","rebounding":"C","playmaking":"B+","paint_pct":0.49572649572649574,"ft_pct":0.17094017094017094,"mid_pct":0.1282051282051282,"three_pct":0.20512820512820512,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":8,"name":"Rai, Aaryndeep","number":"","position":"WING","handed":"RIGHT HANDED","scoring":"C+","defence":"B+","rebounding":"A-","playmaking":"B-","paint_pct":0.597864768683274,"ft_pct":0.13167259786476868,"mid_pct":0.05693950177935944,"three_pct":0.21352313167259787,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":9,"name":"Price, Ethan","number":"","position":"","handed":"","scoring":"C+","defence":"C+","rebounding":"C+","playmaking":"C","paint_pct":0.6104417670682731,"ft_pct":0.21285140562248997,"mid_pct":0.008032128514056186,"three_pct":0.1686746987951807,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":10,"name":"Soko, Ovie","number":"","position":"CENTRE","handed":"RIGHT HANDED","scoring":"C","defence":"C+","rebounding":"C+","playmaking":"C-","paint_pct":0.5964912280701754,"ft_pct":0.3684210526315789,"mid_pct":0.03508771929824567,"three_pct":0.0,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""}],
-};
+const DEPTH_CHARTS = {"LONDON LIONS":[{"pos":1,"name":"Phillip, Tarick","nameAlt":"Tarick Phillip","number":"22","position":"GUARD","height":"6'3","handed":"RIGHT HANDED","iso":"","cs":"as catch shooter","dribble":"","post":"","screener":"if F or C","ballhandler":"if guard","whoWhat":"","forcing":"","stopping":"","scoring":"B-","defence":"B-","rebounding":"C+","playmaking":"B+","paint_pct":0.4094,"ft_pct":0.2398,"mid_pct":0.0526,"three_pct":0.2982,"gp":36.0,"mpg":20.2183,"ppg":9.5,"fgp":0.428,"twop":0.513,"threepm":0.9444,"threepa":3.0556,"threepct":0.3091,"ftm":2.2778,"fta":3.0,"ftpct":0.7593,"efg":0.4924,"pp40":18.7948,"fbp":1.6111,"pip":3.8889,"rpg":3.3611,"oreb":0.6667,"apg":3.75,"tpg":1.6944,"tov_pct":0.0596,"pm":5.6944,"pct_pts":0.1029,"pts_created":17.0,"usage":0.241},{"pos":2,"name":"Soluade, Mo","nameAlt":"Mo Soluade","number":"12","position":"GUARD","height":"6'2","handed":"RIGHT HANDED","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"C-","defence":"D","rebounding":"C-","playmaking":"B-","paint_pct":0.0889,"ft_pct":0.0667,"mid_pct":0.0444,"three_pct":0.8,"gp":23.0,"mpg":14.1443,"ppg":3.913,"fgp":0.4286,"twop":0.5,"threepm":1.0435,"threepa":2.5217,"threepct":0.4138,"ftm":0.2609,"fta":0.3043,"ftpct":0.8571,"efg":0.6,"pp40":11.066,"fbp":0.1739,"pip":0.3478,"rpg":1.5652,"oreb":0.4783,"apg":1.913,"tpg":1.2174,"tov_pct":0.086,"pm":4.1304,"pct_pts":0.0271,"pts_created":7.7391,"usage":0.1549},{"pos":3,"name":"Sandy, Ciaran","nameAlt":"Ciaran Sandy","number":"","position":"FORWARD","height":"","handed":"RIGHT HANDED","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"C-","defence":"C","rebounding":"D","playmaking":"C-","paint_pct":0.4571,"ft_pct":0.181,"mid_pct":0.0762,"three_pct":0.2857,"gp":29.0,"mpg":11.3131,"ppg":3.6207,"fgp":0.4634,"twop":0.5714,"threepm":0.3448,"threepa":1.1379,"threepct":0.303,"ftm":0.6552,"fta":0.9655,"ftpct":0.6786,"efg":0.5244,"pp40":12.8018,"fbp":0.4483,"pip":1.6552,"rpg":1.5517,"oreb":0.3103,"apg":0.4828,"tpg":0.2759,"tov_pct":0.0596,"pm":0.7241,"pct_pts":0.0316,"pts_created":4.5862,"usage":0.1391},{"pos":4,"name":"Williams, Deane","nameAlt":"Deane Williams","number":"31","position":"FORWARD","height":"6'9","handed":"RIGHT HANDED","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"B-","defence":"B","rebounding":"B","playmaking":"B-","paint_pct":0.454,"ft_pct":0.1897,"mid_pct":0.0287,"three_pct":0.3276,"gp":39.0,"mpg":22.0708,"ppg":8.9231,"fgp":0.4436,"twop":0.5526,"threepm":0.9744,"threepa":3.1538,"threepct":0.3089,"ftm":1.6923,"fta":2.4615,"ftpct":0.6875,"efg":0.5127,"pp40":16.1718,"fbp":1.1538,"pip":4.0513,"rpg":4.5128,"oreb":1.3333,"apg":1.7949,"tpg":1.359,"tov_pct":0.0946,"pm":6.1026,"pct_pts":0.1047,"pts_created":12.5128,"usage":0.2045},{"pos":5,"name":"Scott, Joel","nameAlt":"Joel Scott","number":"","position":"CENTRE","height":"","handed":"","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"B+","defence":"B-","rebounding":"A-","playmaking":"C+","paint_pct":0.5952,"ft_pct":0.2143,"mid_pct":0.0119,"three_pct":0.1786,"gp":26.0,"mpg":22.8219,"ppg":12.9231,"fgp":0.5471,"twop":0.5862,"threepm":0.7692,"threepa":1.8846,"threepct":0.4082,"ftm":2.7692,"fta":3.6538,"ftpct":0.7579,"efg":0.5919,"pp40":22.6503,"fbp":1.3846,"pip":7.6923,"rpg":5.5385,"oreb":2.3462,"apg":1.1538,"tpg":0.9615,"tov_pct":0.0397,"pm":8.7692,"pct_pts":0.1011,"pts_created":15.2308,"usage":0.2269},{"pos":6,"name":"Reynolds Jr, Shavar","nameAlt":"Shavar Reynolds Jr","number":"","position":"GUARD","height":"","handed":"","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"B-","defence":"C-","rebounding":"C-","playmaking":"A-","paint_pct":0.4063,"ft_pct":0.1778,"mid_pct":0.1968,"three_pct":0.219,"gp":31.0,"mpg":21.8019,"ppg":10.1613,"fgp":0.4701,"twop":0.4922,"threepm":0.7419,"threepa":1.871,"threepct":0.3966,"ftm":1.8065,"fta":2.0968,"ftpct":0.8615,"efg":0.5159,"pp40":18.6429,"fbp":0.9677,"pip":4.129,"rpg":1.9032,"oreb":0.7742,"apg":4.2903,"tpg":1.6452,"tov_pct":0.0426,"pm":5.871,"pct_pts":0.0948,"pts_created":18.7419,"usage":0.2334},{"pos":7,"name":"McGusty, Kameron","nameAlt":"Kameron McGusty","number":"","position":"WING","height":"","handed":"","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"B-","defence":"B-","rebounding":"C","playmaking":"B+","paint_pct":0.4957,"ft_pct":0.1709,"mid_pct":0.1282,"three_pct":0.2051,"gp":23.0,"mpg":22.3157,"ppg":10.1739,"fgp":0.4341,"twop":0.4803,"threepm":0.6957,"threepa":2.3043,"threepct":0.3019,"ftm":1.7391,"fta":2.6087,"ftpct":0.6667,"efg":0.4732,"pp40":18.2364,"fbp":0.8261,"pip":5.0435,"rpg":2.7391,"oreb":0.3478,"apg":3.3478,"tpg":1.3913,"tov_pct":0.0456,"pm":7.5652,"pct_pts":0.0704,"pts_created":16.8696,"usage":0.2362},{"pos":8,"name":"Rai, Aaryndeep","nameAlt":"Aaryndeep Rai","number":"","position":"WING","height":"","handed":"RIGHT HANDED","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"C+","defence":"B+","rebounding":"A-","playmaking":"B-","paint_pct":0.5979,"ft_pct":0.1317,"mid_pct":0.0569,"three_pct":0.2135,"gp":40.0,"mpg":21.9642,"ppg":7.025,"fgp":0.5463,"twop":0.6174,"threepm":0.5,"threepa":1.4,"threepct":0.3571,"ftm":0.925,"fta":1.45,"ftpct":0.6379,"efg":0.5951,"pp40":12.7935,"fbp":0.85,"pip":4.2,"rpg":5.925,"oreb":1.8,"apg":1.5,"tpg":1.075,"tov_pct":0.098,"pm":5.725,"pct_pts":0.0846,"pts_created":10.025,"usage":0.1445},{"pos":9,"name":"Price, Ethan","nameAlt":"Ethan Price","number":"","position":"","height":"","handed":"","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"C+","defence":"C+","rebounding":"C+","playmaking":"C","paint_pct":0.6104,"ft_pct":0.2129,"mid_pct":0.008,"three_pct":0.1687,"gp":35.0,"mpg":16.0126,"ppg":7.1143,"fgp":0.5417,"twop":0.6525,"threepm":0.4,"threepa":1.4286,"threepct":0.28,"ftm":1.5143,"fta":2.0286,"ftpct":0.7465,"efg":0.5833,"pp40":17.7718,"fbp":0.7429,"pip":4.3429,"rpg":3.4857,"oreb":0.7429,"apg":0.8857,"tpg":0.9143,"tov_pct":0.0798,"pm":5.1714,"pct_pts":0.0749,"pts_created":8.8857,"usage":0.2029},{"pos":10,"name":"Soko, Ovie","nameAlt":"Ovie Soko","number":"","position":"CENTRE","height":"","handed":"RIGHT HANDED","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"C","defence":"C+","rebounding":"C+","playmaking":"C-","paint_pct":0.5965,"ft_pct":0.3684,"mid_pct":0.0351,"three_pct":0.0,"gp":13.0,"mpg":12.0177,"ppg":4.3846,"fgp":0.5806,"twop":0.6,"threepm":0.0,"threepa":0.0769,"threepct":0.0,"ftm":1.6154,"fta":2.4615,"ftpct":0.6562,"efg":0.5806,"pp40":14.5939,"fbp":0.4615,"pip":2.6154,"rpg":3.3077,"oreb":0.9231,"apg":0.4615,"tpg":1.0769,"tov_pct":0.1175,"pm":4.8462,"pct_pts":0.0172,"pts_created":5.3077,"usage":0.1844}]};
 
 // ═══════════════════════════════════════════
 // CONFIG — change NEXT_OPP each week
@@ -622,12 +632,18 @@ async function loadFixtures() {
       const team = parseScheduleTeam(title);
       if (!team) continue;
       const isHome = !(title || "").trim().startsWith("@");
+      // notes col (index 8) contains RS1, RS2 etc
+      const rawNotes = (cols[8]||"").trim();
+      const oppShort = parseScheduleTeam(title) ? SHORT[parseScheduleTeam(title)] : teamShort;
+      // Format as "London Lions RS2"
+      const notesLabel = rawNotes ? `${fullNameMap[team]||teamShort} ${rawNotes.toUpperCase()}` : parseCompetition(rawNotes);
       upcomingGames.push({
         team,
         date: formatScheduleDate(dateStr.trim(), timeStr ? timeStr.trim() : ""),
         venue: isHome ? "Home" : "Away",
         location: (location || "").trim() || (isHome ? "Surrey Sports Park" : "Away"),
-        competition: parseCompetition(cols[8]),
+        competition: parseCompetition(rawNotes),
+        notes: notesLabel,
         rawDate: gameDate,
       });
       if (upcomingGames.length >= 3) break;
@@ -742,7 +758,7 @@ function buildTeamAgg(rows){
       efg:avg("eFG%"), tov:avg("TOV%"), oreb:avg("OREB%"),
       dreb:avg("DREB%"), stl:avg("STL"), blk:avg("BLK"), pf:avg("PF"),
       pip:avg("PIP"), fbp:avg("FBP"), fg:avg("FG%"),
-      threep:avg("3P%"), ft:avg("FT%"), ast:avg("AST%"),
+      threep:avg("3P%"), ft:avg("FT%"), fta:avg("FTA"), ftm:avg("FTM"), ast:avg("AST%"),
       threeRate:avg("3PT Taken%"),
       ptsScored:avg("Pts Scored"), ptsAllowed:avg("Pts Allowed"),
       q1s:avg("Q1 Scored"),q2s:avg("Q2 Scored"),q3s:avg("Q3 Scored"),q4s:avg("Q4 Scored"),
@@ -781,6 +797,16 @@ function buildPlayerAgg(rows){
 // ═══════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════
+// Full team name display
+const fullNameMap = {
+  "LONDON LIONS":"London Lions","CHESHIRE PHOENIX":"Cheshire Phoenix",
+  "MANCHESTER BASKETBALL":"Manchester Basketball",
+  "B. BRAUN SHEFFIELD SHARKS":"B. Braun Sheffield Sharks",
+  "NEWCASTLE EAGLES":"Newcastle Eagles","SURREY 89ERS":"Surrey 89ers",
+  "BRISTOL FLYERS":"Bristol Flyers","LEICESTER RIDERS":"Leicester Riders",
+  "CALEDONIA GLADIATORS":"Caledonia Gladiators",
+};
+
 const SHORT={
   "LONDON LIONS":"London","CHESHIRE PHOENIX":"Cheshire",
   "MANCHESTER BASKETBALL":"Manchester","B. BRAUN SHEFFIELD SHARKS":"Sheffield",
@@ -849,8 +875,12 @@ function barHTML(label,pct,cls="",val=""){
 function lineupHTML(l,i,categoryColor){
   const ps=[l.P1,l.P2,l.P3,l.P4,l.P5].filter(Boolean);
   const net=parseFloat(l.NETRTG)||0;
-  const paintP=parseFloat(l["Pts Paint%"]||0)*100;
-  const threeP=parseFloat(l["Pts 3PT%"]||0)*100;
+  // Pts Paint% and 3PT% are already 0-100 scale in the data
+  const paintP = parseFloat(l["Pts Paint%"]||0);
+  const threeP = parseFloat(l["Pts 3PT%"]||0);
+  // OFFRTG/DEFRTG already stored as per-100 values in lineup data
+  const offRtg = parseFloat(l.OFFRTG)||0;
+  const defRtg = parseFloat(l.DEFRTG)||0;
   return `<div class="lineup-card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Lineup ${i+1}</div>
@@ -858,8 +888,8 @@ function lineupHTML(l,i,categoryColor){
     </div>
     <div class="lineup-players">${ps.map(p=>`<span class="lineup-player-tag">${p}</span>`).join("")}</div>
     <div class="lineup-stats">
-      <div class="lineup-stat"><div class="lineup-stat-val">${fmt(parseFloat(l.OFFRTG)*100)}</div><div class="lineup-stat-lbl">OFF RTG</div></div>
-      <div class="lineup-stat"><div class="lineup-stat-val">${fmt(parseFloat(l.DEFRTG)*100)}</div><div class="lineup-stat-lbl">DEF RTG</div></div>
+      <div class="lineup-stat"><div class="lineup-stat-val">${fmt(offRtg)}</div><div class="lineup-stat-lbl">OFF RTG</div></div>
+      <div class="lineup-stat"><div class="lineup-stat-val">${fmt(defRtg)}</div><div class="lineup-stat-lbl">DEF RTG</div></div>
       <div class="lineup-stat"><div class="lineup-stat-val">${sign(l["+/-"])}${fmt(parseFloat(l["+/-"]))}</div><div class="lineup-stat-lbl">+/-</div></div>
       <div class="lineup-stat"><div class="lineup-stat-val">${fmt(parseFloat(l.Poss),0)}</div><div class="lineup-stat-lbl">POSS</div></div>
       <div class="lineup-stat"><div class="lineup-stat-val">${paintP.toFixed(0)}%</div><div class="lineup-stat-lbl">Paint%</div></div>
@@ -938,8 +968,8 @@ function renderStandings(db){
       <td class="td-num td-green">${t.w}</td>
       <td class="td-num td-red">${t.l}</td>
       <td class="td-num">${fmtP(t.winPct)}</td>
-      <td class="td-num">${t.pf}</td>
-      <td class="td-num">${t.pa}</td>
+      <td class="td-num">${fmt(t.pf/t.gp)}</td>
+      <td class="td-num">${fmt(t.pa/t.gp)}</td>
       <td class="td-num ${t.pd>0?"td-green":t.pd<0?"td-red":""}">${t.pd>0?"+":""}${t.pd}</td>
       <td class="td-num">${t.hw}-${t.hl}</td>
       <td class="td-num">${t.aw}-${t.al}</td>
@@ -1034,14 +1064,14 @@ function renderFixtureSelector(){
       color:var(--offwhite);font-family:'Inter',sans-serif;
       transition:all 0.15s;flex:1;min-width:180px;text-align:left;
       " id="fix-btn-${i}">
-      ${logo?`<img src="${logo}" style="width:36px;height:36px;object-fit:contain;flex-shrink:0" alt="">`:
-              `<div style="width:36px;height:36px;border-radius:50%;background:var(--green-dim);flex-shrink:0"></div>`}
+      ${logo?`<div style="width:40px;height:40px;border-radius:8px;background:#fff;padding:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><img src="${logo}" style="width:32px;height:32px;object-fit:contain" alt=""></div>`:
+              `<div style="width:40px;height:40px;border-radius:50%;background:var(--green-dim);flex-shrink:0"></div>`}
       <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:13px">${short}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">${f.date}</div>
-        <div style="font-size:10px;margin-top:2px">
+        <div style="font-weight:700;font-size:13px">${fullNameMap[f.team]||f.team}</div>
+        <div style="font-size:11px;font-weight:600;color:var(--blue);margin-top:2px">${f.notes||f.competition}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:1px">${f.date}</div>
+        <div style="font-size:10px;margin-top:3px">
           <span class="pill ${f.venue==="Home"?"pill-green":"pill-amber"}" style="font-size:9px;padding:2px 6px">${f.venue}</span>
-          <span style="color:var(--muted);font-size:10px;margin-left:4px">${f.competition}</span>
         </div>
       </div>
       ${active?`<span style="margin-left:auto;font-size:10px;font-weight:700;color:var(--green);letter-spacing:1px">ACTIVE</span>`:""}
@@ -1067,77 +1097,17 @@ function renderDepthChart(depthData, db){
 
   function playerCard(p, isStarter){
     const name = fmtName(p.name);
-    const init = initials(p.name);
-    const paintPct  = Math.round((p.paint_pct||0)*100);
-    const midPct    = Math.round((p.mid_pct||0)*100);
-    const threePct  = Math.round((p.three_pct||0)*100);
-    const ftPct     = Math.round((p.ft_pct||0)*100);
-    const posLabel  = POS_LABELS[p.pos]||"";
+    const posLabel = POS_LABELS[p.pos]||"";
+    const numDisplay = p.number || "—";
 
-    // Get live stats from League Ratings
-    const lr = db.lr.find(r=>{
-      const rn = fmtName(r.PLAYER||"").toLowerCase();
-      const pn = name.toLowerCase();
-      return rn.includes(pn.split(" ")[1]||pn) || pn.includes((r.PLAYER||"").split(",")[0].trim().toLowerCase());
-    });
-    const ppg  = lr ? fmt(lr.PPG)  : "—";
-    const rpg  = lr ? fmt(lr.RPG)  : "—";
-    const apg  = lr ? fmt(lr.APG)  : "—";
-    const efg  = lr ? (lr["eFG%"]?fmtP(lr["eFG%"]):"—") : "—";
-    const pm   = lr ? fmt(lr["+/-"]) : "—";
-
-    return `<div style="background:var(--card2);border:1px solid var(--border-soft);border-radius:10px;padding:14px;min-width:0">
-      <!-- Position badge + name -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <div style="background:var(--green);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:11px;padding:3px 8px;border-radius:4px;flex-shrink:0">${posLabel}</div>
-        ${isStarter?'<div style="font-size:9px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase">STARTER</div>':'<div style="font-size:9px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase">BENCH</div>'}
+    return `<div style="background:var(--card2);border:1px solid var(--border-soft);border-radius:10px;padding:12px;min-width:0;text-align:center">
+      <div style="margin-bottom:8px">
+        <span style="background:var(--green);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:10px;padding:2px 8px;border-radius:3px">${posLabel}</span>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <div style="width:38px;height:38px;border-radius:50%;background:var(--green-dim);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:var(--green);flex-shrink:0">${init}</div>
-        <div>
-          <div style="font-size:13px;font-weight:700;line-height:1.2">${name}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${p.position||""} ${p.number?"· #"+p.number:""}</div>
-        </div>
-      </div>
-
-      <!-- Grade row -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:12px">
-        ${[["SCO",p.scoring],["DEF",p.defence],["REB",p.rebounding],["PLA",p.playmaking]].map(([l,g])=>`
-          <div style="text-align:center;background:var(--card3);border-radius:4px;padding:5px 2px">
-            <div class="grade-badge ${gradeClass(g)}" style="font-size:11px;padding:2px 4px">${g||"—"}</div>
-            <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">${l}</div>
-          </div>`).join("")}
-      </div>
-
-      <!-- Shot zones -->
-      <div style="margin-bottom:10px">
-        <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">SHOT ZONES</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px">
-          ${[["PAINT",paintPct,"#ff8a8a"],["FT LINE",ftPct,`var(--purple)`],["MID",midPct,"var(--amber)"],["3PT",threePct,"var(--blue)"]].map(([l,v,c])=>`
-            <div style="background:var(--card3);border-radius:4px;padding:5px 2px;text-align:center">
-              <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:${c}">${v}%</div>
-              <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">${l}</div>
-            </div>`).join("")}
-        </div>
-      </div>
-
-      <!-- Live stats -->
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-bottom:10px">
-        ${[["PPG",ppg],["RPG",rpg],["APG",apg],["eFG%",efg],["+/-",pm]].map(([l,v])=>`
-          <div style="text-align:center;background:var(--card3);border-radius:4px;padding:5px 2px">
-            <div style="font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700">${v}</div>
-            <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">${l}</div>
-          </div>`).join("")}
-      </div>
-
-      <!-- Guarding notes -->
-      ${[p.iso&&["ISO",p.iso],p.cs&&["C+S",p.cs],p.dribble&&["DRIBBLE",p.dribble],p.post&&["POST",p.post],p.screener&&["SCREENER",p.screener],p.ballhandler&&["BALL HANDLER",p.ballhandler]].filter(Boolean).length?
-        `<div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">GUARD NOTES</div>
-         <div style="display:flex;gap:4px;flex-wrap:wrap">
-          ${[p.iso&&["ISO",p.iso],p.cs&&["C+S",p.cs],p.dribble&&["DRIBBLE",p.dribble],p.post&&["POST",p.post],p.screener&&["SCREENER",p.screener],p.ballhandler&&["BALL HANDLER",p.ballhandler]].filter(Boolean).map(([l,v])=>`
-            <span style="font-size:9px;padding:3px 6px;background:var(--card3);border:1px solid var(--border-soft);border-radius:3px;color:var(--muted)"><b style="color:var(--offwhite)">${l}:</b> ${v}</span>`).join("")}
-         </div>`:""
-      }
+      <div style="width:44px;height:44px;border-radius:50%;background:var(--card3);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:800;color:var(--offwhite);margin:0 auto 10px">${numDisplay}</div>
+      <div style="font-size:12px;font-weight:700;line-height:1.3;margin-bottom:4px">${name}</div>
+      <div style="font-size:10px;color:var(--muted)">${p.position||""}</div>
+      ${p.handed?`<div style="font-size:9px;color:var(--muted);margin-top:2px">${p.handed.replace(" HANDED","")}</div>`:""}
     </div>`;
   }
 
@@ -1304,16 +1274,10 @@ async function fillNextOpponent(){
   const efgR=getRanks(db.teamAgg,"efg");
 
   // Header
-  // Full team name display
-const fullNameMap = {
-  "LONDON LIONS":"London Lions","CHESHIRE PHOENIX":"Cheshire Phoenix",
-  "MANCHESTER BASKETBALL":"Manchester Basketball",
-  "B. BRAUN SHEFFIELD SHARKS":"B. Braun Sheffield Sharks",
-  "NEWCASTLE EAGLES":"Newcastle Eagles","SURREY 89ERS":"Surrey 89ers",
-  "BRISTOL FLYERS":"Bristol Flyers","LEICESTER RIDERS":"Leicester Riders",
-  "CALEDONIA GLADIATORS":"Caledonia Gladiators",
-};
-document.getElementById("no-name").textContent = fullNameMap[NEXT_OPP] || teamShort(NEXT_OPP);
+  document.getElementById("no-name").textContent = fullNameMap[NEXT_OPP] || teamShort(NEXT_OPP);
+  // Show RS2 style label under name
+  const notesEl = document.getElementById("no-notes-label");
+  if(notesEl) notesEl.textContent = fixture.notes || fixture.competition || "";
   const venueLabel = fixture.venue === "Home" ? `🏠 Home · ${fixture.location||"Surrey Sports Park"}` : `✈️ Away · ${fixture.location||""}`;
   document.getElementById("no-meta").textContent=`${fixture.date} · ${venueLabel}`;
   document.getElementById("no-title").textContent=`vs ${teamShort(NEXT_OPP)}`;
@@ -1358,49 +1322,14 @@ document.getElementById("no-name").textContent = fullNameMap[NEXT_OPP] || teamSh
   const transLabel   = t.fbp > la.fbp+3 ? "Transition-heavy offence" : t.fbp < la.fbp-3 ? "Half-court focused" : "Balanced transition/half-court";
 
   document.getElementById("no-off-bars").innerHTML=`
-    <!-- Tendency statements -->
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
-      <span class="pill pill-muted" style="font-size:9px">${tempoLabel}</span>
-      <span class="pill pill-muted" style="font-size:9px">${shootLabel}</span>
-      <span class="pill pill-muted" style="font-size:9px">${transLabel}</span>
-      <span class="pill pill-muted" style="font-size:9px">${orebLabel}</span>
-      <span class="pill pill-muted" style="font-size:9px">${ftLabel}</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+      <span class="pill pill-muted" style="font-size:10px">${tempoLabel}</span>
+      <span class="pill pill-muted" style="font-size:10px">${shootLabel}</span>
+      <span class="pill pill-muted" style="font-size:10px">${transLabel}</span>
+      <span class="pill pill-muted" style="font-size:10px">${orebLabel}</span>
+      <span class="pill pill-muted" style="font-size:10px">${ftLabel}</span>
     </div>
-    <!-- Full stat grid -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:14px">
-      ${[
-        ["NET RTG",(t.netrtg>0?"+":"")+fmt(t.netrtg)],
-        ["OFF RTG",fmt(t.offrtg)],
-        ["PPG",fmt(t.ptsScored)],
-        ["eFG%",fmtPR(t.efg)],
-        ["FG%",fmtPR(t.fg)],
-        ["3P%",fmtPR(t.threep)],
-        ["FT%",fmtPR(t.ft)],
-        ["TEMPO",fmt(t.tempo)],
-        ["3PT RATE",fmtPR(t.threeRate)],
-        ["OREB%",fmtPR(t.oreb)],
-        ["AST%",fmtPR(t.ast)],
-        ["TOV%",fmtPR(t.tov)],
-        ["3PM/G",fmt(t.threepm_pg||t.threeRate*t.tempo/100)],
-        ["PIP/G",fmt(t.pip)],
-        ["FTA/G",fmt(t.fta_pg||0)],
-        ["FTM/G",fmt(t.ftm_pg||0)],
-        ["FBP/G",fmt(t.fbp)],
-        ["BENCH PTS",fmt(t.benchPts||0)],
-        ["2ND CHANCE",fmt(t.secondChance||0)],
-        ["PTS fr TOV",fmt(t.ptsFromTov||0)],
-      ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 8px;background:var(--card2);border-radius:4px">
-        <span style="font-size:11px;color:var(--muted)">${l}</span>
-        <span style="font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700">${v}</span>
-      </div>`).join("")}
-    </div>
-  ` +
-    barHTML("eFG%",t.efg/65*100,"",fmtPR(t.efg))+
-    barHTML("3PT Rate",t.threeRate/60*100,"bar-fill-blue",fmtPR(t.threeRate))+
-    barHTML("FBP/G",t.fbp/25*100,"bar-fill-amber",fmt(t.fbp))+
-    barHTML("AST%",t.ast/80*100,"",fmtPR(t.ast))+
-    barHTML("OREB%",t.oreb/50*100,"bar-fill-red",fmtPR(t.oreb))+
-    barHTML("PIP/G",t.pip/60*100,"bar-fill-red",fmt(t.pip));
+  `;
 
   // Def profile
   document.getElementById("no-defrtg").innerHTML=`DEF RTG ${fmt(t.defrtg)} &nbsp;${rankBadge(defR[NEXT_OPP],total)}`;
@@ -1412,42 +1341,14 @@ document.getElementById("no-name").textContent = fullNameMap[NEXT_OPP] || teamSh
   const foulingLabel   = t.pf > 21 ? "Reckless fouling" : t.pf < 17 ? "Disciplined, low foul rate" : "Average fouling";
 
   document.getElementById("no-def-bars").innerHTML=`
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
-      <span class="pill pill-muted" style="font-size:9px">${pressureLabel}</span>
-      <span class="pill pill-muted" style="font-size:9px">${interiorLabel}</span>
-      <span class="pill pill-muted" style="font-size:9px">${exteriorLabel}</span>
-      <span class="pill pill-muted" style="font-size:9px">${defRebLabel}</span>
-      <span class="pill pill-muted" style="font-size:9px">${foulingLabel}</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+      <span class="pill pill-muted" style="font-size:10px">${pressureLabel}</span>
+      <span class="pill pill-muted" style="font-size:10px">${interiorLabel}</span>
+      <span class="pill pill-muted" style="font-size:10px">${exteriorLabel}</span>
+      <span class="pill pill-muted" style="font-size:10px">${defRebLabel}</span>
+      <span class="pill pill-muted" style="font-size:10px">${foulingLabel}</span>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:14px">
-      ${[
-        ["DEF RTG",fmt(t.defrtg)],
-        ["PTS ALLOWED",fmt(t.ptsAllowed)],
-        ["OPP FG%",fmtPR(t.fg)],
-        ["OPP 3P%","—"],
-        ["OPP eFG%","—"],
-        ["DREB%",fmtPR(t.dreb)],
-        ["OPP TOV%",fmtPR(t.tov)],
-        ["STL/G",fmt(t.stl)],
-        ["BLK/G",fmt(t.blk)],
-        ["PIP ALLOWED",fmt(t.pip)],
-        ["PF/G",fmt(t.pf)],
-        ["PTS fr TOV",fmt(t.ptsFromTov||0)],
-        ["Q1 ALLOWED",fmt(t.q1a)],
-        ["Q2 ALLOWED",fmt(t.q2a)],
-        ["Q3 ALLOWED",fmt(t.q3a)],
-        ["Q4 ALLOWED",fmt(t.q4a)],
-      ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 8px;background:var(--card2);border-radius:4px">
-        <span style="font-size:11px;color:var(--muted)">${l}</span>
-        <span style="font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700">${v}</span>
-      </div>`).join("")}
-    </div>
-  ` +
-    barHTML("TOV% Forced",t.tov/25*100,"",fmtPR(t.tov))+
-    barHTML("DREB%",t.dreb/85*100,"bar-fill-blue",fmtPR(t.dreb))+
-    barHTML("STL/G",t.stl/10*100,"bar-fill-amber",fmt(t.stl))+
-    barHTML("BLK/G",t.blk/8*100,"bar-fill-red",fmt(t.blk))+
-    barHTML("PF/G",t.pf/25*100,"bar-fill-amber",fmt(t.pf));
+  `;
 
   const defTags=[];
   if(tr){
@@ -1536,24 +1437,95 @@ document.getElementById("no-name").textContent = fullNameMap[NEXT_OPP] || teamSh
   }
 
   // Key stats
-  const statCards=[
-    {lbl:"OFF RTG",val:fmt(t.offrtg),rank:offR[NEXT_OPP]},
-    {lbl:"DEF RTG",val:fmt(t.defrtg),rank:defR[NEXT_OPP]},
-    {lbl:"NET RTG",val:(t.netrtg>0?"+":"")+fmt(t.netrtg),rank:null},
-    {lbl:"eFG%",val:fmtPR(t.efg),rank:efgR[NEXT_OPP]},
-    {lbl:"TOV%",val:fmtPR(t.tov),rank:getRanks(db.teamAgg,"tov")[NEXT_OPP]},
-    {lbl:"OREB%",val:fmtPR(t.oreb),rank:getRanks(db.teamAgg,"oreb")[NEXT_OPP]},
-    {lbl:"PIP/G",val:fmt(t.pip),rank:getRanks(db.teamAgg,"pip")[NEXT_OPP]},
-    {lbl:"Pace",val:fmt(t.tempo),rank:getRanks(db.teamAgg,"tempo")[NEXT_OPP]},
+  // Pre-compute all ranks
+  const ranks = {};
+  const rankCols = {offrtg:false,defrtg:true,netrtg:false,efg:false,tov:false,oreb:false,pip:false,tempo:false,fbp:false,stl:false,blk:false,dreb:false,ast:false,ft:false,threep:false,pf:true,secondChance:false,benchPts:false,ptsFromTov:false};
+  Object.entries(rankCols).forEach(([col,asc])=>{ ranks[col]=getRanks(db.teamAgg,col,asc); });
+
+  const statSections = [
+    { label:"OFFENSIVE", color:"var(--blue)", stats:[
+      {lbl:"OFF RTG",    val:fmt(t.offrtg),           rank:ranks.offrtg[NEXT_OPP]},
+      {lbl:"NET RTG",    val:(t.netrtg>0?"+":"")+fmt(t.netrtg), rank:null},
+      {lbl:"PPG",        val:fmt(t.ptsScored),         rank:null},
+      {lbl:"eFG%",       val:fmtPR(t.efg),             rank:ranks.efg[NEXT_OPP]},
+      {lbl:"FG%",        val:fmtPR(t.fg),              rank:null},
+      {lbl:"3P%",        val:fmtPR(t.threep),          rank:ranks.threep[NEXT_OPP]},
+      {lbl:"FT%",        val:fmtPR(t.ft),              rank:ranks.ft[NEXT_OPP]},
+      {lbl:"TEMPO",      val:fmt(t.tempo),              rank:ranks.tempo[NEXT_OPP]},
+      {lbl:"3PT RATE",   val:fmtPR(t.threeRate),       rank:null},
+      {lbl:"OREB%",      val:fmtPR(t.oreb),            rank:ranks.oreb[NEXT_OPP]},
+      {lbl:"AST%",       val:fmtPR(t.ast),             rank:ranks.ast[NEXT_OPP]},
+      {lbl:"TOV%",       val:fmtPR(t.tov),             rank:ranks.tov[NEXT_OPP]},
+      {lbl:"3PM/G",      val:fmt(t.threepm),           rank:null},
+      {lbl:"PIP/G",      val:fmt(t.pip),               rank:ranks.pip[NEXT_OPP]},
+      {lbl:"FTA/G",      val:fmt(t.fta),               rank:null},
+      {lbl:"FTM/G",      val:fmt(t.ftm),               rank:null},
+      {lbl:"FBP/G",      val:fmt(t.fbp),               rank:ranks.fbp[NEXT_OPP]},
+      {lbl:"BENCH PTS",  val:fmt(t.benchPts),          rank:null},
+      {lbl:"2ND CHANCE", val:fmt(t.secondChance),      rank:ranks.secondChance[NEXT_OPP]},
+      {lbl:"PTS fr TOV", val:fmt(t.ptsFromTov),        rank:null},
+    ]},
+    { label:"DEFENSIVE", color:"#ff8a8a", stats:[
+      {lbl:"DEF RTG",    val:fmt(t.defrtg),            rank:ranks.defrtg[NEXT_OPP]},
+      {lbl:"PTS ALLOWED",val:fmt(t.ptsAllowed),        rank:null},
+      {lbl:"DREB%",      val:fmtPR(t.dreb),            rank:ranks.dreb[NEXT_OPP]},
+      {lbl:"STL/G",      val:fmt(t.stl),               rank:ranks.stl[NEXT_OPP]},
+      {lbl:"BLK/G",      val:fmt(t.blk),               rank:ranks.blk[NEXT_OPP]},
+      {lbl:"PF/G",       val:fmt(t.pf),                rank:ranks.pf[NEXT_OPP]},
+      {lbl:"Q1 ALLOWED", val:fmt(t.q1a),               rank:null},
+      {lbl:"Q2 ALLOWED", val:fmt(t.q2a),               rank:null},
+      {lbl:"Q3 ALLOWED", val:fmt(t.q3a),               rank:null},
+      {lbl:"Q4 ALLOWED", val:fmt(t.q4a),               rank:null},
+    ]},
   ];
-  document.getElementById("no-key-stats").innerHTML=statCards.map(s=>`
-    <div class="card"><div class="card-body" style="text-align:center;padding:18px 12px">
-      <div class="stat-val">${s.val}</div>
-      <div class="stat-label">${s.lbl}</div>
-      ${s.rank?`<div style="margin-top:8px">${rankBadge(s.rank,total)}</div>`:""}
-    </div></div>`).join("");
+
+  document.getElementById("no-key-stats").innerHTML = statSections.map(section=>`
+    <div style="grid-column:1/-1;margin-bottom:0">
+      <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${section.color};margin-bottom:10px;display:flex;align-items:center;gap:6px">
+        <span style="width:3px;height:12px;background:${section.color};border-radius:2px;display:inline-block"></span>
+        ${section.label}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px">
+        ${section.stats.map(s=>`
+          <div class="card">
+            <div class="card-body" style="text-align:center;padding:12px 8px">
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700">${s.val}</div>
+              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-top:4px">${s.lbl}</div>
+              ${s.rank?`<div style="margin-top:6px">${rankBadge(s.rank,total)}</div>`:""}
+            </div>
+          </div>`).join("")}
+      </div>
+    </div>`).join("");
 
   // H2H
+  // Last 5 games for this team (their own results)
+  const last5Games = db.raw.ts
+    .filter(r=>r.Team===NEXT_OPP && r.OFFRTG)
+    .sort((a,b)=>new Date(b.Date)-new Date(a.Date))
+    .slice(0,5);
+
+  const l5Body = document.getElementById("no-last5-table");
+  if(l5Body){
+    l5Body.innerHTML = last5Games.length ? last5Games.map(g=>{
+      const net=(parseFloat(g["NET RTG"])||0)*100;
+      return `<tr>
+        <td>${fmtDate(g.Date)}</td>
+        <td style="font-weight:600">${teamShort(g.Opp||"")}</td>
+        <td style="color:var(--muted)">${g.Location||""}</td>
+        <td><span class="result-pill ${g.Result==="WIN"?"result-w":"result-l"}">${g.Result||"—"}</span></td>
+        <td class="td-num">${g["Pts Scored"]}-${g["Pts Allowed"]}</td>
+        <td class="td-num">${fmt((parseFloat(g.OFFRTG)||0)*100)}</td>
+        <td class="td-num">${fmt((parseFloat(g.DEFRTG)||0)*100)}</td>
+        <td class="td-num ${net>0?"td-green":"td-red"}">${net>0?"+":""}${fmt(net)}</td>
+        <td class="td-num">${fmt(g.Tempo)}</td>
+        <td class="td-num">${fmtPR(parseFloat(g["FG%"])||0)}</td>
+        <td class="td-num">${fmtPR(parseFloat(g["3P%"])||0)}</td>
+        <td class="td-num">${fmtPR(parseFloat(g["eFG%"])||0)}</td>
+        <td class="td-num">${fmtPR(parseFloat(g["TOV%"])||0)}</td>
+      </tr>`;
+    }).join("") : "<tr><td colspan='13' style='text-align:center;padding:16px;color:var(--muted)'>No recent game data</td></tr>";
+  }
+
   // Shot chart
   renderShotChart(db, NEXT_OPP, "no-shot-chart");
 
@@ -1622,6 +1594,34 @@ async function showTeamProfile(teamName){
     .sort((a,b)=>(parseFloat(b.MPG)||0)-(parseFloat(a.MPG)||0));
   const lus=db.raw.lu.filter(r=>matchTeam(r.Team||"",teamName)&&(parseFloat(r.Poss)||0)>=15)
     .sort((a,b)=>(parseFloat(b.NETRTG)||0)-(parseFloat(a.NETRTG)||0)).slice(0,3);
+  // Last 5 games for this team (their own results)
+  const last5Games = db.raw.ts
+    .filter(r=>r.Team===NEXT_OPP && r.OFFRTG)
+    .sort((a,b)=>new Date(b.Date)-new Date(a.Date))
+    .slice(0,5);
+
+  const l5Body = document.getElementById("no-last5-table");
+  if(l5Body){
+    l5Body.innerHTML = last5Games.length ? last5Games.map(g=>{
+      const net=(parseFloat(g["NET RTG"])||0)*100;
+      return `<tr>
+        <td>${fmtDate(g.Date)}</td>
+        <td style="font-weight:600">${teamShort(g.Opp||"")}</td>
+        <td style="color:var(--muted)">${g.Location||""}</td>
+        <td><span class="result-pill ${g.Result==="WIN"?"result-w":"result-l"}">${g.Result||"—"}</span></td>
+        <td class="td-num">${g["Pts Scored"]}-${g["Pts Allowed"]}</td>
+        <td class="td-num">${fmt((parseFloat(g.OFFRTG)||0)*100)}</td>
+        <td class="td-num">${fmt((parseFloat(g.DEFRTG)||0)*100)}</td>
+        <td class="td-num ${net>0?"td-green":"td-red"}">${net>0?"+":""}${fmt(net)}</td>
+        <td class="td-num">${fmt(g.Tempo)}</td>
+        <td class="td-num">${fmtPR(parseFloat(g["FG%"])||0)}</td>
+        <td class="td-num">${fmtPR(parseFloat(g["3P%"])||0)}</td>
+        <td class="td-num">${fmtPR(parseFloat(g["eFG%"])||0)}</td>
+        <td class="td-num">${fmtPR(parseFloat(g["TOV%"])||0)}</td>
+      </tr>`;
+    }).join("") : "<tr><td colspan='13' style='text-align:center;padding:16px;color:var(--muted)'>No recent game data</td></tr>";
+  }
+
   // Shot chart
   renderShotChart(db, NEXT_OPP, "no-shot-chart");
 
@@ -1728,100 +1728,315 @@ function selectSlidesTeam(team){
 }
 
 function buildSlides(db,teamName){
-  const players=db.lr.filter(r=>r.TEAM===teamName&&(parseFloat(r.GP)||0)>=5&&r.PPG!=null)
-    .sort((a,b)=>(parseFloat(b.MPG)||0)-(parseFloat(a.MPG)||0));
-  const container=document.getElementById("slides-grid");
-  if(!players.length){ container.innerHTML="<div class='loading-state'>No player data for this team</div>"; return; }
+  // Use depth chart data if available (has full scouting info)
+  // Otherwise fall back to League Ratings
+  const depthPlayers = DEPTH_CHARTS[teamName];
+  const container = document.getElementById("slides-grid");
 
-  container.innerHTML=`
-    <div class="no-print" style="display:flex;gap:10px;align-items:center;margin-bottom:20px">
-      <div style="font-size:13px;color:var(--muted)">${players.length} players · ${teamShort(teamName)}</div>
-      <button class="btn btn-green" onclick="window.print()">🖨️ Print All A3</button>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px">
-      ${players.map((p,i)=>slideCard(p,i)).join("")}
-    </div>`;
+  if(depthPlayers && depthPlayers.length){
+    const starters = depthPlayers.filter(p=>p.pos<=5).sort((a,b)=>a.pos-b.pos);
+    const bench    = depthPlayers.filter(p=>p.pos>5).sort((a,b)=>a.pos-b.pos);
+    const allPlayers = [...starters,...bench];
+
+    container.innerHTML=`
+      <div class="no-print" style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+        <div style="font-size:13px;color:var(--muted)">${allPlayers.length} players · ${fullNameMap[teamName]||teamShort(teamName)}</div>
+        <button class="btn btn-green" onclick="window.print()">🖨️ Print All A3 Landscape</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        ${allPlayers.map((p,i)=>slideCard(p,i)).join("")}
+      </div>`;
+  } else {
+    // Fallback to League Ratings
+    const players=db.lr.filter(r=>r.TEAM===teamName&&(parseFloat(r.GP)||0)>=5&&r.PPG!=null)
+      .sort((a,b)=>(parseFloat(b.MPG)||0)-(parseFloat(a.MPG)||0));
+    if(!players.length){ container.innerHTML="<div class='loading-state'>No player data for this team — add a Data sheet</div>"; return; }
+    // Convert LR format to depth chart format for slideCard
+    const converted = players.map((p,i)=>({
+      pos:i+1, name:p.PLAYER||"", number:"", position:"", height:"", handed:"",
+      ppg:parseFloat(p.PPG)||0, rpg:parseFloat(p.RPG)||0, apg:parseFloat(p.APG)||0,
+      tpg:0, mpg:parseFloat(p.MPG)||0, efg:parseFloat(p["eFG%"])||0,
+      pm:parseFloat(p["+/-"])||0, usage:parseFloat(p["USAGE%"])||0,
+      paint_pct:0,ft_pct:0,mid_pct:0,three_pct:0,
+      scoring:p.GRADE||"", defence:"", rebounding:"", playmaking:"",
+    }));
+    container.innerHTML=`
+      <div class="no-print" style="display:flex;gap:10px;align-items:center;margin-bottom:20px">
+        <div style="font-size:13px;color:var(--muted)">${players.length} players (basic data only)</div>
+        <button class="btn btn-green" onclick="window.print()">🖨️ Print All A3</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        ${converted.map((p,i)=>slideCard(p,i)).join("")}
+      </div>`;
+  }
 }
 
 function slideCard(p,idx){
-  const name=fmtName(p.PLAYER||"");
-  const init=initials(p.PLAYER||"");
-  const grade=p.GRADE||"—";
-  const pip=parseFloat(p["PiP/G"]||p["PIP/G"]||0);
-  const threepm=parseFloat(p["3PM/G"]||0);
-  const threepct=parseFloat(p["3P%"]||0);
-  const ftpct=parseFloat(p["FT%"]||0);
-  const efg=parseFloat(p["eFG%"]||0);
-  const usage=parseFloat(p["USAGE%"]||0);
-  const fbp=parseFloat(p["FBP/G"]||0);
-  const pm=parseFloat(p["+/-"]||0);
+  const name = fmtName(p.name||"");
+  const numDisplay = p.number||"—";
+  const grade = p.scoring||"—";
 
+  // Shot zone percentages (stored as 0-1, multiply to get %)
+  const paintPct  = Math.round((p.paint_pct||0)*100);
+  const ftPct     = Math.round((p.ft_pct||0)*100);
+  const midPct    = Math.round((p.mid_pct||0)*100);
+  const threePct  = Math.round((p.three_pct||0)*100);
+
+  // Compute 3PT shot type breakdown from PBP for this player
+  const playerName = p.nameAlt || p.name || "";
+  const playerShots3 = (DB&&DB.raw&&DB.raw.pbp||[]).filter(r=>
+    r.Action==="3pt" && matchPlayerName(r.Player, playerName)
+  );
+  const playerShots2 = (DB&&DB.raw&&DB.raw.pbp||[]).filter(r=>
+    r.Action==="2pt" && matchPlayerName(r.Player, playerName)
+  );
+  const playerTovs = (DB&&DB.raw&&DB.raw.pbp||[]).filter(r=>
+    r.Action==="turnover" && matchPlayerName(r.Player, playerName)
+  );
+
+  function shotTypePct(shots, types){
+    if(!shots.length) return types.map(t=>({...t, pct:0, made:0}));
+    return types.map(t=>{
+      const matching = shots.filter(s=>t.keys.includes(s["Sub Type"]||""));
+      const made = matching.filter(s=>s.Success==1||s.Success==="1").length;
+      return {...t, n:matching.length, pct:Math.round(matching.length/shots.length*100), madeRate: matching.length?Math.round(made/matching.length*100):0};
+    }).filter(t=>t.n>0);
+  }
+
+  const types3 = shotTypePct(playerShots3,[
+    {label:"Catch & Shoot", keys:["jumpshot"]},
+    {label:"Pull-Up",       keys:["pullupjumpshot"]},
+    {label:"Step-Back",     keys:["stepbackjumpshot"]},
+    {label:"Fadeaway",      keys:["fadeaway","turnaroundjumpshot"]},
+  ]);
+  const types2 = shotTypePct(playerShots2,[
+    {label:"Layup/Drive", keys:["layup","drivinglayup","reverselayup"]},
+    {label:"Dunk",        keys:["dunk","alleyoopdunk","alleyoop"]},
+    {label:"Floater",     keys:["floatingjumpshot"]},
+    {label:"Mid-Range",   keys:["jumpshot"]},
+    {label:"Pull-Up",     keys:["pullupjumpshot","stepbackjumpshot"]},
+    {label:"Hook/Post",   keys:["hookshot","turnaroundjumpshot","fadeaway"]},
+  ]);
+
+  const liveTov  = playerTovs.filter(r=>["badpass","ballhandling"].includes(r["Sub Type"]||"")).length;
+  const deadTov  = playerTovs.filter(r=>["travel","outofbounds","24sec","backcourt"].includes(r["Sub Type"]||"")).length;
+  const totalTov = playerTovs.length;
+  const livePct  = totalTov ? Math.round(liveTov/totalTov*100) : 0;
+
+  // Profile tags
   const tags=[];
-  if(threepm>=1.5) tags.push({l:"3PT Shooter",c:"pill-blue"});
-  if(pip>=5) tags.push({l:"Paint Finisher",c:"pill-red"});
-  if(parseFloat(p.APG||0)>=4) tags.push({l:"Playmaker",c:"pill-green"});
-  if(usage>=0.22) tags.push({l:"High Usage",c:"pill-amber"});
-  if(fbp>=2) tags.push({l:"Transition",c:"pill-amber"});
-  if(threepct>=0.38) tags.push({l:"Efficient 3PT",c:"pill-blue"});
+  if((p.threepm||0)>=1.5) tags.push({l:"3PT Shooter",c:"pill-blue"});
+  if((p.pip||0)>=5) tags.push({l:"Paint Finisher",c:"pill-red"});
+  if((p.apg||0)>=4) tags.push({l:"Playmaker",c:"pill-green"});
+  if((p.usage||0)>=0.22) tags.push({l:"High Usage",c:"pill-amber"});
+  if((p.fbp||0)>=2) tags.push({l:"Transition",c:"pill-amber"});
+  if((p.threepct||0)>=0.38) tags.push({l:"Efficient 3PT",c:"pill-blue"});
+  if((p.pts_created||0)/(p.ppg||1) > 0.7) tags.push({l:"Self-Created",c:"pill-green"});
 
-  return `<div class="slide-card" id="slide-${idx}">
-    <div class="slide-header">
-      <div style="display:flex;align-items:center;gap:14px">
-        <div style="width:50px;height:50px;border-radius:50%;background:var(--green-dim);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:700;color:var(--green);flex-shrink:0">${init}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:3px">${p.TEAM||""} · ${p.GP||"—"} GP · ${fmt(p.MPG)} MPG</div>
+  return `<div class="slide-card" id="slide-${idx}" style="page-break-inside:avoid;break-inside:avoid">
+
+    <!-- ── SLIDE: LANDSCAPE A3 LAYOUT ── -->
+    <div style="display:grid;grid-template-columns:220px 1fr 1fr;gap:0;min-height:320px">
+
+      <!-- LEFT PANEL: Identity -->
+      <div class="slide-header" style="padding:20px;display:flex;flex-direction:column;border-radius:10px 0 0 10px">
+        <!-- Number circle + name -->
+        <div style="text-align:center;margin-bottom:16px">
+          <div style="width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,0.3);border:3px solid rgba(250,249,246,0.3);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:800;color:#fff;margin:0 auto 10px">${numDisplay}</div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:800;line-height:1.2">${name}</div>
+          <div style="font-size:11px;color:rgba(250,249,246,0.6);margin-top:4px">${p.position||""} · ${p.height||""}</div>
+          <div style="font-size:10px;color:rgba(250,249,246,0.5);margin-top:2px">${(p.handed||"").replace(" HANDED","")}</div>
         </div>
-        <div><span class="grade-badge ${gradeClass(grade)}" style="font-size:17px;padding:4px 12px">${grade}</span></div>
-      </div>
-    </div>
-    <div style="padding:16px 18px">
-      <div class="slide-stat-grid">
-        ${[{v:fmt(p.PPG),l:"PPG"},{v:fmt(p.RPG),l:"RPG"},{v:fmt(p.APG),l:"APG"},{v:efg?fmtP(efg):"—",l:"eFG%"},{v:(pm>0?"+":"")+fmt(pm),l:"+/-"}]
-          .map(s=>`<div class="slide-stat-box"><div class="slide-stat-val">${s.v}</div><div class="slide-stat-lbl">${s.l}</div></div>`).join("")}
-      </div>
 
-      <div style="margin-bottom:14px">
-        <div style="font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">SHOT PROFILE</div>
-        ${barHTML("PIP/G",Math.min(100,pip/12*100),"bar-fill-red",fmt(pip))}
-        ${barHTML("3PM/G",Math.min(100,threepm/4*100),"bar-fill-blue",fmt(threepm))}
-        ${barHTML("3P%",Math.min(100,threepct/50*100),"bar-fill-blue",fmtPR(threepct))}
-        ${barHTML("FT%",Math.min(100,ftpct/100*100),"bar-fill-amber",fmtPR(ftpct))}
-        ${barHTML("Usage%",Math.min(100,usage/0.35*100),"",fmtP(usage))}
-      </div>
-
-      ${tags.length?`<div style="margin-bottom:12px">${tags.map(t=>`<span class="pill ${t.c}" style="margin:2px;font-size:9px">${t.l}</span>`).join("")}</div>`:""}
-
-      <div style="background:var(--card2);border-radius:6px;padding:10px 12px;font-size:12px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">FBP/G</span><span style="font-weight:600">${fmt(fbp)}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">TOV/G</span><span style="font-weight:600">${fmt(p["TOV/G"])}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">3PA/G</span><span style="font-weight:600">${fmt(p["3PA/G"])}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">OREB/G</span><span style="font-weight:600">${fmt(p["OREB/G"])}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">USG%</span><span style="font-weight:600">${fmtP(usage)}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">3PT Rate</span><span style="font-weight:600">${fmtPR(parseFloat(p["3PT RATE"]||0))}</span></div>
+        <!-- Grades -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:14px">
+          ${[["SCORING",p.scoring],["DEFENCE",p.defence],["REBOUNDING",p.rebounding],["PLAYMAKING",p.playmaking]].map(([l,g])=>`
+            <div style="background:rgba(0,0,0,0.25);border-radius:6px;padding:7px 4px;text-align:center">
+              <div class="grade-badge ${gradeClass(g)}" style="font-size:14px;padding:3px 8px">${g||"—"}</div>
+              <div style="font-size:8px;color:rgba(250,249,246,0.5);letter-spacing:1px;margin-top:3px">${l}</div>
+            </div>`).join("")}
         </div>
+
+        <!-- Who / Stop / Force -->
+        ${p.whoWhat?`<div style="margin-bottom:8px">
+          <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(250,249,246,0.4);margin-bottom:4px">WHO IS HE</div>
+          <div style="font-size:10px;color:rgba(250,249,246,0.8);line-height:1.4">${p.whoWhat}</div>
+        </div>`:""}
+        ${p.stopping?`<div style="margin-bottom:8px">
+          <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#ff8a8a;margin-bottom:3px">WHAT TO STOP</div>
+          <div style="font-size:10px;color:rgba(250,249,246,0.8);line-height:1.4">${p.stopping}</div>
+        </div>`:""}
+        ${p.forcing?`<div>
+          <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);margin-bottom:3px">WHAT TO FORCE</div>
+          <div style="font-size:10px;color:rgba(250,249,246,0.8);line-height:1.4">${p.forcing}</div>
+        </div>`:""}
+
+        <!-- Tags -->
+        ${tags.length?`<div style="margin-top:10px;display:flex;gap:3px;flex-wrap:wrap">${tags.map(t=>`<span class="pill ${t.c}" style="font-size:8px;padding:2px 5px">${t.l}</span>`).join("")}</div>`:""}
       </div>
 
-      <div style="margin-top:12px" class="no-print">
-        <button class="btn" style="width:100%;font-size:11px" onclick="printSingleSlide(${idx})">🖨️ Print A3</button>
+      <!-- MIDDLE PANEL: Stats + Shot Profile -->
+      <div style="padding:18px;border-left:1px solid var(--border-soft);border-right:1px solid var(--border-soft)">
+
+        <!-- Key stats grid -->
+        <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">KEY STATISTICS</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:14px">
+          ${[
+            {v:fmtN(p.ppg),l:"PPG"},{v:fmtN(p.rpg),l:"RPG"},
+            {v:fmtN(p.apg),l:"APG"},{v:fmtN(p.tpg),l:"TOV/G"},
+            {v:fmtN(p.mpg),l:"MPG"},{v:fmtN(p.efg*100)+'%',l:"eFG%"},
+            {v:(p.pm>0?"+":"")+fmtN(p.pm),l:"+/-"},{v:fmtN(p.usage*100)+'%',l:"USG%"},
+            {v:fmtN(p.pip),l:"PIP/G"},{v:fmtN(p.fbp),l:"FBP/G"},
+            {v:fmtN(p.pts_created),l:"PTS CREATED"},{v:fmtN(p.pp40),l:"PTS/40"},
+            {v:fmtN(p.pct_pts*100)+'%',l:"% OF PTS"},{v:fmtN(p.fgp*100)+'%',l:"FG%"},
+            {v:fmtN(p.threepct*100)+'%',l:"3P%"},{v:fmtN(p.ftpct*100)+'%',l:"FT%"},
+          ].map(s=>`
+            <div style="background:var(--card2);border-radius:5px;padding:6px 4px;text-align:center">
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700">${s.v}</div>
+              <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">${s.l}</div>
+            </div>`).join("")}
+        </div>
+
+        <!-- Shot zones -->
+        <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">SHOT MENU — ZONES</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:14px">
+          ${[["PAINT",paintPct,"#ff8a8a"],["FT LINE",ftPct,"var(--purple)"],["MID",midPct,"var(--amber)"],["3PT",threePct,"var(--blue)"]].map(([l,v,c])=>`
+            <div style="background:var(--card2);border-radius:5px;padding:8px 4px;text-align:center;border-bottom:2px solid ${c}">
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:800;color:${c}">${v}%</div>
+              <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">${l}</div>
+            </div>`).join("")}
+        </div>
+
+        <!-- 3PT shot types -->
+        ${types3.length?`
+        <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">3PT SHOT TYPES</div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px">
+          ${types3.map(t=>`
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="font-size:10px;color:var(--muted);width:100px;flex-shrink:0">${t.label}</div>
+              <div style="flex:1;height:4px;background:rgba(250,249,246,0.06);border-radius:2px;overflow:hidden">
+                <div style="height:100%;width:${t.pct}%;background:var(--blue);border-radius:2px"></div>
+              </div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:700;width:28px;text-align:right">${t.pct}%</div>
+              <div style="font-size:9px;color:var(--muted);width:32px">${t.madeRate}%✓</div>
+            </div>`).join("")}
+        </div>`:""}
+
+        <!-- 2PT shot types -->
+        ${types2.length?`
+        <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">2PT SHOT TYPES</div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${types2.map(t=>`
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="font-size:10px;color:var(--muted);width:100px;flex-shrink:0">${t.label}</div>
+              <div style="flex:1;height:4px;background:rgba(250,249,246,0.06);border-radius:2px;overflow:hidden">
+                <div style="height:100%;width:${t.pct}%;background:#ff8a8a;border-radius:2px"></div>
+              </div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:700;width:28px;text-align:right">${t.pct}%</div>
+              <div style="font-size:9px;color:var(--muted);width:32px">${t.madeRate}%✓</div>
+            </div>`).join("")}
+        </div>`:""}`+`
+      </div>
+
+      <!-- RIGHT PANEL: Guarding + TOV + Passing -->
+      <div style="padding:18px">
+
+        <!-- Guarding notes -->
+        <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">HOW TO GUARD</div>
+        <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:16px">
+          ${[["ISO",p.iso],["CATCH & SHOOT",p.cs],["OFF DRIBBLE",p.dribble],["POST UP",p.post],["AS SCREENER",p.screener],["BALL HANDLER",p.ballhandler]]
+            .filter(([,v])=>v)
+            .map(([l,v])=>`
+            <div style="background:var(--card2);border-radius:5px;padding:7px 10px">
+              <div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:2px">${l}</div>
+              <div style="font-size:10px;color:var(--offwhite);line-height:1.4">${v}</div>
+            </div>`).join("") || "<div style='color:var(--muted);font-size:11px'>No guarding notes</div>"}
+        </div>
+
+        <!-- Turnover breakdown -->
+        <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">TURNOVERS</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:14px">
+          <div style="background:var(--card2);border-radius:5px;padding:7px;text-align:center">
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700">${fmtN(p.tpg)}</div>
+            <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">TOV/G</div>
+          </div>
+          <div style="background:var(--card2);border-radius:5px;padding:7px;text-align:center">
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:#ff8a8a">${livePct}%</div>
+            <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">LIVE BALL</div>
+          </div>
+          <div style="background:var(--card2);border-radius:5px;padding:7px;text-align:center">
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:var(--amber)">${100-livePct}%</div>
+            <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">DEAD BALL</div>
+          </div>
+        </div>
+
+        <!-- Additional stats -->
+        <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">ADDITIONAL</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
+          ${[
+            ["OREB/G",fmtN(p.oreb)],
+            ["2ND CHANCE",fmtN(p.secondChance)],
+            ["3PM/G",fmtN(p.threepm)],
+            ["3PA/G",fmtN(p.threepa)],
+            ["FTM/G",fmtN(p.ftm)],
+            ["FTA/G",fmtN(p.fta)],
+          ].map(([l,v])=>`
+            <div style="display:flex;justify-content:space-between;padding:5px 8px;background:var(--card2);border-radius:4px">
+              <span style="font-size:9px;color:var(--muted)">${l}</span>
+              <span style="font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700">${v}</span>
+            </div>`).join("")}
+        </div>
+
+        <!-- Print this slide -->
+        <div style="margin-top:14px" class="no-print">
+          <button class="btn" style="width:100%;font-size:11px" onclick="printSingleSlide(${idx})">🖨️ Print A3</button>
+        </div>
       </div>
     </div>
   </div>`;
+}
+
+// Helper: format number to 1dp for slides
+function fmtN(v){ return v!=null&&!isNaN(v)?Number(v).toFixed(1):"—"; }
+
+// Helper: match player name between PBP (short form) and Lions Data
+function matchPlayerName(pbpName, dataName){
+  if(!pbpName||!dataName) return false;
+  const pbp = (pbpName||"").toLowerCase();
+  // dataName is "Phillip, Tarick" format — get surname
+  const parts = dataName.split(",");
+  const surname = (parts[0]||"").trim().toLowerCase();
+  const first = (parts[1]||"").trim().toLowerCase();
+  // PBP uses "T. Phillip" format
+  return pbp.includes(surname) || (first.charAt(0) && pbp.includes(first.charAt(0)+". "+surname));
 }
 
 function printSingleSlide(idx){
   const el=document.getElementById("slide-"+idx);
   if(!el) return;
   const w=window.open("","_blank");
+  const playerName = el.querySelector('.slide-card') ? 
+    el.querySelector('[style*="font-size:17px"]')?.textContent?.trim() || 'player' : 'player';
   w.document.write(`<!DOCTYPE html><html><head>
-    <meta charset="UTF-8"><title>Player Slide</title>
+    <meta charset="UTF-8"><title>${playerName} — Scout Slide</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
       :root{--green:#008348;--green-dim:rgba(0,131,72,0.12);--border:rgba(0,131,72,0.2);--card2:#152a1c;--card3:#1a3323;--muted:rgba(250,249,246,0.4);--offwhite:#FAF9F6;--amber:#f59e0b;--blue:#60c8fa;--red:#e05555;--purple:#a78bfa;--border-soft:rgba(250,249,246,0.07)}
-      body{margin:0;padding:15mm;background:#080f0b;color:#FAF9F6;font-family:'Inter',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      @page{size:A3 landscape;margin:10mm}
+      body{margin:0;padding:8mm;background:#080f0b;color:#FAF9F6;font-family:'Inter',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      @page{size:A3 landscape;margin:8mm}
       .no-print{display:none!important}
+      .slide-card{page-break-inside:avoid}
+      .grade-badge{border-radius:4px;display:inline-block;padding:2px 8px;font-weight:700}
+      .grade-a{background:rgba(74,222,128,0.15);color:#4ade80;border:1px solid rgba(74,222,128,0.3)}
+      .grade-b{background:rgba(96,200,250,0.12);color:#60c8fa;border:1px solid rgba(96,200,250,0.2)}
+      .grade-c{background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.2)}
+      .grade-d{background:rgba(224,85,85,0.08);color:#ff8a8a;border:1px solid rgba(224,85,85,0.18)}
+      .pill{font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;display:inline-block}
+      .pill-blue{background:rgba(96,200,250,0.08);color:#60c8fa;border:1px solid rgba(96,200,250,0.15)}
+      .pill-green{background:rgba(0,131,72,0.15);color:#4ade80;border:1px solid rgba(0,131,72,0.3)}
+      .pill-amber{background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.2)}
+      .pill-red{background:rgba(224,85,85,0.08);color:#ff8a8a;border:1px solid rgba(224,85,85,0.18)}
+      .slide-header{background:linear-gradient(135deg,#152a1c,#1a3323)}
     </style>
     </head><body>${el.outerHTML}
     <script>window.onload=()=>window.print()<\/script>
