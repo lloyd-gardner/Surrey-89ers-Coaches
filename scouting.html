@@ -112,6 +112,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
 .loading-state{text-align:center;padding:60px 20px;color:var(--muted);font-size:13px}
 .loading-spinner{width:28px;height:28px;border:2px solid var(--border-soft);border-top-color:var(--green);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 14px}
 @keyframes spin{to{transform:rotate(360deg)}}
+.team-logo-circle{
+  width:44px;height:44px;border-radius:50%;
+  background:#fff;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;overflow:hidden;padding:3px;
+}
+.team-logo-circle img{width:100%;height:100%;object-fit:contain}
+.team-logo-sm{width:22px;height:22px;object-fit:contain;
+  background:#fff;border-radius:4px;padding:1px}
+.opp-logo-lg{width:64px;height:64px;object-fit:contain;
+  background:#fff;border-radius:12px;padding:6px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 
 /* PAGE HEADERS */
@@ -403,14 +413,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
           </div>
         </div>
 
-        <!-- Quarter scoring -->
-        <div class="section-header"><div class="section-label">Quarter Scoring Avg</div></div>
-        <div class="card" style="margin-bottom:24px">
-          <div class="card-body">
-            <div id="no-quarter-bars"></div>
-          </div>
-        </div>
-
         <!-- Roster -->
         <div class="section-header">
           <div class="section-label">Depth Chart</div>
@@ -428,6 +430,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
         <div class="section-header"><div class="section-label">Key Stats vs League</div></div>
         <div class="grid-4" id="no-key-stats" style="margin-bottom:24px"></div>
 
+        <!-- Shot Chart -->
+        <div class="section-header" style="margin-top:0"><div class="section-label">Team Shot Chart</div><span style="font-size:11px;color:var(--muted)">All attempts this season · 🟢 Make · 🔴 Miss</span></div>
+        <div class="card" style="margin-bottom:24px">
+          <div class="card-body" style="padding:10px">
+            <canvas id="no-shot-chart" width="600" height="420" style="width:100%;max-width:600px;display:block;margin:0 auto;border-radius:6px"></canvas>
+          </div>
+        </div>
+
         <!-- H2H -->
         <div class="section-header"><div class="section-label">Head to Head vs Surrey 89ers</div></div>
         <div class="card">
@@ -436,6 +446,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
               <thead><tr><th>Date</th><th>Comp</th><th>Venue</th><th>Result</th><th>Score</th><th>OFF RTG</th><th>DEF RTG</th><th>NET</th><th>Pace</th><th>FG%</th><th>3P%</th><th>eFG%</th><th>TOV%</th></tr></thead>
               <tbody id="no-h2h"></tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+        <!-- Quarter Scoring — moved to bottom -->
+        <div class="section-header" style="margin-top:24px"><div class="section-label">Quarter Scoring Avg</div></div>
+        <div class="card" style="margin-bottom:0">
+          <div class="card-body">
+            <div id="no-quarter-bars"></div>
           </div>
         </div>
       </div>
@@ -501,6 +520,12 @@ const LOGOS = {
 
 // Surrey logo for topbar
 const SURREY_LOGO = LOGOS['SURREY 89ERS'];
+
+// Depth chart data from team Data sheets
+const DEPTH_CHARTS = {
+  "LONDON LIONS": [{"pos":1,"name":"Phillip, Tarick","number":"22","position":"GUARD","handed":"RIGHT HANDED","scoring":"B-","defence":"B-","rebounding":"C+","playmaking":"B+","paint_pct":0.4093567251461988,"ft_pct":0.23976608187134502,"mid_pct":0.052631578947368474,"three_pct":0.2982456140350877,"iso":"","cs":"as catch shooter","dribble":"","post":"","screener":"if F or C","ballhandler":"if guard"},{"pos":2,"name":"Soluade, Mo","number":"12","position":"GUARD","handed":"RIGHT HANDED","scoring":"C-","defence":"D","rebounding":"C-","playmaking":"B-","paint_pct":0.08888888888888889,"ft_pct":0.06666666666666667,"mid_pct":0.0444444444444444,"three_pct":0.8,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":3,"name":"Sandy, Ciaran","number":"","position":"FORWARD","handed":"RIGHT HANDED","scoring":"C-","defence":"C","rebounding":"D","playmaking":"C-","paint_pct":0.45714285714285713,"ft_pct":0.18095238095238095,"mid_pct":0.07619047619047625,"three_pct":0.2857142857142857,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":4,"name":"Williams, Deane","number":"31","position":"FORWARD","handed":"RIGHT HANDED","scoring":"B-","defence":"B","rebounding":"B","playmaking":"B-","paint_pct":0.4540229885057471,"ft_pct":0.1896551724137931,"mid_pct":0.02873563218390801,"three_pct":0.3275862068965517,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":5,"name":"Scott, Joel","number":"","position":"CENTRE","handed":"","scoring":"B+","defence":"B-","rebounding":"A-","playmaking":"C+","paint_pct":0.5952380952380952,"ft_pct":0.21428571428571427,"mid_pct":0.011904761904761918,"three_pct":0.17857142857142858,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":6,"name":"Reynolds Jr, Shavar","number":"","position":"GUARD","handed":"","scoring":"B-","defence":"C-","rebounding":"C-","playmaking":"A-","paint_pct":0.40634920634920635,"ft_pct":0.17777777777777778,"mid_pct":0.1968253968253968,"three_pct":0.21904761904761905,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":7,"name":"McGusty, Kameron","number":"","position":"WING","handed":"","scoring":"B-","defence":"B-","rebounding":"C","playmaking":"B+","paint_pct":0.49572649572649574,"ft_pct":0.17094017094017094,"mid_pct":0.1282051282051282,"three_pct":0.20512820512820512,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":8,"name":"Rai, Aaryndeep","number":"","position":"WING","handed":"RIGHT HANDED","scoring":"C+","defence":"B+","rebounding":"A-","playmaking":"B-","paint_pct":0.597864768683274,"ft_pct":0.13167259786476868,"mid_pct":0.05693950177935944,"three_pct":0.21352313167259787,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":9,"name":"Price, Ethan","number":"","position":"","handed":"","scoring":"C+","defence":"C+","rebounding":"C+","playmaking":"C","paint_pct":0.6104417670682731,"ft_pct":0.21285140562248997,"mid_pct":0.008032128514056186,"three_pct":0.1686746987951807,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""},{"pos":10,"name":"Soko, Ovie","number":"","position":"CENTRE","handed":"RIGHT HANDED","scoring":"C","defence":"C+","rebounding":"C+","playmaking":"C-","paint_pct":0.5964912280701754,"ft_pct":0.3684210526315789,"mid_pct":0.03508771929824567,"three_pct":0.0,"iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":""}],
+};
+
 // ═══════════════════════════════════════════
 // CONFIG — change NEXT_OPP each week
 // ═══════════════════════════════════════════
@@ -679,8 +704,9 @@ async function loadData(){
   const lr  = XLSX.utils.sheet_to_json(wb.Sheets["League Ratings"]);
   const tr  = XLSX.utils.sheet_to_json(wb.Sheets["Team Ratings"]);
 
+  const pbp = XLSX.utils.sheet_to_json(wb.Sheets["PBP Events"]);
   DB = {
-    raw: { ts, ps, lu, lr, tr },
+    raw: { ts, ps, lu, lr, tr, pbp },
     teamAgg:   buildTeamAgg(ts),
     playerAgg: buildPlayerAgg(ps),
     lr, tr
@@ -714,7 +740,7 @@ function buildTeamAgg(rows){
       offrtg:avg("OFFRTG")*100, defrtg:avg("DEFRTG")*100,
       netrtg:avg("NET RTG")*100, tempo:avg("Tempo"),
       efg:avg("eFG%"), tov:avg("TOV%"), oreb:avg("OREB%"),
-      dreb:avg("DREB%"), stl:avg("STL"), blk:avg("BLK"),
+      dreb:avg("DREB%"), stl:avg("STL"), blk:avg("BLK"), pf:avg("PF"),
       pip:avg("PIP"), fbp:avg("FBP"), fg:avg("FG%"),
       threep:avg("3P%"), ft:avg("FT%"), ast:avg("AST%"),
       threeRate:avg("3PT Taken%"),
@@ -820,7 +846,7 @@ function barHTML(label,pct,cls="",val=""){
     <div class="bar-val">${val}</div>
   </div>`;
 }
-function lineupHTML(l,i){
+function lineupHTML(l,i,categoryColor){
   const ps=[l.P1,l.P2,l.P3,l.P4,l.P5].filter(Boolean);
   const net=parseFloat(l.NETRTG)||0;
   const paintP=parseFloat(l["Pts Paint%"]||0)*100;
@@ -904,7 +930,7 @@ function renderStandings(db){
       <td class="td-num">${i+1}</td>
       <td style="font-weight:600">
         <div style="display:flex;align-items:center;gap:8px">
-          ${LOGOS[t.team]?`<img src="${LOGOS[t.team]}" style="width:20px;height:20px;object-fit:contain" alt="">`:`<div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div>`}
+          ${LOGOS[t.team]?`<span style="width:22px;height:22px;border-radius:4px;background:#fff;padding:2px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0"><img src="${LOGOS[t.team]}" style="width:18px;height:18px;object-fit:contain" alt=""></span>`:`<div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div>`}
           ${teamShort(t.team)}
         </div>
       </td>
@@ -938,7 +964,7 @@ function doSortRankings(){
     return `<tr class="${s?"surrey-row":""}">
       <td style="font-weight:600">
         <div style="display:flex;align-items:center;gap:8px">
-          ${LOGOS[t.team]?`<img src="${LOGOS[t.team]}" style="width:20px;height:20px;object-fit:contain" alt="">`:`<div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div>`}
+          ${LOGOS[t.team]?`<span style="width:22px;height:22px;border-radius:4px;background:#fff;padding:2px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0"><img src="${LOGOS[t.team]}" style="width:18px;height:18px;object-fit:contain" alt=""></span>`:`<div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div>`}
           ${teamShort(t.team)}
         </div>
       </td>
@@ -1030,12 +1056,238 @@ function selectFixture(idx){
   fillNextOpponent();
 }
 
+
+function renderDepthChart(depthData, db){
+  const container = document.getElementById("no-roster");
+  // Starters = pos 1-5, bench = pos 6-10
+  const starters = depthData.filter(p=>p.pos>=1&&p.pos<=5).sort((a,b)=>a.pos-b.pos);
+  const bench    = depthData.filter(p=>p.pos>=6).sort((a,b)=>a.pos-b.pos);
+
+  const POS_LABELS = {1:"PG",2:"SG",3:"SF",4:"PF",5:"C",6:"PG",7:"SG",8:"SF",9:"PF",10:"C"};
+
+  function playerCard(p, isStarter){
+    const name = fmtName(p.name);
+    const init = initials(p.name);
+    const paintPct  = Math.round((p.paint_pct||0)*100);
+    const midPct    = Math.round((p.mid_pct||0)*100);
+    const threePct  = Math.round((p.three_pct||0)*100);
+    const ftPct     = Math.round((p.ft_pct||0)*100);
+    const posLabel  = POS_LABELS[p.pos]||"";
+
+    // Get live stats from League Ratings
+    const lr = db.lr.find(r=>{
+      const rn = fmtName(r.PLAYER||"").toLowerCase();
+      const pn = name.toLowerCase();
+      return rn.includes(pn.split(" ")[1]||pn) || pn.includes((r.PLAYER||"").split(",")[0].trim().toLowerCase());
+    });
+    const ppg  = lr ? fmt(lr.PPG)  : "—";
+    const rpg  = lr ? fmt(lr.RPG)  : "—";
+    const apg  = lr ? fmt(lr.APG)  : "—";
+    const efg  = lr ? (lr["eFG%"]?fmtP(lr["eFG%"]):"—") : "—";
+    const pm   = lr ? fmt(lr["+/-"]) : "—";
+
+    return `<div style="background:var(--card2);border:1px solid var(--border-soft);border-radius:10px;padding:14px;min-width:0">
+      <!-- Position badge + name -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <div style="background:var(--green);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:11px;padding:3px 8px;border-radius:4px;flex-shrink:0">${posLabel}</div>
+        ${isStarter?'<div style="font-size:9px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase">STARTER</div>':'<div style="font-size:9px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase">BENCH</div>'}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="width:38px;height:38px;border-radius:50%;background:var(--green-dim);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:var(--green);flex-shrink:0">${init}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;line-height:1.2">${name}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${p.position||""} ${p.number?"· #"+p.number:""}</div>
+        </div>
+      </div>
+
+      <!-- Grade row -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:12px">
+        ${[["SCO",p.scoring],["DEF",p.defence],["REB",p.rebounding],["PLA",p.playmaking]].map(([l,g])=>`
+          <div style="text-align:center;background:var(--card3);border-radius:4px;padding:5px 2px">
+            <div class="grade-badge ${gradeClass(g)}" style="font-size:11px;padding:2px 4px">${g||"—"}</div>
+            <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">${l}</div>
+          </div>`).join("")}
+      </div>
+
+      <!-- Shot zones -->
+      <div style="margin-bottom:10px">
+        <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">SHOT ZONES</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px">
+          ${[["PAINT",paintPct,"#ff8a8a"],["FT LINE",ftPct,`var(--purple)`],["MID",midPct,"var(--amber)"],["3PT",threePct,"var(--blue)"]].map(([l,v,c])=>`
+            <div style="background:var(--card3);border-radius:4px;padding:5px 2px;text-align:center">
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:${c}">${v}%</div>
+              <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">${l}</div>
+            </div>`).join("")}
+        </div>
+      </div>
+
+      <!-- Live stats -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-bottom:10px">
+        ${[["PPG",ppg],["RPG",rpg],["APG",apg],["eFG%",efg],["+/-",pm]].map(([l,v])=>`
+          <div style="text-align:center;background:var(--card3);border-radius:4px;padding:5px 2px">
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700">${v}</div>
+            <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">${l}</div>
+          </div>`).join("")}
+      </div>
+
+      <!-- Guarding notes -->
+      ${[p.iso&&["ISO",p.iso],p.cs&&["C+S",p.cs],p.dribble&&["DRIBBLE",p.dribble],p.post&&["POST",p.post],p.screener&&["SCREENER",p.screener],p.ballhandler&&["BALL HANDLER",p.ballhandler]].filter(Boolean).length?
+        `<div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">GUARD NOTES</div>
+         <div style="display:flex;gap:4px;flex-wrap:wrap">
+          ${[p.iso&&["ISO",p.iso],p.cs&&["C+S",p.cs],p.dribble&&["DRIBBLE",p.dribble],p.post&&["POST",p.post],p.screener&&["SCREENER",p.screener],p.ballhandler&&["BALL HANDLER",p.ballhandler]].filter(Boolean).map(([l,v])=>`
+            <span style="font-size:9px;padding:3px 6px;background:var(--card3);border:1px solid var(--border-soft);border-radius:3px;color:var(--muted)"><b style="color:var(--offwhite)">${l}:</b> ${v}</span>`).join("")}
+         </div>`:""
+      }
+    </div>`;
+  }
+
+  container.innerHTML = `
+    <div style="padding:16px">
+      <!-- STARTERS -->
+      <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px">STARTERS</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px">
+        ${starters.map(p=>playerCard(p,true)).join("")}
+      </div>
+      <!-- BENCH -->
+      ${bench.length?`
+      <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;margin-top:4px;padding-top:16px;border-top:1px solid var(--border-soft)">BENCH</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+        ${bench.map(p=>playerCard(p,false)).join("")}
+      </div>`:""}
+    </div>`;
+}
+
 async function renderNextOpponent(){
   const db=await loadData();
   // If fixtures haven't loaded from schedule yet, wait for them
   if(FIXTURES.length === 0) await loadFixtures();
   renderFixtureSelector();
   fillNextOpponent();
+}
+
+
+function renderShotChart(db, teamName, canvasId){
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+
+  // Get shots from PBP for this team
+  // PBP team names are Title Case: "London Lions" not "LONDON LIONS"
+  const titleTeam = SHORT[teamName] ? SHORT[teamName] + (SHORT[teamName]==="London"?" Lions":
+    SHORT[teamName]==="Cheshire"?" Phoenix":SHORT[teamName]==="Manchester"?" Basketball":
+    SHORT[teamName]==="Sheffield"?" Sharks — wait":SHORT[teamName]) : teamName;
+
+  // Match using teamShort mapping in reverse
+  const titleCaseMap = {
+    "LONDON LIONS":"London Lions","CHESHIRE PHOENIX":"Cheshire Phoenix",
+    "MANCHESTER BASKETBALL":"Manchester Basketball",
+    "B. BRAUN SHEFFIELD SHARKS":"B. Braun Sheffield Sharks",
+    "NEWCASTLE EAGLES":"Newcastle Eagles","SURREY 89ERS":"Surrey 89ers",
+    "BRISTOL FLYERS":"Bristol Flyers","LEICESTER RIDERS":"Leicester Riders",
+    "CALEDONIA GLADIATORS":"Caledonia Gladiators",
+  };
+  const tcTeam = titleCaseMap[teamName] || teamName;
+
+  const shots = (db.raw.pbp||[]).filter(r=>
+    r.Team === tcTeam &&
+    (r.Action==="2pt"||r.Action==="3pt") &&
+    r["Shot X"]!=null && r["Shot X"]!=="" &&
+    r["Shot Y"]!=null && r["Shot Y"]!==""
+  );
+
+  if(!shots.length){
+    // No coordinate data in this file (old format) — show placeholder
+    ctx.fillStyle="#0f1f16";
+    ctx.fillRect(0,0,W,H);
+    drawCourt(ctx,W,H);
+    ctx.fillStyle="rgba(250,249,246,0.3)";
+    ctx.font="14px Inter";
+    ctx.textAlign="center";
+    ctx.fillText("Shot chart available after pipeline update", W/2, H/2);
+    ctx.fillText("(requires Shot X/Y columns in PBP data)", W/2, H/2+22);
+    return;
+  }
+
+  // Draw background
+  ctx.fillStyle="#0f1f16";
+  ctx.fillRect(0,0,W,H);
+  drawCourt(ctx,W,H);
+
+  // Plot shots
+  // Coordinates are 0-100 scale — need to map to canvas
+  // Court is half-court: X = 0-100 sideline to sideline, Y = 0-100 baseline to half
+  // We show a half-court from the correct end
+  shots.forEach(r=>{
+    const x = parseFloat(r["Shot X"]);
+    const y = parseFloat(r["Shot Y"]);
+    if(isNaN(x)||isNaN(y)) return;
+    // Normalise to court orientation
+    // If y > 50 it's the far end — flip
+    const normX = x/100 * W;
+    const normY = y/100 * H;
+    const made = r.Success===1||r.Success==="1";
+    ctx.beginPath();
+    ctx.arc(normX, normY, 4, 0, Math.PI*2);
+    ctx.fillStyle = made ? "rgba(74,222,128,0.75)" : "rgba(224,85,85,0.55)";
+    ctx.fill();
+    if(made){
+      ctx.strokeStyle="rgba(74,222,128,0.4)";
+      ctx.lineWidth=1;
+      ctx.stroke();
+    }
+  });
+}
+
+function drawCourt(ctx, W, H){
+  ctx.strokeStyle="rgba(250,249,246,0.15)";
+  ctx.lineWidth=1.5;
+
+  // Half-court outline
+  ctx.strokeRect(0,0,W,H);
+
+  // Paint / key (roughly 16ft wide, 19ft deep in BBL)
+  const paintW=W*0.36, paintH=H*0.58;
+  const paintX=(W-paintW)/2;
+  ctx.strokeRect(paintX,0,paintW,paintH);
+
+  // Free throw line
+  ctx.beginPath();ctx.moveTo(paintX,paintH);ctx.lineTo(paintX+paintW,paintH);ctx.stroke();
+
+  // Free throw circle
+  ctx.beginPath();
+  ctx.arc(W/2,paintH,paintW/2,0,Math.PI*2);
+  ctx.stroke();
+
+  // Basket
+  ctx.beginPath();
+  ctx.arc(W/2,H*0.06,W*0.025,0,Math.PI*2);
+  ctx.strokeStyle="rgba(250,249,246,0.5)";
+  ctx.stroke();
+
+  // Restricted area (4ft arc)
+  ctx.beginPath();
+  ctx.arc(W/2,H*0.06,W*0.07,0,Math.PI);
+  ctx.strokeStyle="rgba(250,249,246,0.15)";
+  ctx.stroke();
+
+  // 3PT arc — approximate BBL/FIBA dimensions
+  const threeRadius = W*0.43;
+  const threeY = H*0.06;
+  ctx.beginPath();
+  ctx.arc(W/2,threeY,threeRadius,0,Math.PI);
+  ctx.strokeStyle="rgba(96,200,250,0.25)";
+  ctx.lineWidth=2;
+  ctx.stroke();
+
+  // Corner 3 lines
+  const cornerX = W*0.05;
+  const arcIntersectY = Math.sqrt(threeRadius*threeRadius-(W/2-cornerX)*(W/2-cornerX))+threeY;
+  ctx.beginPath();ctx.moveTo(cornerX,0);ctx.lineTo(cornerX,arcIntersectY);
+  ctx.moveTo(W-cornerX,0);ctx.lineTo(W-cornerX,arcIntersectY);
+  ctx.strokeStyle="rgba(96,200,250,0.2)";
+  ctx.lineWidth=1.5;
+  ctx.stroke();
 }
 
 async function fillNextOpponent(){
@@ -1052,7 +1304,16 @@ async function fillNextOpponent(){
   const efgR=getRanks(db.teamAgg,"efg");
 
   // Header
-  document.getElementById("no-name").textContent=teamShort(NEXT_OPP);
+  // Full team name display
+const fullNameMap = {
+  "LONDON LIONS":"London Lions","CHESHIRE PHOENIX":"Cheshire Phoenix",
+  "MANCHESTER BASKETBALL":"Manchester Basketball",
+  "B. BRAUN SHEFFIELD SHARKS":"B. Braun Sheffield Sharks",
+  "NEWCASTLE EAGLES":"Newcastle Eagles","SURREY 89ERS":"Surrey 89ers",
+  "BRISTOL FLYERS":"Bristol Flyers","LEICESTER RIDERS":"Leicester Riders",
+  "CALEDONIA GLADIATORS":"Caledonia Gladiators",
+};
+document.getElementById("no-name").textContent = fullNameMap[NEXT_OPP] || teamShort(NEXT_OPP);
   const venueLabel = fixture.venue === "Home" ? `🏠 Home · ${fixture.location||"Surrey Sports Park"}` : `✈️ Away · ${fixture.location||""}`;
   document.getElementById("no-meta").textContent=`${fixture.date} · ${venueLabel}`;
   document.getElementById("no-title").textContent=`vs ${teamShort(NEXT_OPP)}`;
@@ -1060,8 +1321,16 @@ async function fillNextOpponent(){
   // Team logo
   const logoEl = document.getElementById("no-team-logo");
   const logoSrc = LOGOS[NEXT_OPP];
-  if(logoEl && logoSrc){ logoEl.src=logoSrc; logoEl.style.display="block"; }
-  else if(logoEl){ logoEl.style.display="none"; }
+  if(logoEl && logoSrc){
+    logoEl.src=logoSrc;
+    logoEl.style.display="block";
+    logoEl.style.background="#fff";
+    logoEl.style.borderRadius="12px";
+    logoEl.style.padding="6px";
+    logoEl.style.width="64px";
+    logoEl.style.height="64px";
+    logoEl.style.objectFit="contain";
+  } else if(logoEl){ logoEl.style.display="none"; }
   document.getElementById("no-record").textContent=`${t.w}-${t.l}`;
   document.getElementById("no-pos").textContent=`#${pos} in league`;
   const tr=db.tr.find(r=>r.TEAM===NEXT_OPP);
@@ -1074,26 +1343,111 @@ async function fillNextOpponent(){
   ).join("");
 
   // Off profile
-  document.getElementById("no-offrtg").textContent=`OFF RTG ${fmt(t.offrtg)} ${rankBadge(offR[NEXT_OPP],total)}`;
+  document.getElementById("no-offrtg").innerHTML=`OFF RTG ${fmt(t.offrtg)} &nbsp;${rankBadge(offR[NEXT_OPP],total)}`;
   document.getElementById("nosz-pip").textContent=fmt(t.pip,0);
   document.getElementById("nosz-efg").textContent=fmtPR(t.efg);
   document.getElementById("nosz-3rate").textContent=fmtPR(t.threeRate);
   document.getElementById("nosz-oreb").textContent=fmtPR(t.oreb);
 
-  document.getElementById("no-off-bars").innerHTML=
-    barHTML("eFG%",t.efg/60*100,"",fmtPR(t.efg))+
+  // Derive team tendency statements
+  const la = {efg:52.7, threerate:39.0, oreb:29.3, ast:61.4, tov:16.7, fbp:12.4, pip:38.8, tempo:78.2, fg:46.0, threep:34.0, ft:72.0, pf:18.7};
+  const tempoLabel   = t.tempo < la.tempo-3 ? "Slow-paced" : t.tempo > la.tempo+3 ? "Up-tempo" : "Average tempo";
+  const shootLabel   = t.efg > la.efg+2 ? "Highly efficient shooting" : t.efg < la.efg-2 ? "Below-average efficiency" : "Average shooting efficiency";
+  const orebLabel    = t.oreb > la.oreb+4 ? "Strong offensive rebounding" : t.oreb < la.oreb-4 ? "Poor offensive rebounding" : "Average offensive rebounding";
+  const ftLabel      = t.ft > la.ft+5 ? "Strong free throw shooting" : t.ft < la.ft-5 ? "Poor free throw shooting" : "Average from the line";
+  const transLabel   = t.fbp > la.fbp+3 ? "Transition-heavy offence" : t.fbp < la.fbp-3 ? "Half-court focused" : "Balanced transition/half-court";
+
+  document.getElementById("no-off-bars").innerHTML=`
+    <!-- Tendency statements -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+      <span class="pill pill-muted" style="font-size:9px">${tempoLabel}</span>
+      <span class="pill pill-muted" style="font-size:9px">${shootLabel}</span>
+      <span class="pill pill-muted" style="font-size:9px">${transLabel}</span>
+      <span class="pill pill-muted" style="font-size:9px">${orebLabel}</span>
+      <span class="pill pill-muted" style="font-size:9px">${ftLabel}</span>
+    </div>
+    <!-- Full stat grid -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:14px">
+      ${[
+        ["NET RTG",(t.netrtg>0?"+":"")+fmt(t.netrtg)],
+        ["OFF RTG",fmt(t.offrtg)],
+        ["PPG",fmt(t.ptsScored)],
+        ["eFG%",fmtPR(t.efg)],
+        ["FG%",fmtPR(t.fg)],
+        ["3P%",fmtPR(t.threep)],
+        ["FT%",fmtPR(t.ft)],
+        ["TEMPO",fmt(t.tempo)],
+        ["3PT RATE",fmtPR(t.threeRate)],
+        ["OREB%",fmtPR(t.oreb)],
+        ["AST%",fmtPR(t.ast)],
+        ["TOV%",fmtPR(t.tov)],
+        ["3PM/G",fmt(t.threepm_pg||t.threeRate*t.tempo/100)],
+        ["PIP/G",fmt(t.pip)],
+        ["FTA/G",fmt(t.fta_pg||0)],
+        ["FTM/G",fmt(t.ftm_pg||0)],
+        ["FBP/G",fmt(t.fbp)],
+        ["BENCH PTS",fmt(t.benchPts||0)],
+        ["2ND CHANCE",fmt(t.secondChance||0)],
+        ["PTS fr TOV",fmt(t.ptsFromTov||0)],
+      ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 8px;background:var(--card2);border-radius:4px">
+        <span style="font-size:11px;color:var(--muted)">${l}</span>
+        <span style="font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700">${v}</span>
+      </div>`).join("")}
+    </div>
+  ` +
+    barHTML("eFG%",t.efg/65*100,"",fmtPR(t.efg))+
     barHTML("3PT Rate",t.threeRate/60*100,"bar-fill-blue",fmtPR(t.threeRate))+
-    barHTML("FBP/G",t.fbp/20*100,"bar-fill-amber",fmt(t.fbp))+
+    barHTML("FBP/G",t.fbp/25*100,"bar-fill-amber",fmt(t.fbp))+
     barHTML("AST%",t.ast/80*100,"",fmtPR(t.ast))+
-    barHTML("OREB%",t.oreb/45*100,"bar-fill-red",fmtPR(t.oreb));
+    barHTML("OREB%",t.oreb/50*100,"bar-fill-red",fmtPR(t.oreb))+
+    barHTML("PIP/G",t.pip/60*100,"bar-fill-red",fmt(t.pip));
 
   // Def profile
-  document.getElementById("no-defrtg").textContent=`DEF RTG ${fmt(t.defrtg)} ${rankBadge(defR[NEXT_OPP],total)}`;
-  document.getElementById("no-def-bars").innerHTML=
+  document.getElementById("no-defrtg").innerHTML=`DEF RTG ${fmt(t.defrtg)} &nbsp;${rankBadge(defR[NEXT_OPP],total)}`;
+  // Defensive tendency statements
+  const pressureLabel  = t.tov > 19 ? "Suffocating pressure" : t.tov > 17 ? "Active pressure" : t.tov > 15 ? "Moderate pressure" : "Passive defence";
+  const interiorLabel  = t.blk > 3 ? "Dominant interior protection" : t.pip < 36 ? "Strong interior defence" : t.pip > 43 ? "Vulnerable in the paint" : "Average interior";
+  const exteriorLabel  = (t.oppThreeP||34) < 33 ? "Strong perimeter defence" : (t.oppThreeP||34) > 37 ? "Vulnerable to 3s" : "Average perimeter";
+  const defRebLabel    = t.dreb > 74 ? "Elite defensive rebounding" : t.dreb < 68 ? "Poor defensive rebounding" : "Average defensive rebounding";
+  const foulingLabel   = t.pf > 21 ? "Reckless fouling" : t.pf < 17 ? "Disciplined, low foul rate" : "Average fouling";
+
+  document.getElementById("no-def-bars").innerHTML=`
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+      <span class="pill pill-muted" style="font-size:9px">${pressureLabel}</span>
+      <span class="pill pill-muted" style="font-size:9px">${interiorLabel}</span>
+      <span class="pill pill-muted" style="font-size:9px">${exteriorLabel}</span>
+      <span class="pill pill-muted" style="font-size:9px">${defRebLabel}</span>
+      <span class="pill pill-muted" style="font-size:9px">${foulingLabel}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:14px">
+      ${[
+        ["DEF RTG",fmt(t.defrtg)],
+        ["PTS ALLOWED",fmt(t.ptsAllowed)],
+        ["OPP FG%",fmtPR(t.fg)],
+        ["OPP 3P%","—"],
+        ["OPP eFG%","—"],
+        ["DREB%",fmtPR(t.dreb)],
+        ["OPP TOV%",fmtPR(t.tov)],
+        ["STL/G",fmt(t.stl)],
+        ["BLK/G",fmt(t.blk)],
+        ["PIP ALLOWED",fmt(t.pip)],
+        ["PF/G",fmt(t.pf)],
+        ["PTS fr TOV",fmt(t.ptsFromTov||0)],
+        ["Q1 ALLOWED",fmt(t.q1a)],
+        ["Q2 ALLOWED",fmt(t.q2a)],
+        ["Q3 ALLOWED",fmt(t.q3a)],
+        ["Q4 ALLOWED",fmt(t.q4a)],
+      ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 8px;background:var(--card2);border-radius:4px">
+        <span style="font-size:11px;color:var(--muted)">${l}</span>
+        <span style="font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700">${v}</span>
+      </div>`).join("")}
+    </div>
+  ` +
     barHTML("TOV% Forced",t.tov/25*100,"",fmtPR(t.tov))+
     barHTML("DREB%",t.dreb/85*100,"bar-fill-blue",fmtPR(t.dreb))+
     barHTML("STL/G",t.stl/10*100,"bar-fill-amber",fmt(t.stl))+
-    barHTML("BLK/G",t.blk/8*100,"bar-fill-red",fmt(t.blk));
+    barHTML("BLK/G",t.blk/8*100,"bar-fill-red",fmt(t.blk))+
+    barHTML("PF/G",t.pf/25*100,"bar-fill-amber",fmt(t.pf));
 
   const defTags=[];
   if(tr){
@@ -1124,19 +1478,62 @@ async function fillNextOpponent(){
       </div>
     </div>`;
 
-  // Roster
-  const players=db.lr.filter(r=>r.TEAM===NEXT_OPP&&(parseFloat(r.GP)||0)>=5&&r.PPG!=null)
-    .sort((a,b)=>(parseFloat(b.MPG)||0)-(parseFloat(a.MPG)||0));
-  document.getElementById("no-roster").innerHTML=players.length
-    ? players.map(p=>playerRowHTML(p)).join("")
-    : "<div class='loading-state'>No player data</div>";
+  // Depth Chart — use Data sheet if available, else fall back to League Ratings
+  const depthData = DEPTH_CHARTS[NEXT_OPP];
+  if(depthData && depthData.length){
+    renderDepthChart(depthData, db);
+  } else {
+    const players=db.lr.filter(r=>r.TEAM===NEXT_OPP&&(parseFloat(r.GP)||0)>=5&&r.PPG!=null)
+      .sort((a,b)=>(parseFloat(b.MPG)||0)-(parseFloat(a.MPG)||0));
+    document.getElementById("no-roster").innerHTML=players.length
+      ? players.map(p=>playerRowHTML(p)).join("")
+      : "<div class='loading-state'>No player data — add a Data sheet for this team</div>";
+  }
 
-  // Lineups
-  const lus=db.raw.lu.filter(r=>matchTeam(r.Team||"",NEXT_OPP)&&(parseFloat(r.Poss)||0)>=15)
-    .sort((a,b)=>(parseFloat(b.NETRTG)||0)-(parseFloat(a.NETRTG)||0)).slice(0,4);
-  document.getElementById("no-lineups").innerHTML=lus.length
-    ? lus.map((l,i)=>lineupHTML(l,i)).join("")
-    : "<div class='loading-state'>No lineup data with 15+ possessions</div>";
+  // Lineups — filter 20+ possessions then show best/worst
+  const allLus = db.raw.lu
+    .filter(r=>matchTeam(r.Team||"",NEXT_OPP) && (parseFloat(r.Poss)||0)>=20)
+    .map(r=>({
+      ...r,
+      _off: parseFloat(r.OFFRTG)||0,
+      _def: parseFloat(r.DEFRTG)||0,
+      _net: parseFloat(r.NETRTG)||0,
+      _poss: parseFloat(r.Poss)||0,
+    }));
+
+  const bestNet  = allLus.length ? [allLus.reduce((a,b)=>b._net>a._net?b:a)] : [];
+  const worstNet = allLus.length ? [allLus.reduce((a,b)=>b._net<a._net?b:a)] : [];
+  const bestOff  = allLus.length ? [allLus.reduce((a,b)=>b._off>a._off?b:a)] : [];
+  const bestDef  = allLus.length ? [allLus.reduce((a,b)=>b._def<a._def?b:a)] : [];
+
+  // Deduplicate (same lineup could appear in multiple categories)
+  const seen = new Set();
+  const lineupGroups = [
+    { label:"🏆 Best Net Rating", color:"pill-green", items:bestNet },
+    { label:"⚔️ Best Offence",    color:"pill-blue",  items:bestOff },
+    { label:"🛡️ Best Defence",    color:"pill-green", items:bestDef },
+    { label:"⚠️ Worst Net Rating",color:"pill-red",   items:worstNet },
+  ];
+
+  const lineupContainer = document.getElementById("no-lineups");
+  if(!allLus.length){
+    lineupContainer.innerHTML = "<div class='loading-state'>No lineup data with 20+ possessions</div>";
+  } else {
+    lineupContainer.innerHTML = lineupGroups.map(group=>{
+      const item = group.items[0];
+      if(!item) return "";
+      const key = [item.P1,item.P2,item.P3,item.P4,item.P5].sort().join("|");
+      const isDuplicate = seen.has(key);
+      if(!isDuplicate) seen.add(key);
+      return `<div style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:8px">
+          ${group.label}
+          ${isDuplicate?'<span style="font-size:9px;color:var(--muted)">(same lineup)</span>':''}
+        </div>
+        ${lineupHTML(item, 0, group.color)}
+      </div>`;
+    }).join("");
+  }
 
   // Key stats
   const statCards=[
@@ -1157,6 +1554,9 @@ async function fillNextOpponent(){
     </div></div>`).join("");
 
   // H2H
+  // Shot chart
+  renderShotChart(db, NEXT_OPP, "no-shot-chart");
+
   const h2h=db.raw.ts.filter(r=>r.Team==="SURREY 89ERS"&&(r.Opp||"")=== NEXT_OPP)
     .sort((a,b)=>new Date(b.Date)-new Date(a.Date));
   document.getElementById("no-h2h").innerHTML=h2h.length
@@ -1187,7 +1587,9 @@ async function renderTPSelector(){
   document.getElementById("tp-grid").innerHTML=teams.map((t,i)=>{
     const logo=LOGOS[t.team];
     return `<div class="team-chip" onclick="showTeamProfile('${t.team}')">
-      ${logo?`<img src="${logo}" style="width:32px;height:32px;object-fit:contain;flex-shrink:0" alt="">`:
+      ${logo?`<div style="width:34px;height:34px;border-radius:6px;background:#fff;padding:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center">
+        <img src="${logo}" style="width:28px;height:28px;object-fit:contain" alt="">
+      </div>`:
               `<div class="team-dot"></div>`}
       <div>
         <div class="team-chip-name">${teamShort(t.team)}</div>
@@ -1220,6 +1622,9 @@ async function showTeamProfile(teamName){
     .sort((a,b)=>(parseFloat(b.MPG)||0)-(parseFloat(a.MPG)||0));
   const lus=db.raw.lu.filter(r=>matchTeam(r.Team||"",teamName)&&(parseFloat(r.Poss)||0)>=15)
     .sort((a,b)=>(parseFloat(b.NETRTG)||0)-(parseFloat(a.NETRTG)||0)).slice(0,3);
+  // Shot chart
+  renderShotChart(db, NEXT_OPP, "no-shot-chart");
+
   const h2h=db.raw.ts.filter(r=>r.Team==="SURREY 89ERS"&&(r.Opp||"")=== teamName);
   const h2hW=h2h.filter(r=>r.Result==="WIN").length;
 
