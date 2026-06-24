@@ -123,6 +123,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
 .opp-logo-lg{width:64px;height:64px;object-fit:contain;
   background:#fff;border-radius:12px;padding:6px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@media print{
+  .slide-card{page-break-before:always;break-before:page;page-break-inside:avoid}
+  .slide-card:first-child{page-break-before:avoid}
+  @page{size:A3 landscape;margin:8mm}
+}
 
 /* PAGE HEADERS */
 .page-header{margin-bottom:24px}
@@ -534,7 +539,9 @@ const LOGOS = {
 const SURREY_LOGO = LOGOS['SURREY 89ERS'];
 
 // Depth chart data from team Data sheets
-const DEPTH_CHARTS = {"LONDON LIONS":[{"pos":1,"name":"Phillip, Tarick","nameAlt":"Tarick Phillip","number":"22","position":"GUARD","height":"6'3","handed":"RIGHT HANDED","iso":"","cs":"as catch shooter","dribble":"","post":"","screener":"if F or C","ballhandler":"if guard","whoWhat":"","forcing":"","stopping":"","scoring":"B-","defence":"B-","rebounding":"C+","playmaking":"B+","paint_pct":0.4094,"ft_pct":0.2398,"mid_pct":0.0526,"three_pct":0.2982,"gp":36.0,"mpg":20.2183,"ppg":9.5,"fgp":0.428,"twop":0.513,"threepm":0.9444,"threepa":3.0556,"threepct":0.3091,"ftm":2.2778,"fta":3.0,"ftpct":0.7593,"efg":0.4924,"pp40":18.7948,"fbp":1.6111,"pip":3.8889,"rpg":3.3611,"oreb":0.6667,"apg":3.75,"tpg":1.6944,"tov_pct":0.0596,"pm":5.6944,"pct_pts":0.1029,"pts_created":17.0,"usage":0.241},{"pos":2,"name":"Soluade, Mo","nameAlt":"Mo Soluade","number":"12","position":"GUARD","height":"6'2","handed":"RIGHT HANDED","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"C-","defence":"D","rebounding":"C-","playmaking":"B-","paint_pct":0.0889,"ft_pct":0.0667,"mid_pct":0.0444,"three_pct":0.8,"gp":23.0,"mpg":14.1443,"ppg":3.913,"fgp":0.4286,"twop":0.5,"threepm":1.0435,"threepa":2.5217,"threepct":0.4138,"ftm":0.2609,"fta":0.3043,"ftpct":0.8571,"efg":0.6,"pp40":11.066,"fbp":0.1739,"pip":0.3478,"rpg":1.5652,"oreb":0.4783,"apg":1.913,"tpg":1.2174,"tov_pct":0.086,"pm":4.1304,"pct_pts":0.0271,"pts_created":7.7391,"usage":0.1549},{"pos":3,"name":"Sandy, Ciaran","nameAlt":"Ciaran Sandy","number":"","position":"FORWARD","height":"","handed":"RIGHT HANDED","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"C-","defence":"C","rebounding":"D","playmaking":"C-","paint_pct":0.4571,"ft_pct":0.181,"mid_pct":0.0762,"three_pct":0.2857,"gp":29.0,"mpg":11.3131,"ppg":3.6207,"fgp":0.4634,"twop":0.5714,"threepm":0.3448,"threepa":1.1379,"threepct":0.303,"ftm":0.6552,"fta":0.9655,"ftpct":0.6786,"efg":0.5244,"pp40":12.8018,"fbp":0.4483,"pip":1.6552,"rpg":1.5517,"oreb":0.3103,"apg":0.4828,"tpg":0.2759,"tov_pct":0.0596,"pm":0.7241,"pct_pts":0.0316,"pts_created":4.5862,"usage":0.1391},{"pos":4,"name":"Williams, Deane","nameAlt":"Deane Williams","number":"31","position":"FORWARD","height":"6'9","handed":"RIGHT HANDED","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"B-","defence":"B","rebounding":"B","playmaking":"B-","paint_pct":0.454,"ft_pct":0.1897,"mid_pct":0.0287,"three_pct":0.3276,"gp":39.0,"mpg":22.0708,"ppg":8.9231,"fgp":0.4436,"twop":0.5526,"threepm":0.9744,"threepa":3.1538,"threepct":0.3089,"ftm":1.6923,"fta":2.4615,"ftpct":0.6875,"efg":0.5127,"pp40":16.1718,"fbp":1.1538,"pip":4.0513,"rpg":4.5128,"oreb":1.3333,"apg":1.7949,"tpg":1.359,"tov_pct":0.0946,"pm":6.1026,"pct_pts":0.1047,"pts_created":12.5128,"usage":0.2045},{"pos":5,"name":"Scott, Joel","nameAlt":"Joel Scott","number":"","position":"CENTRE","height":"","handed":"","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"B+","defence":"B-","rebounding":"A-","playmaking":"C+","paint_pct":0.5952,"ft_pct":0.2143,"mid_pct":0.0119,"three_pct":0.1786,"gp":26.0,"mpg":22.8219,"ppg":12.9231,"fgp":0.5471,"twop":0.5862,"threepm":0.7692,"threepa":1.8846,"threepct":0.4082,"ftm":2.7692,"fta":3.6538,"ftpct":0.7579,"efg":0.5919,"pp40":22.6503,"fbp":1.3846,"pip":7.6923,"rpg":5.5385,"oreb":2.3462,"apg":1.1538,"tpg":0.9615,"tov_pct":0.0397,"pm":8.7692,"pct_pts":0.1011,"pts_created":15.2308,"usage":0.2269},{"pos":6,"name":"Reynolds Jr, Shavar","nameAlt":"Shavar Reynolds Jr","number":"","position":"GUARD","height":"","handed":"","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"B-","defence":"C-","rebounding":"C-","playmaking":"A-","paint_pct":0.4063,"ft_pct":0.1778,"mid_pct":0.1968,"three_pct":0.219,"gp":31.0,"mpg":21.8019,"ppg":10.1613,"fgp":0.4701,"twop":0.4922,"threepm":0.7419,"threepa":1.871,"threepct":0.3966,"ftm":1.8065,"fta":2.0968,"ftpct":0.8615,"efg":0.5159,"pp40":18.6429,"fbp":0.9677,"pip":4.129,"rpg":1.9032,"oreb":0.7742,"apg":4.2903,"tpg":1.6452,"tov_pct":0.0426,"pm":5.871,"pct_pts":0.0948,"pts_created":18.7419,"usage":0.2334},{"pos":7,"name":"McGusty, Kameron","nameAlt":"Kameron McGusty","number":"","position":"WING","height":"","handed":"","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"B-","defence":"B-","rebounding":"C","playmaking":"B+","paint_pct":0.4957,"ft_pct":0.1709,"mid_pct":0.1282,"three_pct":0.2051,"gp":23.0,"mpg":22.3157,"ppg":10.1739,"fgp":0.4341,"twop":0.4803,"threepm":0.6957,"threepa":2.3043,"threepct":0.3019,"ftm":1.7391,"fta":2.6087,"ftpct":0.6667,"efg":0.4732,"pp40":18.2364,"fbp":0.8261,"pip":5.0435,"rpg":2.7391,"oreb":0.3478,"apg":3.3478,"tpg":1.3913,"tov_pct":0.0456,"pm":7.5652,"pct_pts":0.0704,"pts_created":16.8696,"usage":0.2362},{"pos":8,"name":"Rai, Aaryndeep","nameAlt":"Aaryndeep Rai","number":"","position":"WING","height":"","handed":"RIGHT HANDED","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"C+","defence":"B+","rebounding":"A-","playmaking":"B-","paint_pct":0.5979,"ft_pct":0.1317,"mid_pct":0.0569,"three_pct":0.2135,"gp":40.0,"mpg":21.9642,"ppg":7.025,"fgp":0.5463,"twop":0.6174,"threepm":0.5,"threepa":1.4,"threepct":0.3571,"ftm":0.925,"fta":1.45,"ftpct":0.6379,"efg":0.5951,"pp40":12.7935,"fbp":0.85,"pip":4.2,"rpg":5.925,"oreb":1.8,"apg":1.5,"tpg":1.075,"tov_pct":0.098,"pm":5.725,"pct_pts":0.0846,"pts_created":10.025,"usage":0.1445},{"pos":9,"name":"Price, Ethan","nameAlt":"Ethan Price","number":"","position":"","height":"","handed":"","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"C+","defence":"C+","rebounding":"C+","playmaking":"C","paint_pct":0.6104,"ft_pct":0.2129,"mid_pct":0.008,"three_pct":0.1687,"gp":35.0,"mpg":16.0126,"ppg":7.1143,"fgp":0.5417,"twop":0.6525,"threepm":0.4,"threepa":1.4286,"threepct":0.28,"ftm":1.5143,"fta":2.0286,"ftpct":0.7465,"efg":0.5833,"pp40":17.7718,"fbp":0.7429,"pip":4.3429,"rpg":3.4857,"oreb":0.7429,"apg":0.8857,"tpg":0.9143,"tov_pct":0.0798,"pm":5.1714,"pct_pts":0.0749,"pts_created":8.8857,"usage":0.2029},{"pos":10,"name":"Soko, Ovie","nameAlt":"Ovie Soko","number":"","position":"CENTRE","height":"","handed":"RIGHT HANDED","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"C","defence":"C+","rebounding":"C+","playmaking":"C-","paint_pct":0.5965,"ft_pct":0.3684,"mid_pct":0.0351,"three_pct":0.0,"gp":13.0,"mpg":12.0177,"ppg":4.3846,"fgp":0.5806,"twop":0.6,"threepm":0.0,"threepa":0.0769,"threepct":0.0,"ftm":1.6154,"fta":2.4615,"ftpct":0.6562,"efg":0.5806,"pp40":14.5939,"fbp":0.4615,"pip":2.6154,"rpg":3.3077,"oreb":0.9231,"apg":0.4615,"tpg":1.0769,"tov_pct":0.1175,"pm":4.8462,"pct_pts":0.0172,"pts_created":5.3077,"usage":0.1844}]};
+// Images: paste direct URL or GitHub raw URL into col C (IMAGE) of each team's Data sheet
+// For offline use, imageB64 can hold base64-encoded images
+const DEPTH_CHARTS = {"LONDON LIONS":[{"pos":1,"name":"Phillip, Tarick","nameAlt":"Tarick Phillip","number":"22","position":"GUARD","height":"6'3","handed":"RIGHT HANDED","iso":"","cs":"as catch shooter","dribble":"","post":"","screener":"if F or C","ballhandler":"if guard","whoWhat":"","forcing":"","stopping":"","scoring":"B-","defence":"B-","rebounding":"C+","playmaking":"B+","paint_pct":0.4094,"ft_pct":0.2398,"mid_pct":0.0526,"three_pct":0.2982,"gp":36.0,"mpg":20.2183,"ppg":9.5,"fgp":0.428,"twop":0.513,"threepm":0.9444,"threepa":3.0556,"threepct":0.3091,"ftm":2.2778,"fta":3.0,"ftpct":0.7593,"efg":0.4924,"pp40":18.7948,"fbp":1.6111,"pip":3.8889,"rpg":3.3611,"oreb":0.6667,"apg":3.75,"tpg":1.6944,"tov_pct":0.0596,"pm":5.6944,"pct_pts":0.1029,"pts_created":17.0,"usage":0.241,"imageB64":"data:image/jpeg;base64,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","imageUrl":"","impact":"B-"},{"pos":2,"name":"Soluade, Mo","nameAlt":"Mo Soluade","number":"12","position":"GUARD","height":"6'2","handed":"RIGHT HANDED","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"C-","defence":"D","rebounding":"C-","playmaking":"B-","paint_pct":0.0889,"ft_pct":0.0667,"mid_pct":0.0444,"three_pct":0.8,"gp":23.0,"mpg":14.1443,"ppg":3.913,"fgp":0.4286,"twop":0.5,"threepm":1.0435,"threepa":2.5217,"threepct":0.4138,"ftm":0.2609,"fta":0.3043,"ftpct":0.8571,"efg":0.6,"pp40":11.066,"fbp":0.1739,"pip":0.3478,"rpg":1.5652,"oreb":0.4783,"apg":1.913,"tpg":1.2174,"tov_pct":0.086,"pm":4.1304,"pct_pts":0.0271,"pts_created":7.7391,"usage":0.1549,"imageB64":"","imageUrl":"","impact":"C-"},{"pos":3,"name":"Sandy, Ciaran","nameAlt":"Ciaran Sandy","number":"","position":"FORWARD","height":"","handed":"RIGHT HANDED","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"C-","defence":"C","rebounding":"D","playmaking":"C-","paint_pct":0.4571,"ft_pct":0.181,"mid_pct":0.0762,"three_pct":0.2857,"gp":29.0,"mpg":11.3131,"ppg":3.6207,"fgp":0.4634,"twop":0.5714,"threepm":0.3448,"threepa":1.1379,"threepct":0.303,"ftm":0.6552,"fta":0.9655,"ftpct":0.6786,"efg":0.5244,"pp40":12.8018,"fbp":0.4483,"pip":1.6552,"rpg":1.5517,"oreb":0.3103,"apg":0.4828,"tpg":0.2759,"tov_pct":0.0596,"pm":0.7241,"pct_pts":0.0316,"pts_created":4.5862,"usage":0.1391,"imageB64":"","imageUrl":"","impact":"C-"},{"pos":4,"name":"Williams, Deane","nameAlt":"Deane Williams","number":"31","position":"FORWARD","height":"6'9","handed":"RIGHT HANDED","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"B-","defence":"B","rebounding":"B","playmaking":"B-","paint_pct":0.454,"ft_pct":0.1897,"mid_pct":0.0287,"three_pct":0.3276,"gp":39.0,"mpg":22.0708,"ppg":8.9231,"fgp":0.4436,"twop":0.5526,"threepm":0.9744,"threepa":3.1538,"threepct":0.3089,"ftm":1.6923,"fta":2.4615,"ftpct":0.6875,"efg":0.5127,"pp40":16.1718,"fbp":1.1538,"pip":4.0513,"rpg":4.5128,"oreb":1.3333,"apg":1.7949,"tpg":1.359,"tov_pct":0.0946,"pm":6.1026,"pct_pts":0.1047,"pts_created":12.5128,"usage":0.2045,"imageB64":"","imageUrl":"","impact":"C+"},{"pos":5,"name":"Scott, Joel","nameAlt":"Joel Scott","number":"","position":"CENTRE","height":"","handed":"","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"B+","defence":"B-","rebounding":"A-","playmaking":"C+","paint_pct":0.5952,"ft_pct":0.2143,"mid_pct":0.0119,"three_pct":0.1786,"gp":26.0,"mpg":22.8219,"ppg":12.9231,"fgp":0.5471,"twop":0.5862,"threepm":0.7692,"threepa":1.8846,"threepct":0.4082,"ftm":2.7692,"fta":3.6538,"ftpct":0.7579,"efg":0.5919,"pp40":22.6503,"fbp":1.3846,"pip":7.6923,"rpg":5.5385,"oreb":2.3462,"apg":1.1538,"tpg":0.9615,"tov_pct":0.0397,"pm":8.7692,"pct_pts":0.1011,"pts_created":15.2308,"usage":0.2269,"imageB64":"","imageUrl":"","impact":"B+"},{"pos":6,"name":"Reynolds Jr, Shavar","nameAlt":"Shavar Reynolds Jr","number":"","position":"GUARD","height":"","handed":"","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"B-","defence":"C-","rebounding":"C-","playmaking":"A-","paint_pct":0.4063,"ft_pct":0.1778,"mid_pct":0.1968,"three_pct":0.219,"gp":31.0,"mpg":21.8019,"ppg":10.1613,"fgp":0.4701,"twop":0.4922,"threepm":0.7419,"threepa":1.871,"threepct":0.3966,"ftm":1.8065,"fta":2.0968,"ftpct":0.8615,"efg":0.5159,"pp40":18.6429,"fbp":0.9677,"pip":4.129,"rpg":1.9032,"oreb":0.7742,"apg":4.2903,"tpg":1.6452,"tov_pct":0.0426,"pm":5.871,"pct_pts":0.0948,"pts_created":18.7419,"usage":0.2334,"imageB64":"","imageUrl":"","impact":"B-"},{"pos":7,"name":"McGusty, Kameron","nameAlt":"Kameron McGusty","number":"","position":"WING","height":"","handed":"","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"B-","defence":"B-","rebounding":"C","playmaking":"B+","paint_pct":0.4957,"ft_pct":0.1709,"mid_pct":0.1282,"three_pct":0.2051,"gp":23.0,"mpg":22.3157,"ppg":10.1739,"fgp":0.4341,"twop":0.4803,"threepm":0.6957,"threepa":2.3043,"threepct":0.3019,"ftm":1.7391,"fta":2.6087,"ftpct":0.6667,"efg":0.4732,"pp40":18.2364,"fbp":0.8261,"pip":5.0435,"rpg":2.7391,"oreb":0.3478,"apg":3.3478,"tpg":1.3913,"tov_pct":0.0456,"pm":7.5652,"pct_pts":0.0704,"pts_created":16.8696,"usage":0.2362,"imageB64":"","imageUrl":"","impact":"C+"},{"pos":8,"name":"Rai, Aaryndeep","nameAlt":"Aaryndeep Rai","number":"","position":"WING","height":"","handed":"RIGHT HANDED","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"C+","defence":"B+","rebounding":"A-","playmaking":"B-","paint_pct":0.5979,"ft_pct":0.1317,"mid_pct":0.0569,"three_pct":0.2135,"gp":40.0,"mpg":21.9642,"ppg":7.025,"fgp":0.5463,"twop":0.6174,"threepm":0.5,"threepa":1.4,"threepct":0.3571,"ftm":0.925,"fta":1.45,"ftpct":0.6379,"efg":0.5951,"pp40":12.7935,"fbp":0.85,"pip":4.2,"rpg":5.925,"oreb":1.8,"apg":1.5,"tpg":1.075,"tov_pct":0.098,"pm":5.725,"pct_pts":0.0846,"pts_created":10.025,"usage":0.1445,"imageB64":"","imageUrl":"","impact":"B-"},{"pos":9,"name":"Price, Ethan","nameAlt":"Ethan Price","number":"","position":"","height":"","handed":"","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"C+","defence":"C+","rebounding":"C+","playmaking":"C","paint_pct":0.6104,"ft_pct":0.2129,"mid_pct":0.008,"three_pct":0.1687,"gp":35.0,"mpg":16.0126,"ppg":7.1143,"fgp":0.5417,"twop":0.6525,"threepm":0.4,"threepa":1.4286,"threepct":0.28,"ftm":1.5143,"fta":2.0286,"ftpct":0.7465,"efg":0.5833,"pp40":17.7718,"fbp":0.7429,"pip":4.3429,"rpg":3.4857,"oreb":0.7429,"apg":0.8857,"tpg":0.9143,"tov_pct":0.0798,"pm":5.1714,"pct_pts":0.0749,"pts_created":8.8857,"usage":0.2029,"imageB64":"","imageUrl":"","impact":"C+"},{"pos":10,"name":"Soko, Ovie","nameAlt":"Ovie Soko","number":"","position":"CENTRE","height":"","handed":"RIGHT HANDED","iso":"","cs":"","dribble":"","post":"","screener":"","ballhandler":"","whoWhat":"","forcing":"","stopping":"","scoring":"C","defence":"C+","rebounding":"C+","playmaking":"C-","paint_pct":0.5965,"ft_pct":0.3684,"mid_pct":0.0351,"three_pct":0.0,"gp":13.0,"mpg":12.0177,"ppg":4.3846,"fgp":0.5806,"twop":0.6,"threepm":0.0,"threepa":0.0769,"threepct":0.0,"ftm":1.6154,"fta":2.4615,"ftpct":0.6562,"efg":0.5806,"pp40":14.5939,"fbp":0.4615,"pip":2.6154,"rpg":3.3077,"oreb":0.9231,"apg":0.4615,"tpg":1.0769,"tov_pct":0.1175,"pm":4.8462,"pct_pts":0.0172,"pts_created":5.3077,"usage":0.1844,"imageB64":"","imageUrl":"","impact":"C"}]};
 
 // ═══════════════════════════════════════════
 // CONFIG — change NEXT_OPP each week
@@ -1773,45 +1780,47 @@ function buildSlides(db,teamName){
 
 function slideCard(p,idx){
   const name = fmtName(p.name||"");
-  const numDisplay = p.number||"—";
-  const grade = p.scoring||"—";
+  const numDisplay = p.number||"";
 
-  // Shot zone percentages (stored as 0-1, multiply to get %)
-  const paintPct  = Math.round((p.paint_pct||0)*100);
-  const ftPct     = Math.round((p.ft_pct||0)*100);
-  const midPct    = Math.round((p.mid_pct||0)*100);
-  const threePct  = Math.round((p.three_pct||0)*100);
+  // Photo — use base64 if present, else URL from Data sheet col C, else placeholder
+  const photoSrc = p.imageB64 || p.imageUrl || "";
 
-  // Compute 3PT shot type breakdown from PBP for this player
-  const playerName = p.nameAlt || p.name || "";
+  // Shot zones (0-1 → %)
+  const paintPct = Math.round((p.paint_pct||0)*100);
+  const ftPct    = Math.round((p.ft_pct||0)*100);
+  const midPct   = Math.round((p.mid_pct||0)*100);
+  const threePct = Math.round((p.three_pct||0)*100);
+
+  // Shot type breakdown from PBP
   const playerShots3 = (DB&&DB.raw&&DB.raw.pbp||[]).filter(r=>
-    r.Action==="3pt" && matchPlayerName(r.Player, playerName)
+    r.Action==="3pt" && matchPlayerName(r.Player, p.name||"")
   );
   const playerShots2 = (DB&&DB.raw&&DB.raw.pbp||[]).filter(r=>
-    r.Action==="2pt" && matchPlayerName(r.Player, playerName)
+    r.Action==="2pt" && matchPlayerName(r.Player, p.name||"")
   );
   const playerTovs = (DB&&DB.raw&&DB.raw.pbp||[]).filter(r=>
-    r.Action==="turnover" && matchPlayerName(r.Player, playerName)
+    r.Action==="turnover" && matchPlayerName(r.Player, p.name||"")
   );
 
   function shotTypePct(shots, types){
-    if(!shots.length) return types.map(t=>({...t, pct:0, made:0}));
+    if(!shots.length) return [];
     return types.map(t=>{
-      const matching = shots.filter(s=>t.keys.includes(s["Sub Type"]||""));
-      const made = matching.filter(s=>s.Success==1||s.Success==="1").length;
-      return {...t, n:matching.length, pct:Math.round(matching.length/shots.length*100), madeRate: matching.length?Math.round(made/matching.length*100):0};
-    }).filter(t=>t.n>0);
+      const m = shots.filter(s=>t.keys.includes(s["Sub Type"]||""));
+      const made = m.filter(s=>s.Success==1||s.Success==="1").length;
+      return {...t, n:m.length, pct:Math.round(m.length/shots.length*100),
+              madeRate: m.length?Math.round(made/m.length*100):0};
+    }).filter(t=>t.n>0).sort((a,b)=>b.pct-a.pct);
   }
 
   const types3 = shotTypePct(playerShots3,[
     {label:"Catch & Shoot", keys:["jumpshot"]},
     {label:"Pull-Up",       keys:["pullupjumpshot"]},
     {label:"Step-Back",     keys:["stepbackjumpshot"]},
-    {label:"Fadeaway",      keys:["fadeaway","turnaroundjumpshot"]},
+    {label:"Fadeaway/Turn", keys:["fadeaway","turnaroundjumpshot"]},
   ]);
   const types2 = shotTypePct(playerShots2,[
     {label:"Layup/Drive", keys:["layup","drivinglayup","reverselayup"]},
-    {label:"Dunk",        keys:["dunk","alleyoopdunk","alleyoop"]},
+    {label:"Dunk",        keys:["dunk","alleyoopdunk","alleyoop","tipindunk","tipinlayup"]},
     {label:"Floater",     keys:["floatingjumpshot"]},
     {label:"Mid-Range",   keys:["jumpshot"]},
     {label:"Pull-Up",     keys:["pullupjumpshot","stepbackjumpshot"]},
@@ -1819,182 +1828,208 @@ function slideCard(p,idx){
   ]);
 
   const liveTov  = playerTovs.filter(r=>["badpass","ballhandling"].includes(r["Sub Type"]||"")).length;
-  const deadTov  = playerTovs.filter(r=>["travel","outofbounds","24sec","backcourt"].includes(r["Sub Type"]||"")).length;
   const totalTov = playerTovs.length;
   const livePct  = totalTov ? Math.round(liveTov/totalTov*100) : 0;
 
-  // Profile tags
-  const tags=[];
-  if((p.threepm||0)>=1.5) tags.push({l:"3PT Shooter",c:"pill-blue"});
-  if((p.pip||0)>=5) tags.push({l:"Paint Finisher",c:"pill-red"});
-  if((p.apg||0)>=4) tags.push({l:"Playmaker",c:"pill-green"});
-  if((p.usage||0)>=0.22) tags.push({l:"High Usage",c:"pill-amber"});
-  if((p.fbp||0)>=2) tags.push({l:"Transition",c:"pill-amber"});
-  if((p.threepct||0)>=0.38) tags.push({l:"Efficient 3PT",c:"pill-blue"});
-  if((p.pts_created||0)/(p.ppg||1) > 0.7) tags.push({l:"Self-Created",c:"pill-green"});
+  // Guarding situations with their rating text
+  const guardSituations = [
+    ["PNR BALL HANDLER", p.ballhandler],
+    ["CATCH & SHOOT",    p.cs],
+    ["OFF DRIBBLE",      p.dribble],
+    ["ISOLATION",        p.iso],
+    ["POST UP",          p.post],
+    ["AS SCREENER",      p.screener],
+  ].filter(([,v])=>v);
 
-  return `<div class="slide-card" id="slide-${idx}" style="page-break-inside:avoid;break-inside:avoid">
+  // Stats matching screenshot exactly
+  // PPG RPG APG FG% 3P% 3PR FTA FT% OFF TO FBK PIP
+  const stats = [
+    {v:fmtN(p.ppg),    l:"PPG"},
+    {v:fmtN(p.rpg),    l:"RPG"},
+    {v:fmtN(p.apg),    l:"APG"},
+    {v:fmtPct1(p.fgp), l:"FG%"},
+    {v:fmtPct1(p.threepct), l:"3P%"},
+    {v:fmtN(p.threepm),l:"3PR"},
+    {v:fmtN(p.fta),    l:"FTA"},
+    {v:fmtPct1(p.ftpct),l:"FT%"},
+    {v:fmtN(p.oreb),   l:"OFF"},
+    {v:fmtN(p.tpg),    l:"TO"},
+    {v:fmtN(p.fbp),    l:"FBK"},
+    {v:fmtN(p.pip),    l:"PIP"},
+  ];
 
-    <!-- ── SLIDE: LANDSCAPE A3 LAYOUT ── -->
-    <div style="display:grid;grid-template-columns:220px 1fr 1fr;gap:0;min-height:320px">
+  // Grades — IMPACT SCORING DEFENCE REBOUNDING PLAYMAKING
+  const grades = [
+    {l:"IMPACT",    g:p.impact||p.scoring},
+    {l:"SCORING",   g:p.scoring},
+    {l:"DEFENCE",   g:p.defence},
+    {l:"REBOUNDING",g:p.rebounding},
+    {l:"PLAYMAKING",g:p.playmaking},
+  ];
 
-      <!-- LEFT PANEL: Identity -->
-      <div class="slide-header" style="padding:20px;display:flex;flex-direction:column;border-radius:10px 0 0 10px">
-        <!-- Number circle + name -->
-        <div style="text-align:center;margin-bottom:16px">
-          <div style="width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,0.3);border:3px solid rgba(250,249,246,0.3);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:800;color:#fff;margin:0 auto 10px">${numDisplay}</div>
-          <div style="font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:800;line-height:1.2">${name}</div>
-          <div style="font-size:11px;color:rgba(250,249,246,0.6);margin-top:4px">${p.position||""} · ${p.height||""}</div>
-          <div style="font-size:10px;color:rgba(250,249,246,0.5);margin-top:2px">${(p.handed||"").replace(" HANDED","")}</div>
+  return `<div class="slide-card" id="slide-${idx}" style="page-break-before:always;break-before:page;page-break-inside:avoid">
+
+    <!-- ══ SLIDE LAYOUT — matches A3 landscape ══ -->
+    <div style="display:grid;grid-template-columns:200px 1fr;min-height:360px;border-radius:10px;overflow:hidden">
+
+      <!-- ── LEFT: Photo + Profile + Shot Menu + How To Guard ── -->
+      <div class="slide-header" style="padding:0;display:flex;flex-direction:column">
+
+        <!-- Photo -->
+        <div style="height:220px;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">
+          ${photoSrc
+            ? `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover;object-position:top" alt="${name}">`
+            : `<div style="text-align:center;color:rgba(250,249,246,0.2)">
+                 <div style="font-size:48px;margin-bottom:6px">👤</div>
+                 <div style="font-size:9px;letter-spacing:1px">ADD PHOTO</div>
+                 <div style="font-size:8px;color:rgba(250,249,246,0.1);margin-top:3px">Paste URL in col C of Data sheet</div>
+               </div>`}
         </div>
 
-        <!-- Grades -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:14px">
-          ${[["SCORING",p.scoring],["DEFENCE",p.defence],["REBOUNDING",p.rebounding],["PLAYMAKING",p.playmaking]].map(([l,g])=>`
-            <div style="background:rgba(0,0,0,0.25);border-radius:6px;padding:7px 4px;text-align:center">
-              <div class="grade-badge ${gradeClass(g)}" style="font-size:14px;padding:3px 8px">${g||"—"}</div>
-              <div style="font-size:8px;color:rgba(250,249,246,0.5);letter-spacing:1px;margin-top:3px">${l}</div>
-            </div>`).join("")}
+        <!-- Player Profile box -->
+        <div style="padding:10px 12px;border-bottom:1px solid var(--border-soft)">
+          <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:6px">PLAYER PROFILE</div>
+          <div style="font-size:12px;font-weight:700">${p.height||"—"} &nbsp;·&nbsp; ${p.position||"—"}</div>
+          <div style="font-size:11px;color:rgba(250,249,246,0.6);margin-top:3px">${(p.handed||"").replace(" HANDED","").replace("RIGHT","RIGHT HANDED").replace("LEFT","LEFT HANDED")}</div>
         </div>
 
-        <!-- Who / Stop / Force -->
-        ${p.whoWhat?`<div style="margin-bottom:8px">
-          <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(250,249,246,0.4);margin-bottom:4px">WHO IS HE</div>
-          <div style="font-size:10px;color:rgba(250,249,246,0.8);line-height:1.4">${p.whoWhat}</div>
-        </div>`:""}
-        ${p.stopping?`<div style="margin-bottom:8px">
-          <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#ff8a8a;margin-bottom:3px">WHAT TO STOP</div>
-          <div style="font-size:10px;color:rgba(250,249,246,0.8);line-height:1.4">${p.stopping}</div>
-        </div>`:""}
-        ${p.forcing?`<div>
-          <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);margin-bottom:3px">WHAT TO FORCE</div>
-          <div style="font-size:10px;color:rgba(250,249,246,0.8);line-height:1.4">${p.forcing}</div>
-        </div>`:""}
+        <!-- Shot Menu -->
+        <div style="padding:10px 12px;border-bottom:1px solid var(--border-soft)">
+          <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:6px">SHOT MENU</div>
+          ${[["PAINT",paintPct,"#ff8a8a"],["MIDRANGE",midPct,"var(--amber)"],["FTs",ftPct,"var(--purple)"],["3s",threePct,"var(--blue)"]].map(([l,v,c])=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:11px;color:rgba(250,249,246,0.7)">${l}</span>
+            <span style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:${c}">${v}%</span>
+          </div>`).join("")}
+        </div>
 
-        <!-- Tags -->
-        ${tags.length?`<div style="margin-top:10px;display:flex;gap:3px;flex-wrap:wrap">${tags.map(t=>`<span class="pill ${t.c}" style="font-size:8px;padding:2px 5px">${t.l}</span>`).join("")}</div>`:""}
+        <!-- How To Guard -->
+        <div style="padding:10px 12px;flex:1">
+          <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:8px">HOW TO GUARD</div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            ${guardSituations.map(([l,v])=>`
+            <div style="background:rgba(0,0,0,0.25);border-radius:5px;padding:6px 8px;text-align:center">
+              <div style="font-size:9px;font-weight:700;letter-spacing:0.5px;color:rgba(250,249,246,0.5);text-transform:uppercase;margin-bottom:2px">${l}</div>
+              <div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:0.5px">${v}</div>
+            </div>`).join("") || `<div style="font-size:10px;color:rgba(250,249,246,0.3)">No notes entered</div>`}
+          </div>
+        </div>
       </div>
 
-      <!-- MIDDLE PANEL: Stats + Shot Profile -->
-      <div style="padding:18px;border-left:1px solid var(--border-soft);border-right:1px solid var(--border-soft)">
+      <!-- ── RIGHT: Name/Number, Grades, Stats, Statements, Shot Types ── -->
+      <div style="display:flex;flex-direction:column;padding:0;border-left:1px solid var(--border-soft)">
 
-        <!-- Key stats grid -->
-        <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">KEY STATISTICS</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:14px">
-          ${[
-            {v:fmtN(p.ppg),l:"PPG"},{v:fmtN(p.rpg),l:"RPG"},
-            {v:fmtN(p.apg),l:"APG"},{v:fmtN(p.tpg),l:"TOV/G"},
-            {v:fmtN(p.mpg),l:"MPG"},{v:fmtN(p.efg*100)+'%',l:"eFG%"},
-            {v:(p.pm>0?"+":"")+fmtN(p.pm),l:"+/-"},{v:fmtN(p.usage*100)+'%',l:"USG%"},
-            {v:fmtN(p.pip),l:"PIP/G"},{v:fmtN(p.fbp),l:"FBP/G"},
-            {v:fmtN(p.pts_created),l:"PTS CREATED"},{v:fmtN(p.pp40),l:"PTS/40"},
-            {v:fmtN(p.pct_pts*100)+'%',l:"% OF PTS"},{v:fmtN(p.fgp*100)+'%',l:"FG%"},
-            {v:fmtN(p.threepct*100)+'%',l:"3P%"},{v:fmtN(p.ftpct*100)+'%',l:"FT%"},
-          ].map(s=>`
-            <div style="background:var(--card2);border-radius:5px;padding:6px 4px;text-align:center">
+        <!-- Name header row -->
+        <div style="padding:14px 18px 10px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.3px;text-transform:uppercase">${name}</div>
+            <div style="font-size:11px;color:rgba(250,249,246,0.4);margin-top:2px">#${numDisplay} · ${p.position||""} · ${p.height||""}</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            ${LOGOS["SURREY 89ERS"]?`<div style="width:32px;height:32px;background:#fff;border-radius:6px;padding:3px;display:flex;align-items:center;justify-content:center"><img src="${LOGOS["SURREY 89ERS"]}" style="width:26px;height:26px;object-fit:contain"></div>`:""}
+          </div>
+        </div>
+
+        <!-- Player Ratings -->
+        <div style="padding:12px 18px;border-bottom:1px solid var(--border-soft)">
+          <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">PLAYER RATINGS</div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+            ${grades.map(({l,g})=>`
+            <div style="background:var(--card3);border-radius:6px;padding:8px 4px;text-align:center">
+              <div class="grade-badge ${gradeClass(g)}" style="font-size:16px;padding:4px 10px;display:block;margin-bottom:4px">${g||"—"}</div>
+              <div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">${l}</div>
+            </div>`).join("")}
+          </div>
+        </div>
+
+        <!-- Key Statistics — exactly matching screenshot -->
+        <div style="padding:12px 18px;border-bottom:1px solid var(--border-soft)">
+          <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">KEY STATISTICS</div>
+          <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px">
+            ${stats.map(s=>`
+            <div style="background:var(--card3);border-radius:4px;padding:8px 2px;text-align:center">
               <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700">${s.v}</div>
-              <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">${s.l}</div>
+              <div style="font-size:7px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px">${s.l}</div>
             </div>`).join("")}
-        </div>
-
-        <!-- Shot zones -->
-        <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">SHOT MENU — ZONES</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:14px">
-          ${[["PAINT",paintPct,"#ff8a8a"],["FT LINE",ftPct,"var(--purple)"],["MID",midPct,"var(--amber)"],["3PT",threePct,"var(--blue)"]].map(([l,v,c])=>`
-            <div style="background:var(--card2);border-radius:5px;padding:8px 4px;text-align:center;border-bottom:2px solid ${c}">
-              <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:800;color:${c}">${v}%</div>
-              <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px">${l}</div>
-            </div>`).join("")}
-        </div>
-
-        <!-- 3PT shot types -->
-        ${types3.length?`
-        <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">3PT SHOT TYPES</div>
-        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px">
-          ${types3.map(t=>`
-            <div style="display:flex;align-items:center;gap:8px">
-              <div style="font-size:10px;color:var(--muted);width:100px;flex-shrink:0">${t.label}</div>
-              <div style="flex:1;height:4px;background:rgba(250,249,246,0.06);border-radius:2px;overflow:hidden">
-                <div style="height:100%;width:${t.pct}%;background:var(--blue);border-radius:2px"></div>
-              </div>
-              <div style="font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:700;width:28px;text-align:right">${t.pct}%</div>
-              <div style="font-size:9px;color:var(--muted);width:32px">${t.madeRate}%✓</div>
-            </div>`).join("")}
-        </div>`:""}
-
-        <!-- 2PT shot types -->
-        ${types2.length?`
-        <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">2PT SHOT TYPES</div>
-        <div style="display:flex;flex-direction:column;gap:4px">
-          ${types2.map(t=>`
-            <div style="display:flex;align-items:center;gap:8px">
-              <div style="font-size:10px;color:var(--muted);width:100px;flex-shrink:0">${t.label}</div>
-              <div style="flex:1;height:4px;background:rgba(250,249,246,0.06);border-radius:2px;overflow:hidden">
-                <div style="height:100%;width:${t.pct}%;background:#ff8a8a;border-radius:2px"></div>
-              </div>
-              <div style="font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:700;width:28px;text-align:right">${t.pct}%</div>
-              <div style="font-size:9px;color:var(--muted);width:32px">${t.madeRate}%✓</div>
-            </div>`).join("")}
-        </div>`:""}`+`
-      </div>
-
-      <!-- RIGHT PANEL: Guarding + TOV + Passing -->
-      <div style="padding:18px">
-
-        <!-- Guarding notes -->
-        <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">HOW TO GUARD</div>
-        <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:16px">
-          ${[["ISO",p.iso],["CATCH & SHOOT",p.cs],["OFF DRIBBLE",p.dribble],["POST UP",p.post],["AS SCREENER",p.screener],["BALL HANDLER",p.ballhandler]]
-            .filter(([,v])=>v)
-            .map(([l,v])=>`
-            <div style="background:var(--card2);border-radius:5px;padding:7px 10px">
-              <div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:2px">${l}</div>
-              <div style="font-size:10px;color:var(--offwhite);line-height:1.4">${v}</div>
-            </div>`).join("") || "<div style='color:var(--muted);font-size:11px'>No guarding notes</div>"}
-        </div>
-
-        <!-- Turnover breakdown -->
-        <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">TURNOVERS</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:14px">
-          <div style="background:var(--card2);border-radius:5px;padding:7px;text-align:center">
-            <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700">${fmtN(p.tpg)}</div>
-            <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">TOV/G</div>
-          </div>
-          <div style="background:var(--card2);border-radius:5px;padding:7px;text-align:center">
-            <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:#ff8a8a">${livePct}%</div>
-            <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">LIVE BALL</div>
-          </div>
-          <div style="background:var(--card2);border-radius:5px;padding:7px;text-align:center">
-            <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:var(--amber)">${100-livePct}%</div>
-            <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">DEAD BALL</div>
           </div>
         </div>
 
-        <!-- Additional stats -->
-        <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">ADDITIONAL</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
-          ${[
-            ["OREB/G",fmtN(p.oreb)],
-            ["2ND CHANCE",fmtN(p.secondChance)],
-            ["3PM/G",fmtN(p.threepm)],
-            ["3PA/G",fmtN(p.threepa)],
-            ["FTM/G",fmtN(p.ftm)],
-            ["FTA/G",fmtN(p.fta)],
-          ].map(([l,v])=>`
-            <div style="display:flex;justify-content:space-between;padding:5px 8px;background:var(--card2);border-radius:4px">
-              <span style="font-size:9px;color:var(--muted)">${l}</span>
-              <span style="font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700">${v}</span>
-            </div>`).join("")}
+        <!-- Bottom section: WHO/FORCE/STOP + Shot type breakdown -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;flex:1">
+
+          <!-- WHO / FORCE / STOP statements -->
+          <div style="padding:12px 18px;border-right:1px solid var(--border-soft)">
+            ${p.whoWhat?`
+            <div style="margin-bottom:12px">
+              <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">WHO IS HE</div>
+              <div style="font-size:11px;color:var(--offwhite);line-height:1.5">${p.whoWhat}</div>
+            </div>`:""}
+            ${p.forcing?`
+            <div style="margin-bottom:12px">
+              <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:5px">WHAT TO FORCE</div>
+              <div style="font-size:11px;color:var(--offwhite);line-height:1.5">${p.forcing}</div>
+            </div>`:""}
+            ${p.stopping?`
+            <div>
+              <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#ff8a8a;margin-bottom:5px">WHAT TO STOP</div>
+              <div style="font-size:11px;color:var(--offwhite);line-height:1.5">${p.stopping}</div>
+            </div>`:""}
+            ${!p.whoWhat&&!p.forcing&&!p.stopping?`<div style="color:var(--muted);font-size:11px;font-style:italic">Add WHO / FORCE / STOP text to Lions Data sheet</div>`:""}
+          </div>
+
+          <!-- Shot type breakdown -->
+          <div style="padding:12px 18px">
+            ${types3.length?`
+            <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--blue);margin-bottom:6px">3PT CREATION</div>
+            <div style="margin-bottom:10px">
+              ${types3.map(t=>`
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <div style="font-size:9px;color:var(--muted);width:90px;flex-shrink:0">${t.label}</div>
+                <div style="flex:1;height:4px;background:rgba(250,249,246,0.06);border-radius:2px"><div style="height:100%;width:${t.pct}%;background:var(--blue);border-radius:2px"></div></div>
+                <div style="font-family:'Space Grotesk',sans-serif;font-size:9px;font-weight:700;width:24px;text-align:right">${t.pct}%</div>
+                <div style="font-size:8px;color:var(--muted);width:26px">${t.madeRate}%✓</div>
+              </div>`).join("")}
+            </div>`:""}
+
+            ${types2.length?`
+            <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#ff8a8a;margin-bottom:6px">2PT CREATION</div>
+            <div style="margin-bottom:10px">
+              ${types2.map(t=>`
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <div style="font-size:9px;color:var(--muted);width:90px;flex-shrink:0">${t.label}</div>
+                <div style="flex:1;height:4px;background:rgba(250,249,246,0.06);border-radius:2px"><div style="height:100%;width:${t.pct}%;background:#ff8a8a;border-radius:2px"></div></div>
+                <div style="font-family:'Space Grotesk',sans-serif;font-size:9px;font-weight:700;width:24px;text-align:right">${t.pct}%</div>
+                <div style="font-size:8px;color:var(--muted);width:26px">${t.madeRate}%✓</div>
+              </div>`).join("")}
+            </div>`:""}
+
+            <!-- TOV breakdown -->
+            <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--amber);margin-bottom:6px">TURNOVERS</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">
+              ${[
+                ["TOV/G", fmtN(p.tpg), "var(--offwhite)"],
+                ["LIVE",  livePct+"%",  "#ff8a8a"],
+                ["DEAD",  (100-livePct)+"%", "var(--amber)"],
+              ].map(([l,v,c])=>`
+              <div style="background:var(--card3);border-radius:4px;padding:6px 4px;text-align:center">
+                <div style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:${c}">${v}</div>
+                <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px">${l}</div>
+              </div>`).join("")}
+            </div>
+          </div>
         </div>
 
-        <!-- Print this slide -->
-        <div style="margin-top:14px" class="no-print">
-          <button class="btn" style="width:100%;font-size:11px" onclick="printSingleSlide(${idx})">🖨️ Print A3</button>
+        <!-- Print button -->
+        <div style="padding:10px 18px;border-top:1px solid var(--border-soft);display:flex;gap:8px" class="no-print">
+          <button class="btn btn-green" style="flex:1;font-size:11px" onclick="printSingleSlide(${idx}, '${name}')">🖨️ Print A3</button>
         </div>
       </div>
     </div>
   </div>`;
 }
+
+// Format % values from 0-1 range (e.g. 0.487 → "48.7")
+function fmtPct1(v){ return v!=null&&!isNaN(v)&&v!==0 ? (Number(v)*100).toFixed(1) : "—"; }
 
 // Helper: format number to 1dp for slides
 function fmtN(v){ return v!=null&&!isNaN(v)?Number(v).toFixed(1):"—"; }
@@ -2011,7 +2046,7 @@ function matchPlayerName(pbpName, dataName){
   return pbp.includes(surname) || (first.charAt(0) && pbp.includes(first.charAt(0)+". "+surname));
 }
 
-function printSingleSlide(idx){
+function printSingleSlide(idx, playerName){
   const el=document.getElementById("slide-"+idx);
   if(!el) return;
   const w=window.open("","_blank");
