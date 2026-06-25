@@ -124,7 +124,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
   background:#fff;border-radius:12px;padding:6px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 @media print{
-  .slide-card{
+  .slide-buttons-hidden .slide-buttons{display:none!important}
+.slide-card{
   page-break-before:always;break-before:page;page-break-inside:avoid;
   width:100%;
   aspect-ratio:420/297;
@@ -1953,17 +1954,17 @@ function slideCard(p, idx){
       +'<div style="font-size:12px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:3px">'+l+'</div>'
       +'</div>';
   }
-  function barRow(label, pct, colour, suffix){
-    return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
-      +'<div style="font-size:14px;color:var(--muted);width:110px;flex-shrink:0">'+label+'</div>'
-      +'<div style="flex:1;height:4px;background:rgba(250,249,246,0.06);border-radius:2px">'
+  function barRow(label, pct, colour){
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+      +'<div style="font-size:13px;color:var(--muted);width:100px;flex-shrink:0">'+label+'</div>'
+      +'<div style="flex:1;height:5px;background:rgba(250,249,246,0.06);border-radius:2px">'
         +'<div style="height:100%;width:'+Math.min(100,pct)+'%;background:'+colour+';border-radius:2px"></div>'
       +'</div>'
-      +'<div style="font-weight:700;font-size:10px;width:56px;text-align:right">'+(suffix||pct+'%')+'</div>'
+      +'<div style="font-weight:700;font-size:14px;color:'+colour+';width:38px;text-align:right">'+pct+'%</div>'
       +'</div>';
   }
   function barRows(types, colour){
-    return types.map(function(t){ return barRow(t.label, t.pct, colour, t.pct+'% '+t.madeRate+'%\u2713'); }).join('');
+    return types.map(function(t){ return barRow(t.label, t.pct, colour); }).join('');
   }
 
   // ── Build sections ──────────────────────────────────────────────────────────
@@ -2043,71 +2044,129 @@ function slideCard(p, idx){
   return '<div class="slide-card" id="slide-'+idx+'">'
     +'<div style="display:grid;grid-template-columns:21% 79%;width:100%;height:100%">'
 
-      // LEFT
+      // ── LEFT: Photo | Shot Menu | Shot Creation ──
       +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column;height:100%;overflow:hidden">'
-        +'<div style="height:35%;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'+photoHTML+'</div>'
-        +'<div style="padding:10px 12px;border-bottom:1px solid var(--border-soft)">'
-          +sectionLabel('SHOT MENU','var(--green)')
-          +shotZonesHTML
+
+        // Photo
+        +'<div style="height:35%;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'
+          +(photoSrc
+            ? '<img src="'+photoSrc+'" crossorigin="anonymous" style="width:100%;height:100%;object-fit:cover;object-position:top center" alt="'+name+'">'
+            : '<div style="text-align:center;color:rgba(250,249,246,0.15);padding:20px"><div style="font-size:36px">&#128100;</div></div>')
         +'</div>'
-        +'<div style="padding:10px 12px;flex:1;overflow:auto">'
+
+        // Shot Menu
+        +'<div style="padding:10px 12px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
+          +sectionLabel('SHOT MENU','var(--green)')
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">'
+            +['PAINT','MIDRANGE','FREE THROWS','3-POINTERS'].map(function(l,i){
+                var val=[paintPct,midPct,ftPct,threePct][i];
+                var col=['#ff8a8a','var(--amber)','var(--purple)','var(--blue)'][i];
+                return '<div style="background:rgba(0,0,0,0.2);border-radius:5px;padding:7px 4px;text-align:center;border-bottom:2px solid '+col+'">'
+                  +'<div style="font-size:22px;font-weight:900;color:'+col+'">'+val+'%</div>'
+                  +'<div style="font-size:9px;color:rgba(250,249,246,0.4);letter-spacing:0.5px;text-transform:uppercase;margin-top:1px">'+l+'</div>'
+                +'</div>';
+              }).join('')
+          +'</div>'
+        +'</div>'
+
+        // Shot Creation
+        +'<div style="padding:10px 12px;flex:1;overflow:hidden;min-height:0">'
           +sectionLabel('SHOT CREATION')
-          +creationPanelHTML
+          +(creationPanelHTML||'')
         +'</div>'
       +'</div>'
 
-      // RIGHT
+      // ── RIGHT: Name | Grades | Stats | Statements | Guard+TOV+Assists ──
       +'<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft);height:100%;overflow:hidden">'
-        // Name
-        +'<div style="padding:12px 20px 10px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between">'
+
+        // Name header
+        +'<div style="padding:12px 20px 10px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">'
           +'<div>'
-            +'<div style="font-size:32px;font-weight:900;letter-spacing:-1px;text-transform:uppercase">'+name+'</div>'
-            +'<div style="font-size:14px;color:rgba(250,249,246,0.4);margin-top:4px">'
+            +'<div style="font-size:32px;font-weight:900;letter-spacing:-1px;text-transform:uppercase;line-height:1">'+name+'</div>'
+            +'<div style="font-size:13px;color:rgba(250,249,246,0.4);margin-top:4px">'
               +'#'+num+' \u00b7 '+(p.position||'')+' \u00b7 '+(p.height||'')
               +(p.handed?' \u00b7 '+p.handed.replace('RIGHT HANDED','Right Handed').replace('LEFT HANDED','Left Handed'):'')
             +'</div>'
           +'</div>'
           +surreyLogo
         +'</div>'
+
         // Grades
-        +'<div style="padding:10px 20px;border-bottom:1px solid var(--border-soft)">'
+        +'<div style="padding:10px 20px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
           +sectionLabel('PLAYER RATINGS')
-          +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px">'
+          +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">'
             +grades.map(function(gr){
-              return '<div style="background:var(--card3);border-radius:6px;padding:7px 4px;text-align:center">'
-                +'<div class="grade-badge '+gradeClass(gr.g)+'" style="font-size:14px;padding:3px 8px;display:block;margin-bottom:3px">'+gr.g+'</div>'
-                +'<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">'+gr.l+'</div>'
+              return '<div style="background:var(--card3);border-radius:6px;padding:8px 4px;text-align:center">'
+                +'<div class="grade-badge '+gradeClass(gr.g)+'" style="font-size:24px;padding:3px 8px;display:block;margin-bottom:3px">'+gr.g+'</div>'
+                +'<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">'+gr.l+'</div>'
               +'</div>';
             }).join('')
           +'</div>'
         +'</div>'
-        // Stats
-        +'<div style="padding:10px 20px;border-bottom:1px solid var(--border-soft)">'
+
+        // Key Stats
+        +'<div style="padding:10px 20px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
           +sectionLabel('KEY STATISTICS')
-          +'<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px">'
+          +'<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px">'
             +statsRow.map(function(s){ return statBox(s.v,s.l); }).join('')
           +'</div>'
         +'</div>'
-        // Bottom 2-col
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0">'
-          +'<div style="padding:14px 20px;border-right:1px solid var(--border-soft);overflow:auto">'+whoHTML+'</div>'
-          +'<div style="padding:14px 20px;overflow:auto">'
+
+        // Statements — 3 columns across full width
+        +'<div style="padding:12px 20px;border-bottom:1px solid var(--border-soft);display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;flex-shrink:0">'
+          +(p.whoWhat?'<div>'+sectionLabel('WHO IS HE')+'<div style="font-size:15px;color:var(--offwhite);line-height:1.65">'+p.whoWhat+'</div></div>':'')
+          +(p.forcing?'<div>'+sectionLabel('WHAT TO FORCE','var(--green)')+'<div style="font-size:15px;color:var(--offwhite);line-height:1.65">'+p.forcing+'</div></div>':'')
+          +(p.stopping?'<div>'+sectionLabel('WHAT TO STOP','#ff8a8a')+'<div style="font-size:15px;color:var(--offwhite);line-height:1.65">'+p.stopping+'</div></div>':'')
+        +'</div>'
+
+        // HOW TO GUARD + TURNOVERS + ASSISTS — single row across the bottom
+        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;flex:1;min-height:0;overflow:hidden">'
+
+          // How To Guard
+          +'<div style="padding:12px 20px;border-right:1px solid var(--border-soft);overflow:hidden">'
             +sectionLabel('HOW TO GUARD','var(--green)')
             +guardHTML
-            +'<div style="height:12px"></div>'
-            +tovAssistHTML
+          +'</div>'
+
+          // Turnovers
+          +'<div style="padding:12px 20px;border-right:1px solid var(--border-soft);overflow:hidden">'
+            +sectionLabel('TURNOVERS','var(--amber)')
+            +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:0">'
+              +miniStat(fmtN(p.tpg),'TOV/G','')
+              +miniStat(livePct+'%','LIVE','#ff8a8a')
+              +miniStat((100-livePct)+'%','DEAD','var(--amber)')
+            +'</div>'
+          +'</div>'
+
+          // Assists
+          +'<div style="padding:12px 20px;overflow:hidden">'
+            +sectionLabel('ASSISTS','var(--green)')
+            +(ap?(function(){
+                var tot=ap.total_ast||1;
+                var pct2=Math.round((ap.ast_2pt||0)/tot*100);
+                var pct3=Math.round((ap.ast_3pt||0)/tot*100);
+                var passTo=ap.top_targets_pct&&ap.top_targets_pct.length
+                  ?ap.top_targets_pct[0][0]+' '+ap.top_targets_pct[0][1]+'%'
+                  :(ap.top_targets&&ap.top_targets.length?ap.top_targets[0][0]:'—');
+                return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
+                  +miniStat(pct2+'%','% TO 2PT','#60c8fa')
+                  +miniStat(pct3+'%','% TO 3PT','var(--blue)')
+                  +miniStat(passTo,'PASSES TO','var(--green)')
+                +'</div>';
+              })()
+            :'<div style="color:var(--muted);font-size:11px">No data</div>')
           +'</div>'
         +'</div>'
-        // Buttons
-        +'<div style="padding:10px 20px;border-top:1px solid var(--border-soft);display:grid;grid-template-columns:1fr 1fr;gap:6px" class="no-print">'
-          +'<button class="btn btn-green" style="font-size:11px" data-sideidx="'+idx+'" data-player="'+name+'" onclick="printSingleSlide(+this.dataset.sideidx, this.dataset.player)">&#128424; Print A3</button>'
-          +'<button class="btn" style="font-size:11px;background:var(--card3);border:1px solid var(--border-soft);color:var(--offwhite)" data-sideidx="'+idx+'" data-player="'+name+'" onclick="saveSlideAsJpeg(+this.dataset.sideidx, this.dataset.player)">&#128247; Save JPEG</button>'
+
+        // Buttons — hidden from JPEG via class
+        +'<div style="padding:8px 20px;border-top:1px solid var(--border-soft);display:grid;grid-template-columns:1fr 1fr;gap:6px;flex-shrink:0" class="no-print slide-buttons">'
+          +'<button class="btn btn-green" style="font-size:11px" data-sideidx="'+idx+'" data-player="'+name+'" onclick="printSingleSlide(+this.dataset.sideidx,this.dataset.player)">&#128424; Print A3</button>'
+          +'<button class="btn" style="font-size:11px;background:var(--card3);border:1px solid var(--border-soft);color:var(--offwhite)" data-sideidx="'+idx+'" data-player="'+name+'" onclick="saveSlideAsJpeg(+this.dataset.sideidx,this.dataset.player)">&#128247; Save JPEG</button>'
         +'</div>'
       +'</div>'
     +'</div>'
   +'</div>';
 }
-
 
 function printSingleSlide(idx, playerName){
   // Scroll to the slide, then print — the CSS handles making it full page
@@ -2142,15 +2201,16 @@ function saveSlideAsJpeg(idx, playerName){
     el.style.left = "0";
     el.style.zIndex = "99999";
 
+    // Hide buttons before capture
+    el.classList.add("slide-buttons-hidden");
     html2canvas(el, {
-      scale: 1.5,
+      scale: 2,
       backgroundColor: "#080f0b",
       useCORS: true,
       allowTaint: false,
-      width: 1587,
-      height: 1123,
       logging: false,
     }).then(function(canvas){
+      el.classList.remove("slide-buttons-hidden");
       el.style.width = "";
       el.style.height = "";
       el.style.position = "";
@@ -2741,15 +2801,16 @@ function saveSlideAsJpeg(idx, playerName){
     el.style.left = "0";
     el.style.zIndex = "99999";
 
+    // Hide buttons before capture
+    el.classList.add("slide-buttons-hidden");
     html2canvas(el, {
-      scale: 1.5,
+      scale: 2,
       backgroundColor: "#080f0b",
       useCORS: true,
       allowTaint: false,
-      width: 1587,
-      height: 1123,
       logging: false,
     }).then(function(canvas){
+      el.classList.remove("slide-buttons-hidden");
       el.style.width = "";
       el.style.height = "";
       el.style.position = "";
@@ -3396,15 +3457,16 @@ function saveSlideAsJpeg(idx, playerName){
     el.style.left = "0";
     el.style.zIndex = "99999";
 
+    // Hide buttons before capture
+    el.classList.add("slide-buttons-hidden");
     html2canvas(el, {
-      scale: 1.5,
+      scale: 2,
       backgroundColor: "#080f0b",
       useCORS: true,
       allowTaint: false,
-      width: 1587,
-      height: 1123,
       logging: false,
     }).then(function(canvas){
+      el.classList.remove("slide-buttons-hidden");
       el.style.width = "";
       el.style.height = "";
       el.style.position = "";
