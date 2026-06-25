@@ -400,12 +400,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
           <div class="card">
             <div class="card-header"><div class="card-title">Offensive Profile</div><span class="pill pill-blue" id="no-offrtg">OFF RTG —</span></div>
             <div class="card-body">
-              <div class="shot-zones" id="no-shot-zones">
-                <div class="shot-zone zone-paint"><div class="shot-zone-pct" id="nosz-pip">—</div><div class="shot-zone-label">PIP/G</div></div>
-                <div class="shot-zone zone-mid"><div class="shot-zone-pct" id="nosz-efg">—</div><div class="shot-zone-label">eFG%</div></div>
-                <div class="shot-zone zone-three"><div class="shot-zone-pct" id="nosz-3rate">—</div><div class="shot-zone-label">3PT Rate</div></div>
-                <div class="shot-zone zone-ft"><div class="shot-zone-pct" id="nosz-oreb">—</div><div class="shot-zone-label">OREB%</div></div>
-              </div>
               <div id="no-off-bars"></div>
             </div>
           </div>
@@ -413,8 +407,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
             <div class="card-header"><div class="card-title">Defensive Profile</div><span class="pill pill-green" id="no-defrtg">DEF RTG —</span></div>
             <div class="card-body">
               <div id="no-def-bars"></div>
-              <div class="divider"></div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap" id="no-def-tags"></div>
+
             </div>
           </div>
         </div>
@@ -1320,10 +1313,7 @@ async function fillNextOpponent(){
 
   // Off profile
   document.getElementById("no-offrtg").innerHTML='OFF RTG '+fmt(t.offrtg)+'&nbsp;'+rankBadge(offR[NEXT_OPP],total);
-  document.getElementById("nosz-pip").textContent=fmt(t.pip,0);
-  document.getElementById("nosz-efg").textContent=fmtPR(t.efg);
-  document.getElementById("nosz-3rate").textContent=fmtPR(t.threeRate);
-  document.getElementById("nosz-oreb").textContent=fmtPR(t.oreb);
+
 
   // Derive team tendency statements
   const la = {efg:52.7, threerate:39.0, oreb:29.3, ast:61.4, tov:16.7, fbp:12.4, pip:38.8, tempo:78.2, fg:46.0, threep:34.0, ft:72.0, pf:18.7};
@@ -1339,13 +1329,46 @@ async function fillNextOpponent(){
       +'<div style="font-size:16px;font-weight:800;color:var(--green);line-height:1">'+value+'</div>'
       +'</div>';
   }
+  function shortLabel(s){
+    return s.replace('Highly efficient shooting','Excellent')
+      .replace('Below-average efficiency','Below Avg')
+      .replace('Average shooting efficiency','Average')
+      .replace('Strong offensive rebounding','Strong')
+      .replace('Poor offensive rebounding','Poor')
+      .replace('Average offensive rebounding','Average')
+      .replace('Strong free throw shooting','Strong')
+      .replace('Poor free throw shooting','Poor')
+      .replace('Average from the line','Average')
+      .replace('-paced','').replace(' tempo','')
+      .replace('Average tempo','Average')
+      .replace('Transition-heavy offence','Transition')
+      .replace('Half-court focused','Half-Court')
+      .replace('Balanced transition/half-court','Balanced')
+      .replace('Suffocating pressure','Suffocating')
+      .replace('Active pressure','Active')
+      .replace('Moderate pressure','Moderate')
+      .replace('Passive defence','Passive')
+      .replace('Dominant interior protection','Dominant')
+      .replace('Strong interior defence','Strong')
+      .replace('Vulnerable in the paint','Vulnerable')
+      .replace('Average interior','Average')
+      .replace('Strong perimeter defence','Strong')
+      .replace('Vulnerable to 3s','Vulnerable')
+      .replace('Average perimeter','Average')
+      .replace('Elite defensive rebounding','Elite')
+      .replace('Poor defensive rebounding','Poor')
+      .replace('Average defensive rebounding','Average')
+      .replace('Reckless fouling','Reckless')
+      .replace('Disciplined, low foul rate','Disciplined')
+      .replace('Average fouling','Average');
+  }
   document.getElementById("no-off-bars").innerHTML=
     '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      +stmtPill('Tempo',      tempoLabel.replace('-paced','').replace(' tempo','').replace('Average','Average'))
-      +stmtPill('Shooting',   shootLabel.replace(' shooting efficiency','').replace('Highly efficient','Excellent').replace('Below-average efficiency','Below Avg').replace('Average','Average'))
-      +stmtPill('Off Rebound',orebLabel.replace(' offensive rebounding','').replace('Average','Average'))
-      +stmtPill('Free Throws',ftLabel.replace(' free throw shooting','').replace(' from the line','').replace('Average','Average'))
-      +stmtPill('Scoring',    t.pip>40?'Interior':t.threeRate>45?'3PT Heavy':'Balanced')
+      +stmtPill('Tempo',       shortLabel(tempoLabel))
+      +stmtPill('Shooting',    shortLabel(shootLabel))
+      +stmtPill('Off Rebound', shortLabel(orebLabel))
+      +stmtPill('Free Throws', shortLabel(ftLabel))
+      +stmtPill('Scoring',     t.pip>40?'Interior':t.threeRate>45?'3PT Heavy':'Balanced')
     +'</div>';
 
   // Def profile
@@ -1359,21 +1382,14 @@ async function fillNextOpponent(){
 
   document.getElementById("no-def-bars").innerHTML=
     '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      +stmtPill('Pressure',    pressureLabel.replace(' pressure','').replace(' defence','').replace('Moderate','Moderate').replace('Passive','Passive'))
-      +stmtPill('Interior Def',interiorLabel.replace(' interior','').replace(' protection','').replace('Average','Average'))
-      +stmtPill('Def Rebound', defRebLabel.replace(' defensive rebounding','').replace('Average','Average'))
-      +stmtPill('Perimeter Def',exteriorLabel.replace(' perimeter defence','').replace(' to 3s','').replace('Average','Average'))
-      +stmtPill('Fouling',     foulingLabel.replace(' fouling','').replace(' foul rate',''))
+      +stmtPill('Pressure',     shortLabel(pressureLabel))
+      +stmtPill('Interior Def', shortLabel(interiorLabel))
+      +stmtPill('Def Rebound',  shortLabel(defRebLabel))
+      +stmtPill('Perimeter Def',shortLabel(exteriorLabel))
+      +stmtPill('Fouling',      shortLabel(foulingLabel))
     +'</div>';
 
-  const defTags=[];
-  if(tr){
-    if(tr.Grade) defTags.push(`<span class="pill pill-blue">${tr.Grade}</span>`);
-    if(tr.Tempo) defTags.push(`<span class="pill pill-muted">Pace: ${tr.Tempo}</span>`);
-    if(tr.Pressure) defTags.push(`<span class="pill pill-amber">${tr.Pressure}</span>`);
-    if(tr.Fouling) defTags.push(`<span class="pill pill-muted">${tr.Fouling} Fouling</span>`);
-  }
-  document.getElementById("no-def-tags").innerHTML=defTags.join("")||"<span class='pill pill-muted'>No rating data</span>";
+  // Team rating tags removed — statements shown in profile cards instead
 
   // Quarter scoring
   const maxQ=Math.max(t.q1s,t.q2s,t.q3s,t.q4s,t.q1a,t.q2a,t.q3a,t.q4a);
@@ -1767,7 +1783,7 @@ function buildSlides(db,teamName){
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:20px">
-        ${allPlayers.map((p,i)=>slideCard(p,i)).join("")}
+        ${allPlayers.map((p,i)=>{ try{ return slideCard(p,i); } catch(e){ return '<div class="card" style="padding:20px;color:#ff8a8a">Error on '+fmtName(p.name||'')+': '+e.message+'</div>'; } }).join("")}
       </div>`;
   } else {
     // Fallback to League Ratings
@@ -1859,7 +1875,7 @@ function slideCard(p, idx){
   // Stats row
   // League rank lookup — maps stat label to LEAGUE_RANKS key and the player's name in the ranks
   // Names in LEAGUE_RANKS are CAPS (e.g. "PHILLIP, TARIK")
-  var lrName = (p.name||'').toUpperCase().replace('TARICK','TARIK'); // handle spelling variants
+  var lrName = ((p&&p.name)||'').toUpperCase().replace('TARICK','TARIK'); // handle spelling variants
   var STAT_RANK_MAP = {
     'PPG':'PPG','RPG':'RPG','APG':'APG','FT%':'FT%','3P%':'3P%',
     'FBK':'FBP/G','PIP':'PiP/G','+/-':'+/-','OFF':'OREB/G',
