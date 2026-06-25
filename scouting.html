@@ -124,7 +124,20 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
   background:#fff;border-radius:12px;padding:6px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 @media print{
-  .slide-card{page-break-before:always;break-before:page;page-break-inside:avoid}
+  .slide-card{
+  page-break-before:always;break-before:page;page-break-inside:avoid;
+  width:100%;
+  aspect-ratio:420/297;
+  position:relative;
+  overflow:hidden;
+  border-radius:10px;
+}
+.slide-card>div{
+  position:absolute;
+  inset:0;
+  display:grid !important;
+  grid-template-columns:21% 79% !important;
+}
   .slide-card:first-child{page-break-before:avoid}
   @page{size:A3 landscape;margin:8mm}
 }
@@ -1924,6 +1937,613 @@ function slideCard(p, idx){
 
   // ── HTML builders ───────────────────────────────────────────────────────────
   function sectionLabel(text, colour){
+    return '<div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:'+(colour||'var(--muted)')+';margin-bottom:6px">'+text+'</div>';
+  }
+  function statBox(v, l){
+    var rank=getLeagueRank(l);
+    return '<div style="background:var(--card3);border-radius:4px;padding:6px 2px;text-align:center">'
+      +'<div style="font-size:18px;font-weight:800">'+v+'</div>'
+      +'<div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px">'+l+'</div>'
+      +rankPill(rank)
+      +'</div>';
+  }
+  function miniStat(v, l, col){
+    return '<div style="background:var(--card3);border-radius:4px;padding:8px 4px;text-align:center">'
+      +'<div style="font-size:22px;font-weight:800'+(col?';color:'+col:'')+'" >'+v+'</div>'
+      +'<div style="font-size:12px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:3px">'+l+'</div>'
+      +'</div>';
+  }
+  function barRow(label, pct, colour, suffix){
+    return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
+      +'<div style="font-size:14px;color:var(--muted);width:110px;flex-shrink:0">'+label+'</div>'
+      +'<div style="flex:1;height:4px;background:rgba(250,249,246,0.06);border-radius:2px">'
+        +'<div style="height:100%;width:'+Math.min(100,pct)+'%;background:'+colour+';border-radius:2px"></div>'
+      +'</div>'
+      +'<div style="font-weight:700;font-size:10px;width:56px;text-align:right">'+(suffix||pct+'%')+'</div>'
+      +'</div>';
+  }
+  function barRows(types, colour){
+    return types.map(function(t){ return barRow(t.label, t.pct, colour, t.pct+'% '+t.madeRate+'%\u2713'); }).join('');
+  }
+
+  // ── Build sections ──────────────────────────────────────────────────────────
+  var photoHTML = photoSrc
+    ? '<img src="'+photoSrc+'" crossorigin="anonymous" style="width:100%;height:100%;object-fit:cover;object-position:top center" alt="'+name+'">'
+    : '<div style="text-align:center;color:rgba(250,249,246,0.15);padding:20px">'
+        +'<div style="font-size:36px;margin-bottom:6px">&#128100;</div>'
+        +'<div style="font-size:8px;letter-spacing:1px">NO PHOTO</div>'
+        +(p._expectedPhotoUrl?'<div style="font-size:7px;color:rgba(250,249,246,0.06);margin-top:4px">'+p._expectedPhotoUrl.split('/').pop()+'</div>':'')
+      +'</div>';
+
+  var shotZonesHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px">'
+    +['PAINT','MIDRANGE','FREE THROWS','3-POINTERS'].map(function(l,i){
+        var val=[paintPct,midPct,ftPct,threePct][i];
+        var col=['#ff8a8a','var(--amber)','var(--purple)','var(--blue)'][i];
+        return '<div style="background:rgba(0,0,0,0.2);border-radius:5px;padding:6px 4px;text-align:center;border-bottom:2px solid '+col+'">'
+          +'<div style="font-size:26px;font-weight:900;color:'+col+'">'+val+'%</div>'
+          +'<div style="font-size:8px;color:rgba(250,249,246,0.4);letter-spacing:0.5px;text-transform:uppercase;margin-top:1px">'+l+'</div>'
+        +'</div>';
+      }).join('')
+    +'</div>';
+
+  var creationPanelHTML =
+    (types3.length ? sectionLabel('3PT CREATION','var(--blue)')+barRows(types3,'var(--blue)')+'<div style="height:6px"></div>' : '')
+    +(types2.length ? sectionLabel('2PT CREATION','#ff8a8a')+barRows(types2,'#ff8a8a') : '');
+
+  var guardHTML = guardItems.length
+    ? guardItems.map(function(g){
+        return '<div style="background:rgba(0,0,0,0.2);border-radius:5px;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">'
+          +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(250,249,246,0.45)">'+g[0]+'</div>'
+          +'<div style="font-size:13px;font-weight:800;color:var(--green);text-transform:uppercase">'+g[1]+'</div>'
+        +'</div>';
+      }).join('')
+    : '<div style="color:var(--muted);font-size:10px">No notes</div>';
+
+  var whoHTML = (p.whoWhat||p.forcing||p.stopping)
+    ? (p.whoWhat  ? '<div style="margin-bottom:12px">'+sectionLabel('WHO IS HE')+'<div style="font-size:17px;color:var(--offwhite);line-height:1.7">'+p.whoWhat+'</div></div>' : '')
+    + (p.forcing  ? '<div style="margin-bottom:12px">'+sectionLabel('WHAT TO FORCE','var(--green)')+'<div style="font-size:17px;color:var(--offwhite);line-height:1.7">'+p.forcing+'</div></div>' : '')
+    + (p.stopping ? '<div>'+sectionLabel('WHAT TO STOP','#ff8a8a')+'<div style="font-size:17px;color:var(--offwhite);line-height:1.7">'+p.stopping+'</div></div>' : '')
+    : '<div style="color:var(--muted);font-size:11px;font-style:italic">Add WHO/FORCE/STOP in Lions Data sheet</div>';
+
+  // TOV + Assists (once, no duplicate label)
+  var tovAssistHTML =
+    sectionLabel('TURNOVERS','var(--amber)')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:12px">'
+      +miniStat(fmtN(p.tpg),'TOV/G','')
+      +miniStat(livePct+'%','LIVE','#ff8a8a')
+      +miniStat((100-livePct)+'%','DEAD','var(--amber)')
+    +'</div>'
+    +sectionLabel('ASSISTS','var(--green)')
+    +(ap ? (function(){
+        var tot=ap.total_ast||1;
+        var pct2=Math.round((ap.ast_2pt||0)/tot*100);
+        var pct3=Math.round((ap.ast_3pt||0)/tot*100);
+        var passTo=ap.top_targets_pct&&ap.top_targets_pct.length
+          ? ap.top_targets_pct[0][0]+' '+ap.top_targets_pct[0][1]+'%'
+          : (ap.top_targets&&ap.top_targets.length?ap.top_targets[0][0]:'—');
+        return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">'
+          +miniStat(pct2+'%','% TO 2PT','#60c8fa')
+          +miniStat(pct3+'%','% TO 3PT','var(--blue)')
+          +miniStat(passTo,'PASSES TO','var(--green)')
+        +'</div>';
+      })()
+    : '<div style="color:var(--muted);font-size:10px">No assist data</div>');
+
+  var surreyLogo = LOGOS['SURREY 89ERS']
+    ? '<div style="width:36px;height:36px;background:#fff;border-radius:6px;padding:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+        +'<img src="'+LOGOS['SURREY 89ERS']+'" style="width:30px;height:30px;object-fit:contain"></div>'
+    : '';
+  var teamLogoSrc = LOGOS[slidesTeam]||'';
+  if(teamLogoSrc){
+    surreyLogo='<div style="width:36px;height:36px;background:#fff;border-radius:6px;padding:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+      +'<img src="'+teamLogoSrc+'" style="width:30px;height:30px;object-fit:contain"></div>';
+  }
+
+  // ── Return complete slide ───────────────────────────────────────────────────
+  return '<div class="slide-card" id="slide-'+idx+'">'
+    +'<div style="display:grid;grid-template-columns:21% 79%;width:100%;height:100%">'
+
+      // LEFT
+      +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column;height:100%;overflow:hidden">'
+        +'<div style="height:35%;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'+photoHTML+'</div>'
+        +'<div style="padding:10px 12px;border-bottom:1px solid var(--border-soft)">'
+          +sectionLabel('SHOT MENU','var(--green)')
+          +shotZonesHTML
+        +'</div>'
+        +'<div style="padding:10px 12px;flex:1;overflow:auto">'
+          +sectionLabel('SHOT CREATION')
+          +creationPanelHTML
+        +'</div>'
+      +'</div>'
+
+      // RIGHT
+      +'<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft);height:100%;overflow:hidden">'
+        // Name
+        +'<div style="padding:12px 20px 10px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between">'
+          +'<div>'
+            +'<div style="font-size:32px;font-weight:900;letter-spacing:-1px;text-transform:uppercase">'+name+'</div>'
+            +'<div style="font-size:14px;color:rgba(250,249,246,0.4);margin-top:4px">'
+              +'#'+num+' \u00b7 '+(p.position||'')+' \u00b7 '+(p.height||'')
+              +(p.handed?' \u00b7 '+p.handed.replace('RIGHT HANDED','Right Handed').replace('LEFT HANDED','Left Handed'):'')
+            +'</div>'
+          +'</div>'
+          +surreyLogo
+        +'</div>'
+        // Grades
+        +'<div style="padding:10px 20px;border-bottom:1px solid var(--border-soft)">'
+          +sectionLabel('PLAYER RATINGS')
+          +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px">'
+            +grades.map(function(gr){
+              return '<div style="background:var(--card3);border-radius:6px;padding:7px 4px;text-align:center">'
+                +'<div class="grade-badge '+gradeClass(gr.g)+'" style="font-size:14px;padding:3px 8px;display:block;margin-bottom:3px">'+gr.g+'</div>'
+                +'<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">'+gr.l+'</div>'
+              +'</div>';
+            }).join('')
+          +'</div>'
+        +'</div>'
+        // Stats
+        +'<div style="padding:10px 20px;border-bottom:1px solid var(--border-soft)">'
+          +sectionLabel('KEY STATISTICS')
+          +'<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px">'
+            +statsRow.map(function(s){ return statBox(s.v,s.l); }).join('')
+          +'</div>'
+        +'</div>'
+        // Bottom 2-col
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0">'
+          +'<div style="padding:14px 20px;border-right:1px solid var(--border-soft);overflow:auto">'+whoHTML+'</div>'
+          +'<div style="padding:14px 20px;overflow:auto">'
+            +sectionLabel('HOW TO GUARD','var(--green)')
+            +guardHTML
+            +'<div style="height:12px"></div>'
+            +tovAssistHTML
+          +'</div>'
+        +'</div>'
+        // Buttons
+        +'<div style="padding:10px 20px;border-top:1px solid var(--border-soft);display:grid;grid-template-columns:1fr 1fr;gap:6px" class="no-print">'
+          +'<button class="btn btn-green" style="font-size:11px" data-sideidx="'+idx+'" data-player="'+name+'" onclick="printSingleSlide(+this.dataset.sideidx, this.dataset.player)">&#128424; Print A3</button>'
+          +'<button class="btn" style="font-size:11px;background:var(--card3);border:1px solid var(--border-soft);color:var(--offwhite)" data-sideidx="'+idx+'" data-player="'+name+'" onclick="saveSlideAsJpeg(+this.dataset.sideidx, this.dataset.player)">&#128247; Save JPEG</button>'
+        +'</div>'
+      +'</div>'
+    +'</div>'
+  +'</div>';
+}
+
+
+function printSingleSlide(idx, playerName){
+  // Scroll to the slide, then print — the CSS handles making it full page
+  const el = document.getElementById("slide-"+idx);
+  if(!el) return;
+  // Hide all other slides during print
+  document.querySelectorAll(".slide-card").forEach(function(s,i){
+    s.style.display = (i===idx) ? "" : "none";
+  });
+  window.print();
+  // Restore after print dialog closes
+  setTimeout(function(){
+    document.querySelectorAll(".slide-card").forEach(function(s){
+      s.style.display = "";
+    });
+  }, 1000);
+}
+
+
+function saveSlideAsJpeg(idx, playerName){
+  const el = document.getElementById("slide-"+idx);
+  if(!el){ alert("Slide not found"); return; }
+  const teamPlayers = DEPTH_CHARTS[slidesTeam]||[];
+  const p = teamPlayers[idx] || null;
+
+  function doCapture(){
+    // Temporarily make it poster-sized for capture
+    el.style.width  = "1587px";
+    el.style.height = "1123px";
+    el.style.position = "fixed";
+    el.style.top = "0";
+    el.style.left = "0";
+    el.style.zIndex = "99999";
+
+    html2canvas(el, {
+      scale: 1.5,
+      backgroundColor: "#080f0b",
+      useCORS: true,
+      allowTaint: false,
+      width: 1587,
+      height: 1123,
+      logging: false,
+    }).then(function(canvas){
+      el.style.width = "";
+      el.style.height = "";
+      el.style.position = "";
+      el.style.top = "";
+      el.style.left = "";
+      el.style.zIndex = "";
+      const link = document.createElement("a");
+      link.download = playerName.replace(/ /g,"_")+".jpg";
+      link.href = canvas.toDataURL("image/jpeg", 0.93);
+      link.click();
+    }).catch(function(err){
+      el.style.width = "";
+      el.style.height = "";
+      el.style.position = "";
+      el.style.top = "";
+      el.style.left = "";
+      el.style.zIndex = "";
+      alert("Export failed: "+err.message);
+    });
+  }
+
+  if(window.html2canvas){
+    doCapture();
+  } else {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+    s.onload = doCapture;
+    document.head.appendChild(s);
+  }
+}
+
+function openPosterWindow(p, playerName, doPrint){
+  const name = fmtName(p.name||"");
+  const num  = p.number||"—";
+  const paintPct  = Math.round((p.paint_pct||0)*100);
+  const ftPct     = Math.round((p.ft_pct||0)*100);
+  const midPct    = Math.round((p.mid_pct||0)*100);
+  const threePct  = Math.round((p.three_pct||0)*100);
+  const photoSrc  = p.imageUrl||p.imageB64||"";
+  const ap        = p.assistProfile||null;
+
+  const guardDefs=[["ISOLATION",p.iso],["CATCH & SHOOT",p.cs],["DRIBBLE JUMPER",p.dribble],["POST UP",p.post],["PNR SCREENER",p.screener],["PNR BALL HANDLER",p.ballhandler]].filter(x=>x[1]);
+  const grades=[{l:"IMPACT",g:p.impact||p.scoring||"—"},{l:"SCORING",g:p.scoring||"—"},{l:"DEFENCE",g:p.defence||"—"},{l:"REBOUNDING",g:p.rebounding||"—"},{l:"PLAYMAKING",g:p.playmaking||"—"}];
+
+  function gc(g){const u=(g||"").toUpperCase();return u.startsWith("A")?"#4ade80":u.startsWith("B")?"#60c8fa":u.startsWith("C")?"#f59e0b":"#ff8a8a";}
+  function gb(g){const u=(g||"").toUpperCase();return u.startsWith("A")?"rgba(74,222,128,.15)":u.startsWith("B")?"rgba(96,200,250,.12)":u.startsWith("C")?"rgba(245,158,11,.12)":"rgba(224,85,85,.08)";}
+
+  const statsRow=[
+    {v:fmtN(p.ppg),l:"PPG"},{v:fmtN(p.rpg),l:"RPG"},{v:fmtN(p.apg),l:"APG"},
+    {v:fmtPct1(p.fgp),l:"FG%"},{v:fmtPct1(p.threepct),l:"3P%"},{v:fmtN(p.threepm),l:"3PR"},
+    {v:fmtN(p.fta),l:"FTA"},{v:fmtPct1(p.ftpct),l:"FT%"},{v:fmtN(p.oreb),l:"OFF"},
+    {v:fmtN(p.tpg),l:"TO"},{v:fmtN(p.fbp),l:"FBK"},{v:fmtN(p.pip),l:"PIP"},
+  ];
+
+  const teamLogoSrc=LOGOS[slidesTeam]||"";
+  const logoHTML=teamLogoSrc?`<div style="width:56px;height:56px;background:#fff;border-radius:6px;padding:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><img src="${teamLogoSrc}" style="width:48px;height:48px;object-fit:contain"></div>`:"";
+
+  const allPbp=(DB&&DB.raw&&DB.raw.pbp)||[];
+  function pbpT(shots,types){if(!shots.length)return[];return types.map(t=>{const ms=shots.filter(s=>t.k.indexOf(s["Sub Type"]||"")>=0);const made=ms.filter(s=>s.Success==1||s.Success==="1").length;return{l:t.l,pct:Math.round(ms.length/shots.length*100),fg:ms.length?Math.round(made/ms.length*100):0,n:ms.length};}).filter(t=>t.n>0).sort((a,b)=>b.pct-a.pct);}
+  const s3=allPbp.filter(r=>r.Action==="3pt"&&matchPlayerName(r.Player,p.name||""));
+  const s2=allPbp.filter(r=>r.Action==="2pt"&&matchPlayerName(r.Player,p.name||""));
+  const tv=allPbp.filter(r=>r.Action==="turnover"&&matchPlayerName(r.Player,p.name||""));
+  const t3=pbpT(s3,[{l:"Catch & Shoot",k:["jumpshot"]},{l:"Pull-Up",k:["pullupjumpshot"]},{l:"Step-Back",k:["stepbackjumpshot"]},{l:"Fadeaway",k:["fadeaway","turnaroundjumpshot"]}]);
+  const t2=pbpT(s2,[{l:"Layup/Drive",k:["layup","drivinglayup","reverselayup"]},{l:"Dunk",k:["dunk","alleyoopdunk","alleyoop"]},{l:"Floater",k:["floatingjumpshot"]},{l:"Mid-Range",k:["jumpshot"]},{l:"Pull-Up Mid",k:["pullupjumpshot","stepbackjumpshot"]},{l:"Hook/Post",k:["hookshot","turnaroundjumpshot","fadeaway"]}]);
+
+  function brow(t,col){
+    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <div style="font-size:13px;color:rgba(250,249,246,.55);width:88px;flex-shrink:0">${t.l}</div>
+      <div style="flex:1;height:5px;background:rgba(255,255,255,.07);border-radius:3px"><div style="height:100%;width:${t.pct}%;background:${col};border-radius:3px"></div></div>
+      <div style="font-size:12px;font-weight:700;color:${col};width:34px;text-align:right">${t.pct}%</div>
+      <div style="font-size:11px;color:rgba(250,249,246,.4);width:48px;text-align:right">${t.fg}% FG</div>
+    </div>`;
+  }
+
+  const live=tv.filter(r=>["badpass","ballhandling"].indexOf(r["Sub Type"]||"")>=0).length;
+  const lp=tv.length?Math.round(live/tv.length*100):0;
+
+  const assHTML=ap?(function(){
+    const tot=ap.total_ast||1;
+    const p2=Math.round((ap.ast_2pt||0)/tot*100);
+    const p3=Math.round((ap.ast_3pt||0)/tot*100);
+    const pt=ap.top_targets_pct&&ap.top_targets_pct.length?ap.top_targets_pct[0][0]+" "+ap.top_targets_pct[0][1]+"%":(ap.top_targets&&ap.top_targets.length?ap.top_targets[0][0]:"—");
+    return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      ${[{v:p2+"%",l:"% TO 2PT",c:"#60c8fa"},{v:p3+"%",l:"% TO 3PT",c:"#60c8fa"},{v:pt,l:"PASSES TO",c:"#4ade80"}].map(x=>`
+        <div style="background:#1a3323;border-radius:6px;padding:10px 4px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:${x.c}">${x.v}</div>
+          <div style="font-size:10px;color:rgba(250,249,246,.45);letter-spacing:1px;text-transform:uppercase;margin-top:3px">${x.l}</div>
+        </div>`).join("")}
+    </div>`;
+  })():"";
+
+  // A3 landscape at 96dpi = 1587 × 1123px. The poster is exactly this size.
+  // @page strips margins so the browser maps this 1:1 to paper.
+  const W=1587, H=1123, LP=Math.round(W*0.21);  // left panel = 21% width
+
+  const htmlStr=`<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><title>${playerName}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  @page{size:${W}px ${H}px;margin:0}
+  html,body{width:${W}px;height:${H}px;overflow:hidden;background:#080f0b;color:#FAF9F6;font-family:'Inter',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .poster{display:grid;grid-template-columns:${LP}px ${W-LP}px;width:${W}px;height:${H}px;overflow:hidden}
+  .left{background:linear-gradient(160deg,#152a1c,#0d1f10);display:flex;flex-direction:column;height:${H}px;overflow:hidden;border-right:2px solid rgba(0,131,72,.3)}
+  .right{display:flex;flex-direction:column;height:${H}px;overflow:hidden}
+  .lbl{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(250,249,246,.4);margin-bottom:6px}
+  .lbl-s{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px}
+  .div{border-bottom:1px solid rgba(250,249,246,.06)}
+</style>
+</head><body><div class="poster">
+
+<!-- LEFT -->
+<div class="left">
+  <div style="height:${Math.round(H*.37)}px;overflow:hidden;flex-shrink:0;background:#0d1f10;display:flex;align-items:center;justify-content:center">
+    ${photoSrc?`<img src="${photoSrc}" crossorigin="anonymous" style="width:100%;height:100%;object-fit:cover;object-position:top center">`:`<div style="text-align:center;color:rgba(250,249,246,.15)"><div style="font-size:52px">&#128100;</div></div>`}
+  </div>
+  <div class="div" style="padding:12px 14px;flex-shrink:0">
+    <div class="lbl" style="color:#008348">SHOT MENU</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      ${[["PAINT",paintPct,"#ff8a8a"],["MIDRANGE",midPct,"#f59e0b"],["FREE THROWS",ftPct,"#a78bfa"],["3-POINTERS",threePct,"#60c8fa"]].map(z=>`
+        <div style="background:rgba(0,0,0,.25);border-radius:6px;padding:8px 4px;text-align:center;border-bottom:3px solid ${z[2]}">
+          <div style="font-size:26px;font-weight:900;color:${z[2]}">${z[1]}%</div>
+          <div style="font-size:9px;color:rgba(250,249,246,.4);letter-spacing:1px;text-transform:uppercase;margin-top:2px">${z[0]}</div>
+        </div>`).join("")}
+    </div>
+  </div>
+  <div style="padding:10px 14px;flex:1;overflow:hidden;min-height:0">
+    <div class="lbl">SHOT CREATION</div>
+    ${t3.length?`<div class="lbl-s" style="color:#60c8fa">3PT &nbsp;·&nbsp; % of attempts &amp; FG%</div>${t3.map(t=>brow(t,"#60c8fa")).join("")}<div style="height:8px"></div>`:""}
+    ${t2.length?`<div class="lbl-s" style="color:#ff8a8a">2PT &nbsp;·&nbsp; % of attempts &amp; FG%</div>${t2.map(t=>brow(t,"#ff8a8a")).join("")}`:""}
+  </div>
+</div>
+
+<!-- RIGHT -->
+<div class="right">
+  <!-- Name -->
+  <div class="div" style="padding:14px 22px;display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,.2);flex-shrink:0">
+    <div>
+      <div style="font-size:38px;font-weight:900;letter-spacing:-1px;text-transform:uppercase;line-height:1">${name}</div>
+      <div style="font-size:14px;color:rgba(250,249,246,.45);margin-top:5px">#${num} · ${p.position||""} · ${p.height||""}${p.handed?" · "+p.handed.replace("RIGHT HANDED","Right Handed").replace("LEFT HANDED","Left Handed"):""}</div>
+    </div>
+    ${logoHTML}
+  </div>
+  <!-- Grades -->
+  <div class="div" style="padding:12px 22px;flex-shrink:0">
+    <div class="lbl">PLAYER RATINGS</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+      ${grades.map(gr=>`
+        <div style="background:${gb(gr.g)};border-radius:8px;padding:10px 4px;text-align:center">
+          <div style="font-size:26px;font-weight:900;color:${gc(gr.g)}">${gr.g}</div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(250,249,246,.4);margin-top:4px">${gr.l}</div>
+        </div>`).join("")}
+    </div>
+  </div>
+  <!-- Stats -->
+  <div class="div" style="padding:12px 22px;flex-shrink:0">
+    <div class="lbl">KEY STATISTICS</div>
+    <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:6px">
+      ${statsRow.map(s=>`
+        <div style="background:#152a1c;border-radius:6px;padding:8px 2px;text-align:center">
+          <div style="font-size:18px;font-weight:800">${s.v}</div>
+          <div style="font-size:9px;color:rgba(250,249,246,.4);letter-spacing:1px;text-transform:uppercase;margin-top:3px">${s.l}</div>
+        </div>`).join("")}
+    </div>
+  </div>
+  <!-- Statements -->
+  <div class="div" style="padding:14px 22px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:22px;flex-shrink:0">
+    ${p.whoWhat?`<div><div class="lbl">WHO IS HE</div><div style="font-size:15px;color:#FAF9F6;line-height:1.65">${p.whoWhat}</div></div>`:""}
+    ${p.forcing?`<div><div class="lbl" style="color:#008348">WHAT TO FORCE</div><div style="font-size:15px;color:#FAF9F6;line-height:1.65">${p.forcing}</div></div>`:""}
+    ${p.stopping?`<div><div class="lbl" style="color:#ff8a8a">WHAT TO STOP</div><div style="font-size:15px;color:#FAF9F6;line-height:1.65">${p.stopping}</div></div>`:""}
+  </div>
+  <!-- Guard + TOV/Assists -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0;overflow:hidden">
+    <div style="padding:14px 22px;border-right:1px solid rgba(250,249,246,.06);overflow:hidden">
+      <div class="lbl" style="color:#008348">HOW TO GUARD</div>
+      ${guardDefs.map(g=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;background:#152a1c;border-radius:7px;margin-bottom:8px">
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:rgba(250,249,246,.45)">${g[0]}</div>
+          <div style="font-size:16px;font-weight:900;color:#4ade80;text-transform:uppercase">${g[1]}</div>
+        </div>`).join("")}
+    </div>
+    <div style="padding:14px 22px;overflow:hidden">
+      <div class="lbl" style="color:#f59e0b">TURNOVERS</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+        ${[{v:fmtN(p.tpg),l:"TOV/G",c:""},{v:lp+"%",l:"LIVE BALL",c:"#ff8a8a"},{v:(100-lp)+"%",l:"DEAD BALL",c:"#f59e0b"}].map(x=>`
+          <div style="background:#1a3323;border-radius:7px;padding:10px 4px;text-align:center">
+            <div style="font-size:24px;font-weight:800${x.c?";color:"+x.c:""}">${x.v}</div>
+            <div style="font-size:10px;color:rgba(250,249,246,.45);letter-spacing:1px;text-transform:uppercase;margin-top:3px">${x.l}</div>
+          </div>`).join("")}
+      </div>
+      <div class="lbl" style="color:#008348">ASSISTS</div>
+      ${assHTML}
+    </div>
+  </div>
+</div>
+
+</div>
+<scr`+`ipt>
+  // Wait for fonts then print
+  document.fonts.ready.then(function(){
+    setTimeout(function(){ ${doPrint?"window.print();":""} }, 400);
+  });
+<`+`/scr`+`ipt>
+</body></html>`;
+
+  const w=window.open("","_blank","width=1587,height=1123");
+  w.document.write(htmlStr);
+  w.document.close();
+}
+
+
+async function renderSlides(){
+  const db=await loadData();
+  // Resolve slidesTeam lazily — NEXT_OPP may not have been set at declaration time
+  if(!slidesTeam || !db.teamAgg[slidesTeam]){
+    slidesTeam = NEXT_OPP || Object.keys(db.teamAgg)[0] || '';
+  }
+  const teams=Object.keys(db.teamAgg).sort();
+  document.getElementById("slides-team-btns").innerHTML=teams.map(t=>`
+    <button class="btn ${t===slidesTeam?"btn-green":""} no-print"
+      data-team="${t}" onclick="selectSlidesTeam('${t}')">${teamShort(t)}</button>`).join("");
+  buildSlides(db,slidesTeam);
+}
+
+function selectSlidesTeam(team){
+  slidesTeam=team;
+  document.querySelectorAll("#slides-team-btns .btn").forEach(b=>{
+    b.classList.toggle("btn-green",b.dataset.team===team);
+  });
+  buildSlides(DB,team);
+}
+
+function buildSlides(db,teamName){
+  // Use depth chart data if available (has full scouting info)
+  // Otherwise fall back to League Ratings
+  const depthPlayers = DEPTH_CHARTS[teamName];
+  const container = document.getElementById("slides-grid");
+
+  if(depthPlayers && depthPlayers.length){
+    const starters = depthPlayers.filter(p=>p.pos<=5).sort((a,b)=>a.pos-b.pos);
+    const bench    = depthPlayers.filter(p=>p.pos>5).sort((a,b)=>a.pos-b.pos);
+    const allPlayers = [...starters,...bench];
+
+    container.innerHTML=`
+      <div class="no-print" style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+        <div style="font-size:13px;color:var(--muted)">${allPlayers.length} players · ${fullNameMap[teamName]||teamShort(teamName)}</div>
+        <button class="btn btn-green" onclick="window.print()">🖨️ Print All A3 Landscape</button>
+        <div style="font-size:11px;color:var(--muted);padding:6px 10px;background:var(--card2);border-radius:6px;border:1px solid var(--border-soft)">
+          📁 Photos: upload to <code style="font-size:10px;color:var(--blue)">data/photos/london-lions/firstname_lastname.jpg</code>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        ${allPlayers.map((p,i)=>{ try{ return slideCard(p,i); } catch(e){ return '<div class="card" style="padding:20px;color:#ff8a8a">Error on '+fmtName(p.name||'')+': '+e.message+'</div>'; } }).join("")}
+      </div>`;
+  } else {
+    // Fallback to League Ratings
+    const players=db.lr.filter(r=>r.TEAM===teamName&&(parseFloat(r.GP)||0)>=5&&r.PPG!=null)
+      .sort((a,b)=>(parseFloat(b.MPG)||0)-(parseFloat(a.MPG)||0));
+    if(!players.length){ container.innerHTML="<div class='loading-state'>No player data for this team — add a Data sheet</div>"; return; }
+    // Convert LR format to depth chart format for slideCard
+    const converted = players.map((p,i)=>({
+      pos:i+1, name:p.PLAYER||"", number:"", position:"", height:"", handed:"",
+      ppg:parseFloat(p.PPG)||0, rpg:parseFloat(p.RPG)||0, apg:parseFloat(p.APG)||0,
+      tpg:0, mpg:parseFloat(p.MPG)||0, efg:parseFloat(p["eFG%"])||0,
+      pm:parseFloat(p["+/-"])||0, usage:parseFloat(p["USAGE%"])||0,
+      paint_pct:0,ft_pct:0,mid_pct:0,three_pct:0,
+      scoring:p.GRADE||"", defence:"", rebounding:"", playmaking:"",
+    }));
+    container.innerHTML=`
+      <div class="no-print" style="display:flex;gap:10px;align-items:center;margin-bottom:20px">
+        <div style="font-size:13px;color:var(--muted)">${players.length} players (basic data only)</div>
+        <button class="btn btn-green" onclick="window.print()">🖨️ Print All A3</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        ${converted.map((p,i)=>slideCard(p,i)).join("")}
+      </div>`;
+  }
+}
+
+
+// ── Slide helper functions ────────────────────────────────────────────────────
+function fmtN(v){ return (v!=null&&!isNaN(v)&&Number(v)!==0)?Number(v).toFixed(1):'—'; }
+function fmtPct1(v){ return (v!=null&&!isNaN(v)&&Number(v)!==0)?(Number(v)*100).toFixed(1)+'%':'—'; }
+function matchPlayerName(pbpName, dataName){
+  if(!pbpName||!dataName) return false;
+  var pb=(pbpName||'').toLowerCase();
+  var parts=dataName.split(',');
+  var sur=(parts[0]||'').trim().toLowerCase();
+  var fst=(parts[1]||'').trim().toLowerCase();
+  return pb.indexOf(sur)>=0||(fst.charAt(0)&&pb.indexOf(fst.charAt(0)+'. '+sur)>=0);
+}
+
+function slideCard(p, idx){
+  var name     = fmtName(p.name||'');
+  var num      = p.number||'—';
+  var paintPct = Math.round((p.paint_pct||0)*100);
+  var ftPct    = Math.round((p.ft_pct||0)*100);
+  var midPct   = Math.round((p.mid_pct||0)*100);
+  var threePct = Math.round((p.three_pct||0)*100);
+  var photoSrc = p.imageUrl || p.imageB64 || '';
+  var ap       = p.assistProfile || null;
+  var astRatePct   = p.assistedRate || 0;
+  var selfCreatePct= 100 - astRatePct;
+
+  // ── PBP shot types ──────────────────────────────────────────────────────────
+  function matchPbp(a, b){ return matchPlayerName(a, b); }
+  var allPbp  = (DB&&DB.raw&&DB.raw.pbp)||[];
+  var shots3  = allPbp.filter(function(r){ return r.Action==='3pt'      && matchPbp(r.Player,p.name||''); });
+  var shots2  = allPbp.filter(function(r){ return r.Action==='2pt'      && matchPbp(r.Player,p.name||''); });
+  var tovRows = allPbp.filter(function(r){ return r.Action==='turnover' && matchPbp(r.Player,p.name||''); });
+
+  function pbpTypes(shots, types){
+    if(!shots.length) return [];
+    return types.map(function(t){
+      var ms   = shots.filter(function(s){ return t.keys.indexOf(s['Sub Type']||'')>=0; });
+      var made = ms.filter(function(s){ return s.Success==1||s.Success==='1'; }).length;
+      return {label:t.label, n:ms.length,
+              pct:Math.round(ms.length/shots.length*100),
+              madeRate:ms.length?Math.round(made/ms.length*100):0};
+    }).filter(function(t){ return t.n>0; }).sort(function(a,b){ return b.pct-a.pct; });
+  }
+
+  var types3 = pbpTypes(shots3,[
+    {label:'Catch & Shoot', keys:['jumpshot']},
+    {label:'Pull-Up',       keys:['pullupjumpshot']},
+    {label:'Step-Back',     keys:['stepbackjumpshot']},
+    {label:'Fadeaway',      keys:['fadeaway','turnaroundjumpshot']},
+  ]);
+  var types2 = pbpTypes(shots2,[
+    {label:'Layup/Drive', keys:['layup','drivinglayup','reverselayup']},
+    {label:'Dunk',        keys:['dunk','alleyoopdunk','alleyoop','tipindunk','tipinlayup']},
+    {label:'Floater',     keys:['floatingjumpshot']},
+    {label:'Mid-Range',   keys:['jumpshot']},
+    {label:'Pull-Up Mid', keys:['pullupjumpshot','stepbackjumpshot']},
+    {label:'Hook/Post',   keys:['hookshot','turnaroundjumpshot','fadeaway']},
+  ]);
+
+  var liveTov  = tovRows.filter(function(r){ return ['badpass','ballhandling'].indexOf(r['Sub Type']||'')>=0; }).length;
+  var totalTov = tovRows.length;
+  var livePct  = totalTov?Math.round(liveTov/totalTov*100):0;
+
+  // ── Guard situations ────────────────────────────────────────────────────────
+  var guardDefs = [
+    ['ISOLATION',        p.iso],
+    ['CATCH & SHOOT',    p.cs],
+    ['DRIBBLE JUMPER',   p.dribble],
+    ['POST UP',          p.post],
+    ['PNR SCREENER',     p.screener],
+    ['PNR BALL HANDLER', p.ballhandler],
+  ];
+  var guardItems = guardDefs.filter(function(x){ return x[1]; });
+
+  // ── Stats row ───────────────────────────────────────────────────────────────
+  var statsRow = [
+    {v:fmtN(p.ppg),         l:'PPG'},
+    {v:fmtN(p.rpg),         l:'RPG'},
+    {v:fmtN(p.apg),         l:'APG'},
+    {v:fmtPct1(p.fgp),      l:'FG%'},
+    {v:fmtPct1(p.threepct), l:'3P%'},
+    {v:fmtN(p.threepm),     l:'3PR'},
+    {v:fmtN(p.fta),         l:'FTA'},
+    {v:fmtPct1(p.ftpct),    l:'FT%'},
+    {v:fmtN(p.oreb),        l:'OFF'},
+    {v:fmtN(p.tpg),         l:'TO'},
+    {v:fmtN(p.fbp),         l:'FBK'},
+    {v:fmtN(p.pip),         l:'PIP'},
+  ];
+
+  // ── Grades ──────────────────────────────────────────────────────────────────
+  var grades = [
+    {l:'IMPACT',     g:p.impact||p.scoring||'—'},
+    {l:'SCORING',    g:p.scoring||'—'},
+    {l:'DEFENCE',    g:p.defence||'—'},
+    {l:'REBOUNDING', g:p.rebounding||'—'},
+    {l:'PLAYMAKING', g:p.playmaking||'—'},
+  ];
+
+  // ── League rank helpers ──────────────────────────────────────────────────────
+  var lrName = ((p&&p.name)||'').toUpperCase().replace('TARICK','TARIK');
+  var STAT_RANK_MAP = {PPG:'PPG',RPG:'RPG',APG:'APG','FT%':'FT%','3P%':'3P%',FBK:'FBP/G',PIP:'PiP/G'};
+  function getLeagueRank(statLabel){
+    var key=STAT_RANK_MAP[statLabel];
+    if(!key||!LEAGUE_RANKS||!LEAGUE_RANKS.ranks||!LEAGUE_RANKS.ranks[key]) return 0;
+    return LEAGUE_RANKS.ranks[key][lrName]||0;
+  }
+  function rankPill(rank){
+    if(!rank||rank>10) return '';
+    var col=rank<=3?'#f59e0b':rank<=5?'#4ade80':'var(--blue)';
+    return '<div style="font-size:7px;font-weight:800;color:'+col+';margin-top:1px">#'+rank+' LGE</div>';
+  }
+
+  // ── HTML builders ───────────────────────────────────────────────────────────
+  function sectionLabel(text, colour){
     return '<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:'+(colour||'var(--muted)')+';margin-bottom:6px">'+text+'</div>';
   }
   function statBox(v, l){
@@ -2028,11 +2648,11 @@ function slideCard(p, idx){
 
   // ── Return complete slide ───────────────────────────────────────────────────
   return '<div class="slide-card" id="slide-'+idx+'">'
-    +'<div style="display:grid;grid-template-columns:240px 1fr;min-height:520px;border-radius:10px;overflow:hidden">'
+    +'<div style="display:grid;grid-template-columns:21% 79%;width:100%;height:100%">'
 
       // LEFT
-      +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column">'
-        +'<div style="height:220px;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'+photoHTML+'</div>'
+      +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column;height:100%;overflow:hidden">'
+        +'<div style="height:35%;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'+photoHTML+'</div>'
         +'<div style="padding:10px 12px;border-bottom:1px solid var(--border-soft)">'
           +sectionLabel('SHOT MENU','var(--green)')
           +shotZonesHTML
@@ -2044,7 +2664,7 @@ function slideCard(p, idx){
       +'</div>'
 
       // RIGHT
-      +'<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft)">'
+      +'<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft);height:100%;overflow:hidden">'
         // Name
         +'<div style="padding:12px 20px 10px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between">'
           +'<div>'
@@ -2683,11 +3303,11 @@ function slideCard(p, idx){
 
   // ── Return complete slide ───────────────────────────────────────────────────
   return '<div class="slide-card" id="slide-'+idx+'">'
-    +'<div style="display:grid;grid-template-columns:240px 1fr;min-height:520px;border-radius:10px;overflow:hidden">'
+    +'<div style="display:grid;grid-template-columns:21% 79%;width:100%;height:100%">'
 
       // LEFT
-      +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column">'
-        +'<div style="height:220px;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'+photoHTML+'</div>'
+      +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column;height:100%;overflow:hidden">'
+        +'<div style="height:35%;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'+photoHTML+'</div>'
         +'<div style="padding:10px 12px;border-bottom:1px solid var(--border-soft)">'
           +sectionLabel('SHOT MENU','var(--green)')
           +shotZonesHTML
@@ -2699,7 +3319,7 @@ function slideCard(p, idx){
       +'</div>'
 
       // RIGHT
-      +'<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft)">'
+      +'<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft);height:100%;overflow:hidden">'
         // Name
         +'<div style="padding:12px 20px 10px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between">'
           +'<div>'
