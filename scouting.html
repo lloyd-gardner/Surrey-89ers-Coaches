@@ -1918,7 +1918,7 @@ function slideCard(p, idx){
   // Build helpers
   function barRow(label, pct, colour, extra){
     return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
-      +'<div style="font-size:9px;color:var(--muted);width:90px;flex-shrink:0">'+label+'</div>'
+      +'<div style="font-size:11px;color:var(--muted);width:90px;flex-shrink:0">'+label+'</div>'
       +'<div style="flex:1;height:4px;background:rgba(250,249,246,0.06);border-radius:2px">'
       +'<div style="height:100%;width:'+pct+'%;background:'+colour+';border-radius:2px"></div></div>'
       +(extra||'')
@@ -1939,9 +1939,9 @@ function slideCard(p, idx){
       +'</div>';
   }
   function miniStat(v, l, col){
-    return '<div style="background:var(--card3);border-radius:4px;padding:6px 4px;text-align:center">'
+    return '<div style="background:var(--card3);border-radius:4px;padding:8px 4px;text-align:center">'
       +'<div style="font-family:\'Space Grotesk\',sans-serif;font-size:13px;font-weight:700'+(col?';color:'+col:'')+'">'+v+'</div>'
-      +'<div style="font-size:7px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:1px">'+l+'</div>'
+      +'<div style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px">'+l+'</div>'
       +'</div>';
   }
 
@@ -2015,17 +2015,17 @@ function slideCard(p, idx){
           var val = [paintPct,midPct,ftPct,threePct][i];
           var col = ['#ff8a8a','var(--amber)','var(--purple)','var(--blue)'][i];
           return '<div style="background:rgba(0,0,0,0.2);border-radius:5px;padding:7px 6px;text-align:center;border-bottom:2px solid '+col+'">'
-            +'<div style="font-size:16px;font-weight:800;color:'+col+'">'+val+'%</div>'
-            +'<div style="font-size:8px;color:rgba(250,249,246,0.4);letter-spacing:1px;text-transform:uppercase;margin-top:2px">'+l+'</div>'
+            +'<div style="font-size:18px;font-weight:800;color:'+col+'">'+val+'%</div>'
+            +'<div style="font-size:9px;color:rgba(250,249,246,0.4);letter-spacing:0.5px;text-transform:uppercase;margin-top:2px">'+l+'</div>'
             +'</div>';
         }).join('')
     + '</div>';
 
   // Who/Force/Stop
   var whoHTML = (p.whoWhat||p.forcing||p.stopping)
-    ? (p.whoWhat  ? '<div style="margin-bottom:10px"><div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">WHO IS HE</div><div style="font-size:10px;color:var(--offwhite);line-height:1.5">'+p.whoWhat+'</div></div>':'' )
-    + (p.forcing  ? '<div style="margin-bottom:10px"><div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:4px">WHAT TO FORCE</div><div style="font-size:10px;color:var(--offwhite);line-height:1.5">'+p.forcing+'</div></div>':'' )
-    + (p.stopping ? '<div><div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#ff8a8a;margin-bottom:4px">WHAT TO STOP</div><div style="font-size:10px;color:var(--offwhite);line-height:1.5">'+p.stopping+'</div></div>':'' )
+    ? (p.whoWhat  ? '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">WHO IS HE</div><div style="font-size:10px;color:var(--offwhite);line-height:1.5">'+p.whoWhat+'</div></div>':'' )
+    + (p.forcing  ? '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:5px">WHAT TO FORCE</div><div style="font-size:10px;color:var(--offwhite);line-height:1.5">'+p.forcing+'</div></div>':'' )
+    + (p.stopping ? '<div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#ff8a8a;margin-bottom:5px">WHAT TO STOP</div><div style="font-size:10px;color:var(--offwhite);line-height:1.5">'+p.stopping+'</div></div>':'' )
     : '<div style="color:var(--muted);font-size:10px;font-style:italic">Add WHO / FORCE / STOP text to Lions Data sheet</div>';
 
   // Shot type bars + TOV + ASSIST panel (now on RIGHT side of bottom)
@@ -2034,7 +2034,7 @@ function slideCard(p, idx){
   var rightPanelHTML =
     // 3PT creation
     (types3.length
-      ? '<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--blue);margin-bottom:5px">3PT CREATION</div>'
+      ? '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--blue);margin-bottom:6px">3PT CREATION</div>'
         + barRows(types3,'var(--blue)')
         + '<div style="height:8px"></div>'
       : '')
@@ -2045,14 +2045,14 @@ function slideCard(p, idx){
         + '<div style="height:8px"></div>'
       : '')
     // TOV breakdown
-    + '<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--amber);margin-bottom:5px">TURNOVERS</div>'
+    + '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--amber);margin-bottom:6px">TURNOVERS</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:10px">'
       + miniStat(fmtN(p.tpg), 'TOV/G', '')
       + miniStat(livePct+'%', 'LIVE', '#ff8a8a')
       + miniStat((100-livePct)+'%', 'DEAD', 'var(--amber)')
     + '</div>'
     // ASSIST breakdown
-    + '<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:5px">ASSISTS</div>'
+    + '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:6px">ASSISTS</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:0">'
       + miniStat(Math.round((ap?ap.ast_2pt:0)/(ap&&ap.total_ast||1)*100)+'%', '% TO 2PT', '#60c8fa')
       + miniStat(Math.round((ap?ap.ast_3pt:0)/(ap&&ap.total_ast||1)*100)+'%', '% TO 3PT', 'var(--blue)')
@@ -2074,19 +2074,19 @@ function slideCard(p, idx){
         +'<div style="height:240px;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'+photoHTML+'</div>'
         // Profile
         +'<div style="padding:10px 14px;border-bottom:1px solid var(--border-soft)">'
-          +'<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:5px">PLAYER PROFILE</div>'
-          +'<div style="font-size:12px;font-weight:700">'+(p.height||'—')+' · '+(p.position||'—')+'</div>'
-          +'<div style="font-size:10px;color:rgba(250,249,246,0.5);margin-top:2px">'+((p.handed||'').replace(' HANDED',''))+'</div>'
+          +'<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:6px">PLAYER PROFILE</div>'
+          +'<div style="font-size:14px;font-weight:700">'+(p.height||'—')+' · '+(p.position||'—')+'</div>'
+          +'<div style="font-size:12px;color:rgba(250,249,246,0.5);margin-top:3px">'+((p.handed||'').replace(' HANDED',''))+'</div>'
         +'</div>'
         // Shot Menu
         +'<div style="padding:10px 14px;border-bottom:1px solid var(--border-soft)">'
-          +'<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:6px">SHOT MENU</div>'
+          +'<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:8px">SHOT MENU</div>'
           +shotZoneHTML
         +'</div>'
         // How To Guard
         +'<div style="padding:10px 14px;flex:1;overflow:hidden">'
-          +'<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:6px">HOW TO GUARD</div>'
-          +guardHTML
+          +'<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">SHOT CREATION</div>'
+          +rightPanelHTML
         +'</div>'
       +'</div>'
 
@@ -2115,7 +2115,7 @@ function slideCard(p, idx){
         // Bottom: 2 columns — WHO/FORCE/STOP left | shot types + TOV + assists right
         +'<div style="display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0">'
           +'<div style="padding:12px 20px;border-right:1px solid var(--border-soft);overflow:auto">'+whoHTML+'</div>'
-          +'<div style="padding:12px 20px;overflow:auto">'+rightPanelHTML+'</div>'
+          +'<div style="padding:14px 20px;overflow:auto">'+'<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:10px">HOW TO GUARD</div>'+guardHTML+'</div>'
         +'</div>'
         // Print
         +'<div style="padding:10px 20px;border-top:1px solid var(--border-soft)" class="no-print">'
