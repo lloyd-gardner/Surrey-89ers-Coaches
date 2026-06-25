@@ -1319,7 +1319,7 @@ async function fillNextOpponent(){
   ).join("");
 
   // Off profile
-  document.getElementById("no-offrtg").innerHTML=`OFF RTG ${fmt(t.offrtg)} &nbsp;${rankBadge(offR[NEXT_OPP],total)}`;
+  document.getElementById("no-offrtg").innerHTML='OFF RTG '+fmt(t.offrtg)+'&nbsp;'+rankBadge(offR[NEXT_OPP],total);
   document.getElementById("nosz-pip").textContent=fmt(t.pip,0);
   document.getElementById("nosz-efg").textContent=fmtPR(t.efg);
   document.getElementById("nosz-3rate").textContent=fmtPR(t.threeRate);
@@ -1333,18 +1333,23 @@ async function fillNextOpponent(){
   const ftLabel      = t.ft > la.ft+5 ? "Strong free throw shooting" : t.ft < la.ft-5 ? "Poor free throw shooting" : "Average from the line";
   const transLabel   = t.fbp > la.fbp+3 ? "Transition-heavy offence" : t.fbp < la.fbp-3 ? "Half-court focused" : "Balanced transition/half-court";
 
-  document.getElementById("no-off-bars").innerHTML=`
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
-      <span class="pill pill-muted" style="font-size:10px">${tempoLabel}</span>
-      <span class="pill pill-muted" style="font-size:10px">${shootLabel}</span>
-      <span class="pill pill-muted" style="font-size:10px">${transLabel}</span>
-      <span class="pill pill-muted" style="font-size:10px">${orebLabel}</span>
-      <span class="pill pill-muted" style="font-size:10px">${ftLabel}</span>
-    </div>
-  `;
+  function stmtPill(title, value){
+    return '<div style="background:var(--card2);border:1px solid var(--border-soft);border-radius:8px;padding:10px 14px;min-width:110px;flex:1">'
+      +'<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">'+title+'</div>'
+      +'<div style="font-size:16px;font-weight:800;color:var(--green);line-height:1">'+value+'</div>'
+      +'</div>';
+  }
+  document.getElementById("no-off-bars").innerHTML=
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      +stmtPill('Tempo',      tempoLabel.replace('-paced','').replace(' tempo','').replace('Average','Average'))
+      +stmtPill('Shooting',   shootLabel.replace(' shooting efficiency','').replace('Highly efficient','Excellent').replace('Below-average efficiency','Below Avg').replace('Average','Average'))
+      +stmtPill('Off Rebound',orebLabel.replace(' offensive rebounding','').replace('Average','Average'))
+      +stmtPill('Free Throws',ftLabel.replace(' free throw shooting','').replace(' from the line','').replace('Average','Average'))
+      +stmtPill('Scoring',    t.pip>40?'Interior':t.threeRate>45?'3PT Heavy':'Balanced')
+    +'</div>';
 
   // Def profile
-  document.getElementById("no-defrtg").innerHTML=`DEF RTG ${fmt(t.defrtg)} &nbsp;${rankBadge(defR[NEXT_OPP],total)}`;
+  document.getElementById("no-defrtg").innerHTML='DEF RTG '+fmt(t.defrtg)+'&nbsp;'+rankBadge(defR[NEXT_OPP],total);
   // Defensive tendency statements
   const pressureLabel  = t.tov > 19 ? "Suffocating pressure" : t.tov > 17 ? "Active pressure" : t.tov > 15 ? "Moderate pressure" : "Passive defence";
   const interiorLabel  = t.blk > 3 ? "Dominant interior protection" : t.pip < 36 ? "Strong interior defence" : t.pip > 43 ? "Vulnerable in the paint" : "Average interior";
@@ -1352,15 +1357,14 @@ async function fillNextOpponent(){
   const defRebLabel    = t.dreb > 74 ? "Elite defensive rebounding" : t.dreb < 68 ? "Poor defensive rebounding" : "Average defensive rebounding";
   const foulingLabel   = t.pf > 21 ? "Reckless fouling" : t.pf < 17 ? "Disciplined, low foul rate" : "Average fouling";
 
-  document.getElementById("no-def-bars").innerHTML=`
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
-      <span class="pill pill-muted" style="font-size:10px">${pressureLabel}</span>
-      <span class="pill pill-muted" style="font-size:10px">${interiorLabel}</span>
-      <span class="pill pill-muted" style="font-size:10px">${exteriorLabel}</span>
-      <span class="pill pill-muted" style="font-size:10px">${defRebLabel}</span>
-      <span class="pill pill-muted" style="font-size:10px">${foulingLabel}</span>
-    </div>
-  `;
+  document.getElementById("no-def-bars").innerHTML=
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      +stmtPill('Pressure',    pressureLabel.replace(' pressure','').replace(' defence','').replace('Moderate','Moderate').replace('Passive','Passive'))
+      +stmtPill('Interior Def',interiorLabel.replace(' interior','').replace(' protection','').replace('Average','Average'))
+      +stmtPill('Def Rebound', defRebLabel.replace(' defensive rebounding','').replace('Average','Average'))
+      +stmtPill('Perimeter Def',exteriorLabel.replace(' perimeter defence','').replace(' to 3s','').replace('Average','Average'))
+      +stmtPill('Fouling',     foulingLabel.replace(' fouling','').replace(' foul rate',''))
+    +'</div>';
 
   const defTags=[];
   if(tr){
@@ -1724,6 +1728,10 @@ let slidesTeam=NEXT_OPP;
 
 async function renderSlides(){
   const db=await loadData();
+  // Resolve slidesTeam lazily — NEXT_OPP may not have been set at declaration time
+  if(!slidesTeam || !db.teamAgg[slidesTeam]){
+    slidesTeam = NEXT_OPP || Object.keys(db.teamAgg)[0] || '';
+  }
   const teams=Object.keys(db.teamAgg).sort();
   document.getElementById("slides-team-btns").innerHTML=teams.map(t=>`
     <button class="btn ${t===slidesTeam?"btn-green":""} no-print"
