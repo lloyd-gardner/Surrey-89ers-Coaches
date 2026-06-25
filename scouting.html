@@ -1811,7 +1811,7 @@ function buildSlides(db,teamName){
 }
 
 
-// ── Slide helper functions ──────────────────────────────────────────────────
+// ── Slide helper functions ────────────────────────────────────────────────────
 function fmtN(v){ return (v!=null&&!isNaN(v)&&Number(v)!==0)?Number(v).toFixed(1):'—'; }
 function fmtPct1(v){ return (v!=null&&!isNaN(v)&&Number(v)!==0)?(Number(v)*100).toFixed(1)+'%':'—'; }
 function matchPlayerName(pbpName, dataName){
@@ -1832,28 +1832,26 @@ function slideCard(p, idx){
   var threePct = Math.round((p.three_pct||0)*100);
   var photoSrc = p.imageUrl || p.imageB64 || '';
   var ap       = p.assistProfile || null;
+  var astRatePct   = p.assistedRate || 0;
+  var selfCreatePct= 100 - astRatePct;
 
-  // PBP shot types
+  // ── PBP shot types ──────────────────────────────────────────────────────────
+  function matchPbp(a, b){ return matchPlayerName(a, b); }
+  var allPbp  = (DB&&DB.raw&&DB.raw.pbp)||[];
+  var shots3  = allPbp.filter(function(r){ return r.Action==='3pt'      && matchPbp(r.Player,p.name||''); });
+  var shots2  = allPbp.filter(function(r){ return r.Action==='2pt'      && matchPbp(r.Player,p.name||''); });
+  var tovRows = allPbp.filter(function(r){ return r.Action==='turnover' && matchPbp(r.Player,p.name||''); });
+
   function pbpTypes(shots, types){
     if(!shots.length) return [];
     return types.map(function(t){
       var ms   = shots.filter(function(s){ return t.keys.indexOf(s['Sub Type']||'')>=0; });
       var made = ms.filter(function(s){ return s.Success==1||s.Success==='1'; }).length;
-      return {label:t.label, n:ms.length, pct:Math.round(ms.length/shots.length*100), madeRate:ms.length?Math.round(made/ms.length*100):0};
+      return {label:t.label, n:ms.length,
+              pct:Math.round(ms.length/shots.length*100),
+              madeRate:ms.length?Math.round(made/ms.length*100):0};
     }).filter(function(t){ return t.n>0; }).sort(function(a,b){ return b.pct-a.pct; });
   }
-  function matchPbp(pbpName, dataName){
-    if(!pbpName||!dataName) return false;
-    var pb   = (pbpName||'').toLowerCase();
-    var parts= dataName.split(',');
-    var sur  = (parts[0]||'').trim().toLowerCase();
-    var fst  = (parts[1]||'').trim().toLowerCase();
-    return pb.indexOf(sur)>=0||(fst.charAt(0)&&pb.indexOf(fst.charAt(0)+'. '+sur)>=0);
-  }
-  var allPbp  = (DB&&DB.raw&&DB.raw.pbp)||[];
-  var shots3  = allPbp.filter(function(r){ return r.Action==='3pt'      && matchPbp(r.Player,p.name||''); });
-  var shots2  = allPbp.filter(function(r){ return r.Action==='2pt'      && matchPbp(r.Player,p.name||''); });
-  var tovRows = allPbp.filter(function(r){ return r.Action==='turnover' && matchPbp(r.Player,p.name||''); });
 
   var types3 = pbpTypes(shots3,[
     {label:'Catch & Shoot', keys:['jumpshot']},
@@ -1870,41 +1868,22 @@ function slideCard(p, idx){
     {label:'Hook/Post',   keys:['hookshot','turnaroundjumpshot','fadeaway']},
   ]);
 
-  var liveTov = tovRows.filter(function(r){ return ['badpass','ballhandling'].indexOf(r['Sub Type']||'')>=0; }).length;
-  var totalTov= tovRows.length;
-  var livePct = totalTov?Math.round(liveTov/totalTov*100):0;
+  var liveTov  = tovRows.filter(function(r){ return ['badpass','ballhandling'].indexOf(r['Sub Type']||'')>=0; }).length;
+  var totalTov = tovRows.length;
+  var livePct  = totalTov?Math.round(liveTov/totalTov*100):0;
 
-  // Guard situations — correct order with proper labels
+  // ── Guard situations ────────────────────────────────────────────────────────
   var guardDefs = [
-    ['ISOLATION',         p.iso],
-    ['CATCH & SHOOT',     p.cs],
-    ['DRIBBLE JUMPER',    p.dribble],
-    ['POST UP',           p.post],
-    ['PNR SCREENER',      p.screener],
-    ['PNR BALL HANDLER',  p.ballhandler],
+    ['ISOLATION',        p.iso],
+    ['CATCH & SHOOT',    p.cs],
+    ['DRIBBLE JUMPER',   p.dribble],
+    ['POST UP',          p.post],
+    ['PNR SCREENER',     p.screener],
+    ['PNR BALL HANDLER', p.ballhandler],
   ];
   var guardItems = guardDefs.filter(function(x){ return x[1]; });
 
-  // Stats row
-  // League rank lookup — maps stat label to LEAGUE_RANKS key and the player's name in the ranks
-  // Names in LEAGUE_RANKS are CAPS (e.g. "PHILLIP, TARIK")
-  var lrName = ((p&&p.name)||'').toUpperCase().replace('TARICK','TARIK'); // handle spelling variants
-  var STAT_RANK_MAP = {
-    'PPG':'PPG','RPG':'RPG','APG':'APG','FT%':'FT%','3P%':'3P%',
-    'FBK':'FBP/G','PIP':'PiP/G','+/-':'+/-','OFF':'OREB/G',
-    'TO':'TOV/G','TO/G':'TOV/G'
-  };
-  function getLeagueRank(statLabel){
-    var key = STAT_RANK_MAP[statLabel];
-    if(!key || !LEAGUE_RANKS || !LEAGUE_RANKS.ranks || !LEAGUE_RANKS.ranks[key]) return 0;
-    return LEAGUE_RANKS.ranks[key][lrName] || 0;
-  }
-  function rankPill(rank){
-    if(!rank || rank > 10) return '';
-    var col = rank<=3 ? '#f59e0b' : rank<=5 ? '#4ade80' : 'var(--blue)';
-    return '<div style="font-size:7px;font-weight:800;color:'+col+';margin-top:1px">#'+rank+' LGE</div>';
-  }
-
+  // ── Stats row ───────────────────────────────────────────────────────────────
   var statsRow = [
     {v:fmtN(p.ppg),         l:'PPG'},
     {v:fmtN(p.rpg),         l:'RPG'},
@@ -1920,6 +1899,7 @@ function slideCard(p, idx){
     {v:fmtN(p.pip),         l:'PIP'},
   ];
 
+  // ── Grades ──────────────────────────────────────────────────────────────────
   var grades = [
     {l:'IMPACT',     g:p.impact||p.scoring||'—'},
     {l:'SCORING',    g:p.scoring||'—'},
@@ -1928,260 +1908,193 @@ function slideCard(p, idx){
     {l:'PLAYMAKING', g:p.playmaking||'—'},
   ];
 
-  // Build helpers
-  function barRow(label, pct, colour, extra){
-    return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
-      +'<div style="font-size:11px;color:var(--muted);width:90px;flex-shrink:0">'+label+'</div>'
-      +'<div style="flex:1;height:4px;background:rgba(250,249,246,0.06);border-radius:2px">'
-      +'<div style="height:100%;width:'+pct+'%;background:'+colour+';border-radius:2px"></div></div>'
-      +(extra||'')
-      +'</div>';
+  // ── League rank helpers ──────────────────────────────────────────────────────
+  var lrName = ((p&&p.name)||'').toUpperCase().replace('TARICK','TARIK');
+  var STAT_RANK_MAP = {PPG:'PPG',RPG:'RPG',APG:'APG','FT%':'FT%','3P%':'3P%',FBK:'FBP/G',PIP:'PiP/G'};
+  function getLeagueRank(statLabel){
+    var key=STAT_RANK_MAP[statLabel];
+    if(!key||!LEAGUE_RANKS||!LEAGUE_RANKS.ranks||!LEAGUE_RANKS.ranks[key]) return 0;
+    return LEAGUE_RANKS.ranks[key][lrName]||0;
   }
-  function barRows(types, colour){
-    return types.map(function(t){
-      return barRow(t.label, t.pct, colour,
-        '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:9px;font-weight:700;width:26px;text-align:right">'+t.pct+'%</div>'
-        +'<div style="font-size:8px;color:var(--muted);width:28px">'+t.madeRate+'%✓</div>'
-      );
-    }).join('');
+  function rankPill(rank){
+    if(!rank||rank>10) return '';
+    var col=rank<=3?'#f59e0b':rank<=5?'#4ade80':'var(--blue)';
+    return '<div style="font-size:7px;font-weight:800;color:'+col+';margin-top:1px">#'+rank+' LGE</div>';
+  }
+
+  // ── HTML builders ───────────────────────────────────────────────────────────
+  function sectionLabel(text, colour){
+    return '<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:'+(colour||'var(--muted)')+';margin-bottom:6px">'+text+'</div>';
   }
   function statBox(v, l){
-    return '<div style="background:var(--card3);border-radius:4px;padding:8px 2px;text-align:center">'
-      +'<div style="font-family:\'Space Grotesk\',sans-serif;font-size:13px;font-weight:700">'+v+'</div>'
-      +'<div style="font-size:7px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px">'+l+'</div>'
+    var rank=getLeagueRank(l);
+    return '<div style="background:var(--card3);border-radius:4px;padding:6px 2px;text-align:center">'
+      +'<div style="font-size:13px;font-weight:700">'+v+'</div>'
+      +'<div style="font-size:7px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:1px">'+l+'</div>'
+      +rankPill(rank)
       +'</div>';
   }
   function miniStat(v, l, col){
     return '<div style="background:var(--card3);border-radius:4px;padding:8px 4px;text-align:center">'
-      +'<div style="font-family:\'Space Grotesk\',sans-serif;font-size:13px;font-weight:700'+(col?';color:'+col:'')+'">'+v+'</div>'
+      +'<div style="font-size:16px;font-weight:700'+(col?';color:'+col:'')+'" >'+v+'</div>'
       +'<div style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px">'+l+'</div>'
       +'</div>';
   }
-
-  // Photo
-  var photoHTML = photoSrc
-    ? '<img src="'+photoSrc+'" style="width:100%;height:100%;object-fit:cover;object-position:top center" alt="'+name+'">'
-    : '<div style="text-align:center;color:rgba(250,249,246,0.15);padding:16px">'
-        +'<div style="font-size:36px;margin-bottom:6px">👤</div>'
-        +'<div style="font-size:8px;letter-spacing:1px">NO PHOTO</div>'
-        +'<div style="font-size:7px;color:rgba(250,249,246,0.07);margin-top:4px;line-height:1.5">'
-          +(p._expectedPhotoUrl ? p._expectedPhotoUrl.split('/').pop() : '')
-        +'</div></div>';
-
-  // Grade boxes
-  var gradeHTML = grades.map(function(gr){
-    return '<div style="background:var(--card3);border-radius:6px;padding:8px 4px;text-align:center">'
-      +'<div class="grade-badge '+gradeClass(gr.g)+'" style="font-size:15px;padding:3px 10px;display:block;margin-bottom:4px">'+gr.g+'</div>'
-      +'<div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">'+gr.l+'</div>'
-      +'</div>';
-  }).join('');
-
-  // Guard notes — now on the LEFT side of the bottom panel
-  var guardHTML = guardItems.length
-    ? guardItems.map(function(g){
-        return '<div style="background:rgba(0,0,0,0.2);border-radius:5px;padding:6px 10px;text-align:center;margin-bottom:5px">'
-          +'<div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(250,249,246,0.35);margin-bottom:2px">'+g[0]+'</div>'
-          +'<div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:0.5px">'+g[1]+'</div>'
-          +'</div>';
-      }).join('')
-    : '<div style="color:var(--muted);font-size:10px">No guarding notes</div>';
-
-  // Shot zones (now on right side of left panel)
-  // ── Creation + assisted rate for left panel ────────────────────────
-  var astRatePct = p.assistedRate || 0;
-  var selfCreatePct = 100 - astRatePct;
-  // Top pass target as % string
-  var topPassTarget = '';
-  if(ap && ap.top_targets_pct && ap.top_targets_pct.length){
-    topPassTarget = ap.top_targets_pct[0][0]+' '+ap.top_targets_pct[0][1]+'%';
-  } else if(ap && ap.top_targets && ap.top_targets.length){
-    topPassTarget = ap.top_targets[0][0];
-  }
-
-  function creationBar(label, pct, colour, suffix){
+  function barRow(label, pct, colour, suffix){
     return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
-      +'<div style="font-size:9px;color:var(--muted);width:76px;flex-shrink:0">'+label+'</div>'
+      +'<div style="font-size:11px;color:var(--muted);width:90px;flex-shrink:0">'+label+'</div>'
       +'<div style="flex:1;height:4px;background:rgba(250,249,246,0.06);border-radius:2px">'
         +'<div style="height:100%;width:'+Math.min(100,pct)+'%;background:'+colour+';border-radius:2px"></div>'
       +'</div>'
-      +'<div style="font-weight:700;font-size:10px;width:34px;text-align:right">'+(suffix||pct+'%')+'</div>'
+      +'<div style="font-weight:700;font-size:10px;width:56px;text-align:right">'+(suffix||pct+'%')+'</div>'
       +'</div>';
   }
+  function barRows(types, colour){
+    return types.map(function(t){ return barRow(t.label, t.pct, colour, t.pct+'% '+t.madeRate+'%\u2713'); }).join('');
+  }
 
-  var creationHTML =
-    // 3PT creation types
-    (types3.length ? '<div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--blue);margin-bottom:5px">3PT TYPES</div>'
-      + types3.map(function(t){ return creationBar(t.label, t.pct, 'var(--blue)', t.pct+'% '+t.madeRate+'%✓'); }).join('')
-      + '<div style="height:8px"></div>' : '')
-    // 2PT creation types — split paint vs midrange already in zones, show sub-types
-    + (types2.length ? '<div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#ff8a8a;margin-bottom:5px">2PT TYPES</div>'
-      + types2.map(function(t){ return creationBar(t.label, t.pct, '#ff8a8a', t.pct+'% '+t.madeRate+'%✓'); }).join('')
-      + '<div style="height:8px"></div>' : '')
-    // Assisted rate
-    + '<div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">CREATION</div>'
-    + creationBar('Self Created', selfCreatePct, 'var(--green)', selfCreatePct+'%')
-    + creationBar('Assisted', astRatePct, 'var(--amber)', astRatePct+'%');
+  // ── Build sections ──────────────────────────────────────────────────────────
+  var photoHTML = photoSrc
+    ? '<img src="'+photoSrc+'" crossorigin="anonymous" style="width:100%;height:100%;object-fit:cover;object-position:top center" alt="'+name+'">'
+    : '<div style="text-align:center;color:rgba(250,249,246,0.15);padding:20px">'
+        +'<div style="font-size:36px;margin-bottom:6px">&#128100;</div>'
+        +'<div style="font-size:8px;letter-spacing:1px">NO PHOTO</div>'
+        +(p._expectedPhotoUrl?'<div style="font-size:7px;color:rgba(250,249,246,0.06);margin-top:4px">'+p._expectedPhotoUrl.split('/').pop()+'</div>':'')
+      +'</div>';
 
-  var shotZoneHTML = ''
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px">'
-      + ['PAINT','MIDRANGE','FREE THROWS','3-POINTERS'].map(function(l,i){
-          var val = [paintPct,midPct,ftPct,threePct][i];
-          var col = ['#ff8a8a','var(--amber)','var(--purple)','var(--blue)'][i];
-          return '<div style="background:rgba(0,0,0,0.2);border-radius:5px;padding:7px 6px;text-align:center;border-bottom:2px solid '+col+'">'
-            +'<div style="font-size:18px;font-weight:800;color:'+col+'">'+val+'%</div>'
-            +'<div style="font-size:9px;color:rgba(250,249,246,0.4);letter-spacing:0.5px;text-transform:uppercase;margin-top:2px">'+l+'</div>'
-            +'</div>';
-        }).join('')
-    + '</div>';
+  var shotZonesHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px">'
+    +['PAINT','MIDRANGE','FREE THROWS','3-POINTERS'].map(function(l,i){
+        var val=[paintPct,midPct,ftPct,threePct][i];
+        var col=['#ff8a8a','var(--amber)','var(--purple)','var(--blue)'][i];
+        return '<div style="background:rgba(0,0,0,0.2);border-radius:5px;padding:6px 4px;text-align:center;border-bottom:2px solid '+col+'">'
+          +'<div style="font-size:16px;font-weight:800;color:'+col+'">'+val+'%</div>'
+          +'<div style="font-size:8px;color:rgba(250,249,246,0.4);letter-spacing:0.5px;text-transform:uppercase;margin-top:1px">'+l+'</div>'
+        +'</div>';
+      }).join('')
+    +'</div>';
 
-  // Who/Force/Stop
+  var creationPanelHTML =
+    (types3.length ? sectionLabel('3PT CREATION','var(--blue)')+barRows(types3,'var(--blue)')+'<div style="height:6px"></div>' : '')
+    +(types2.length ? sectionLabel('2PT CREATION','#ff8a8a')+barRows(types2,'#ff8a8a') : '');
+
+  var guardHTML = guardItems.length
+    ? guardItems.map(function(g){
+        return '<div style="background:rgba(0,0,0,0.2);border-radius:5px;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">'
+          +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(250,249,246,0.45)">'+g[0]+'</div>'
+          +'<div style="font-size:13px;font-weight:800;color:var(--green);text-transform:uppercase">'+g[1]+'</div>'
+        +'</div>';
+      }).join('')
+    : '<div style="color:var(--muted);font-size:10px">No notes</div>';
+
   var whoHTML = (p.whoWhat||p.forcing||p.stopping)
-    ? (p.whoWhat  ? '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">WHO IS HE</div><div style="font-size:15px;color:var(--offwhite);line-height:1.8">'+p.whoWhat+'</div></div>':'' )
-    + (p.forcing  ? '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:5px">WHAT TO FORCE</div><div style="font-size:15px;color:var(--offwhite);line-height:1.8">'+p.forcing+'</div></div>':'' )
-    + (p.stopping ? '<div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#ff8a8a;margin-bottom:5px">WHAT TO STOP</div><div style="font-size:15px;color:var(--offwhite);line-height:1.8">'+p.stopping+'</div></div>':'' )
-    : '<div style="color:var(--muted);font-size:10px;font-style:italic">Add WHO / FORCE / STOP text to Lions Data sheet</div>';
+    ? (p.whoWhat  ? '<div style="margin-bottom:12px">'+sectionLabel('WHO IS HE')+'<div style="font-size:14px;color:var(--offwhite);line-height:1.7">'+p.whoWhat+'</div></div>' : '')
+    + (p.forcing  ? '<div style="margin-bottom:12px">'+sectionLabel('WHAT TO FORCE','var(--green)')+'<div style="font-size:14px;color:var(--offwhite);line-height:1.7">'+p.forcing+'</div></div>' : '')
+    + (p.stopping ? '<div>'+sectionLabel('WHAT TO STOP','#ff8a8a')+'<div style="font-size:14px;color:var(--offwhite);line-height:1.7">'+p.stopping+'</div></div>' : '')
+    : '<div style="color:var(--muted);font-size:11px;font-style:italic">Add WHO/FORCE/STOP in Lions Data sheet</div>';
 
-  // Shot type bars + TOV + ASSIST panel (now on RIGHT side of bottom)
+  // TOV + Assists (once, no duplicate label)
+  var tovAssistHTML =
+    sectionLabel('TURNOVERS','var(--amber)')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:12px">'
+      +miniStat(fmtN(p.tpg),'TOV/G','')
+      +miniStat(livePct+'%','LIVE','#ff8a8a')
+      +miniStat((100-livePct)+'%','DEAD','var(--amber)')
+    +'</div>'
+    +sectionLabel('ASSISTS','var(--green)')
+    +(ap ? (function(){
+        var tot=ap.total_ast||1;
+        var pct2=Math.round((ap.ast_2pt||0)/tot*100);
+        var pct3=Math.round((ap.ast_3pt||0)/tot*100);
+        var passTo=ap.top_targets_pct&&ap.top_targets_pct.length
+          ? ap.top_targets_pct[0][0]+' '+ap.top_targets_pct[0][1]+'%'
+          : (ap.top_targets&&ap.top_targets.length?ap.top_targets[0][0]:'—');
+        return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">'
+          +miniStat(pct2+'%','% TO 2PT','#60c8fa')
+          +miniStat(pct3+'%','% TO 3PT','var(--blue)')
+          +miniStat(passTo,'PASSES TO','var(--green)')
+        +'</div>';
+      })()
+    : '<div style="color:var(--muted);font-size:10px">No assist data</div>');
 
-
-  var creationPanelHTML =    // 3PT creation
-    (types3.length
-      ? '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--blue);margin-bottom:6px">3PT CREATION</div>'
-        + barRows(types3,'var(--blue)')
-        + '<div style="height:8px"></div>'
-      : '')
-    // 2PT creation
-    + (types2.length
-      ? '<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#ff8a8a;margin-bottom:5px">2PT CREATION</div>'
-        + barRows(types2,'#ff8a8a')
-        + '<div style="height:8px"></div>'
-      : '')
-    // TOV breakdown
-
-  var rightPanelHTML =
-    '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--amber);margin-bottom:6px">TURNOVERS</div>'
-    + '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--amber);margin-bottom:6px">TURNOVERS</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:10px">'
-      + miniStat(fmtN(p.tpg), 'TOV/G', '')
-      + miniStat(livePct+'%', 'LIVE', '#ff8a8a')
-      + miniStat((100-livePct)+'%', 'DEAD', 'var(--amber)')
-    + '</div>'
-    // ASSIST breakdown
-    + '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:6px">ASSISTS</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:0">'
-      + miniStat(Math.round((ap?ap.ast_2pt:0)/(ap&&ap.total_ast||1)*100)+'%', '% TO 2PT', '#60c8fa')
-      + miniStat(Math.round((ap?ap.ast_3pt:0)/(ap&&ap.total_ast||1)*100)+'%', '% TO 3PT', 'var(--blue)')
-      + miniStat((ap&&ap.top_targets_pct&&ap.top_targets_pct.length?ap.top_targets_pct[0][0]+' '+ap.top_targets_pct[0][1]+'%':(ap&&ap.top_targets&&ap.top_targets.length?ap.top_targets[0][0]:'—')), 'PASSES TO', 'var(--green)')
-    + '</div>';
-
-  // Team logo — use the team being scouted, not Surrey
-  var teamLogoSrc = LOGOS[slidesTeam] || '';
-  var surreyLogo = teamLogoSrc
-    ? '<div style="width:36px;height:36px;background:#fff;border-radius:6px;padding:3px;display:flex;align-items:center;justify-content:center"><img src="'+teamLogoSrc+'" style="width:30px;height:30px;object-fit:contain"></div>'
+  var surreyLogo = LOGOS['SURREY 89ERS']
+    ? '<div style="width:36px;height:36px;background:#fff;border-radius:6px;padding:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+        +'<img src="'+LOGOS['SURREY 89ERS']+'" style="width:30px;height:30px;object-fit:contain"></div>'
     : '';
+  var teamLogoSrc = LOGOS[slidesTeam]||'';
+  if(teamLogoSrc){
+    surreyLogo='<div style="width:36px;height:36px;background:#fff;border-radius:6px;padding:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+      +'<img src="'+teamLogoSrc+'" style="width:30px;height:30px;object-fit:contain"></div>';
+  }
 
+  // ── Return complete slide ───────────────────────────────────────────────────
   return '<div class="slide-card" id="slide-'+idx+'">'
-    // Outer grid: 220px left | 1fr right
-    +'<div style="display:grid;grid-template-columns:220px 1fr;min-height:520px;border-radius:10px;overflow:hidden">'
+    +'<div style="display:grid;grid-template-columns:240px 1fr;min-height:520px;border-radius:10px;overflow:hidden">'
 
-      // ── LEFT COLUMN: Photo | Shot Menu+Creation | How To Guard ──
+      // LEFT
       +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column">'
-
-        // Photo
-        +'<div style="height:210px;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'
-          +(photoSrc
-            ? '<img src="'+photoSrc+'" style="width:100%;height:100%;object-fit:cover;object-position:top center" alt="'+name+'">'
-            : '<div style="text-align:center;color:rgba(250,249,246,0.15);padding:16px"><div style="font-size:36px;margin-bottom:6px">&#128100;</div><div style="font-size:8px;letter-spacing:1px">NO PHOTO</div>'
-              +(p._expectedPhotoUrl ? '<div style="font-size:7px;color:rgba(250,249,246,0.07);margin-top:4px">'+p._expectedPhotoUrl.split('/').pop()+'</div>' : '')
-            +'</div>')
+        +'<div style="height:220px;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'+photoHTML+'</div>'
+        +'<div style="padding:10px 12px;border-bottom:1px solid var(--border-soft)">'
+          +sectionLabel('SHOT MENU','var(--green)')
+          +shotZonesHTML
         +'</div>'
-
-        // Shot Menu zones (2x2 grid)
-        +'<div style="padding:8px 12px;border-bottom:1px solid var(--border-soft)">'
-          +'<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:6px">SHOT MENU</div>'
-          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">'
-            +['PAINT','MIDRANGE','FREE THROWS','3-POINTERS'].map(function(l,i){
-                var val=[paintPct,midPct,ftPct,threePct][i];
-                var col=['#ff8a8a','var(--amber)','var(--purple)','var(--blue)'][i];
-                return '<div style="background:rgba(0,0,0,0.2);border-radius:5px;padding:6px 4px;text-align:center;border-bottom:2px solid '+col+'">'
-                  +'<div style="font-size:16px;font-weight:800;color:'+col+'">'+val+'%</div>'
-                  +'<div style="font-size:8px;color:rgba(250,249,246,0.4);letter-spacing:0.5px;text-transform:uppercase;margin-top:1px">'+l+'</div>'
-                +'</div>';
-              }).join('')
-          +'</div>'
-        +'</div>'
-
-        // Shot Creation bars
-        +'<div style="padding:8px 12px;flex:1;overflow:auto">'
-          +'<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">SHOT CREATION</div>'
+        +'<div style="padding:10px 12px;flex:1;overflow:auto">'
+          +sectionLabel('SHOT CREATION')
           +creationPanelHTML
         +'</div>'
       +'</div>'
 
-      // ── RIGHT COLUMN ──
+      // RIGHT
       +'<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft)">'
-
-        // Name header
+        // Name
         +'<div style="padding:12px 20px 10px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between">'
           +'<div>'
-            +'<div style="font-size:20px;font-weight:800;letter-spacing:-0.5px;text-transform:uppercase">'+name+'</div>'
+            +'<div style="font-size:22px;font-weight:800;letter-spacing:-0.5px;text-transform:uppercase">'+name+'</div>'
             +'<div style="font-size:11px;color:rgba(250,249,246,0.4);margin-top:2px">'
-              +'#'+num+' · '+(p.position||'')+' · '+(p.height||'')
-              +(p.handed ? ' · '+p.handed.replace('RIGHT HANDED','Right Handed').replace('LEFT HANDED','Left Handed') : '')
+              +'#'+num+' \u00b7 '+(p.position||'')+' \u00b7 '+(p.height||'')
+              +(p.handed?' \u00b7 '+p.handed.replace('RIGHT HANDED','Right Handed').replace('LEFT HANDED','Left Handed'):'')
             +'</div>'
           +'</div>'
           +surreyLogo
         +'</div>'
-
-        // Player Ratings
+        // Grades
         +'<div style="padding:10px 20px;border-bottom:1px solid var(--border-soft)">'
-          +'<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:7px">PLAYER RATINGS</div>'
+          +sectionLabel('PLAYER RATINGS')
           +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px">'
             +grades.map(function(gr){
-                return '<div style="background:var(--card3);border-radius:6px;padding:7px 4px;text-align:center">'
-                  +'<div class="grade-badge '+gradeClass(gr.g)+'" style="font-size:14px;padding:3px 8px;display:block;margin-bottom:3px">'+gr.g+'</div>'
-                  +'<div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">'+gr.l+'</div>'
-                +'</div>';
-              }).join('')
+              return '<div style="background:var(--card3);border-radius:6px;padding:7px 4px;text-align:center">'
+                +'<div class="grade-badge '+gradeClass(gr.g)+'" style="font-size:14px;padding:3px 8px;display:block;margin-bottom:3px">'+gr.g+'</div>'
+                +'<div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">'+gr.l+'</div>'
+              +'</div>';
+            }).join('')
           +'</div>'
         +'</div>'
-
-        // Key Statistics
+        // Stats
         +'<div style="padding:10px 20px;border-bottom:1px solid var(--border-soft)">'
-          +'<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:7px">KEY STATISTICS</div>'
+          +sectionLabel('KEY STATISTICS')
           +'<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px">'
             +statsRow.map(function(s){ return statBox(s.v,s.l); }).join('')
           +'</div>'
         +'</div>'
-
-        // Bottom: 2 columns — [WHO/FORCE/STOP] | [HOW TO GUARD + TOV + ASSISTS]
+        // Bottom 2-col
         +'<div style="display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0">'
-
-          // Left: Scouting statements
-          +'<div style="padding:14px 20px;border-right:1px solid var(--border-soft);overflow:auto">'
-            +whoHTML
-          +'</div>'
-
-          // Right: How To Guard + TOV + Assists
+          +'<div style="padding:14px 20px;border-right:1px solid var(--border-soft);overflow:auto">'+whoHTML+'</div>'
           +'<div style="padding:14px 20px;overflow:auto">'
-            +'<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:8px">HOW TO GUARD</div>'
+            +sectionLabel('HOW TO GUARD','var(--green)')
             +guardHTML
             +'<div style="height:12px"></div>'
-            +rightPanelHTML
+            +tovAssistHTML
           +'</div>'
         +'</div>'
-
-        // Print button
-        +'<div style="padding:10px 20px;border-top:1px solid var(--border-soft)" class="no-print">'
-          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'
-          +'<button class="btn btn-green" style="font-size:11px" onclick="printSingleSlide(\'+(idx)+\', \'+name.replace(/\'/g,"\\\'")+\'\\\')">&#128424; Print A3</button>'
-          +'<button class="btn" style="font-size:11px;background:var(--card3);border:1px solid var(--border-soft);color:var(--offwhite)" onclick="saveSlideAsJpeg(\'+(idx)+\', \'+name.replace(/\'/g,"\\\'")+\'\\\')">&#128247; Save JPEG</button>'
-          +'</div>'
+        // Buttons
+        +'<div style="padding:10px 20px;border-top:1px solid var(--border-soft);display:grid;grid-template-columns:1fr 1fr;gap:6px" class="no-print">'
+          +'<button class="btn btn-green" style="font-size:11px" data-sideidx="'+idx+'" data-player="'+name+'" onclick="printSingleSlide(+this.dataset.sideidx, this.dataset.player)">&#128424; Print A3</button>'
+          +'<button class="btn" style="font-size:11px;background:var(--card3);border:1px solid var(--border-soft);color:var(--offwhite)" data-sideidx="'+idx+'" data-player="'+name+'" onclick="saveSlideAsJpeg(+this.dataset.sideidx, this.dataset.player)">&#128247; Save JPEG</button>'
         +'</div>'
       +'</div>'
     +'</div>'
   +'</div>';
 }
+
 
 function printSingleSlide(idx, playerName){
   const el=document.getElementById("slide-"+idx);
