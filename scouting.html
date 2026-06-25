@@ -1810,6 +1810,19 @@ function buildSlides(db,teamName){
   }
 }
 
+
+// ── Slide helper functions ──────────────────────────────────────────────────
+function fmtN(v){ return (v!=null&&!isNaN(v)&&Number(v)!==0)?Number(v).toFixed(1):'—'; }
+function fmtPct1(v){ return (v!=null&&!isNaN(v)&&Number(v)!==0)?(Number(v)*100).toFixed(1)+'%':'—'; }
+function matchPlayerName(pbpName, dataName){
+  if(!pbpName||!dataName) return false;
+  var pb=(pbpName||'').toLowerCase();
+  var parts=dataName.split(',');
+  var sur=(parts[0]||'').trim().toLowerCase();
+  var fst=(parts[1]||'').trim().toLowerCase();
+  return pb.indexOf(sur)>=0||(fst.charAt(0)&&pb.indexOf(fst.charAt(0)+'. '+sur)>=0);
+}
+
 function slideCard(p, idx){
   var name     = fmtName(p.name||'');
   var num      = p.number||'—';
