@@ -129,15 +129,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
   page-break-before:always;break-before:page;page-break-inside:avoid;
   width:100%;
   aspect-ratio:420/297;
-  position:relative;
   overflow:hidden;
   border-radius:10px;
+  display:grid;
+  grid-template-columns:21% 79%;
 }
 .slide-card>div{
-  position:absolute;
-  inset:0;
-  display:grid !important;
-  grid-template-columns:21% 79% !important;
+  display:contents;
 }
   .slide-card:first-child{page-break-before:avoid}
   @page{size:A3 landscape;margin:8mm}
@@ -2042,48 +2040,45 @@ function slideCard(p, idx){
 
   // ── Return complete slide ───────────────────────────────────────────────────
   return '<div class="slide-card" id="slide-'+idx+'">'
-    +'<div style="display:grid;grid-template-columns:21% 79%;width:100%;height:100%">'
+    +'<div style="display:contents">'
 
       // ── LEFT: Photo | Shot Menu | Shot Creation ──
-      +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column;height:100%;overflow:hidden">'
-
+      +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column;min-height:0;overflow:hidden">'
         // Photo
         +'<div style="height:35%;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'
           +(photoSrc
             ? '<img src="'+photoSrc+'" crossorigin="anonymous" style="width:100%;height:100%;object-fit:cover;object-position:top center" alt="'+name+'">'
             : '<div style="text-align:center;color:rgba(250,249,246,0.15);padding:20px"><div style="font-size:36px">&#128100;</div></div>')
         +'</div>'
-
         // Shot Menu
-        +'<div style="padding:10px 12px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
+        +'<div style="padding:8px 10px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
           +sectionLabel('SHOT MENU','var(--green)')
-          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">'
             +['PAINT','MIDRANGE','FREE THROWS','3-POINTERS'].map(function(l,i){
                 var val=[paintPct,midPct,ftPct,threePct][i];
                 var col=['#ff8a8a','var(--amber)','var(--purple)','var(--blue)'][i];
-                return '<div style="background:rgba(0,0,0,0.2);border-radius:5px;padding:7px 4px;text-align:center;border-bottom:2px solid '+col+'">'
-                  +'<div style="font-size:22px;font-weight:900;color:'+col+'">'+val+'%</div>'
-                  +'<div style="font-size:9px;color:rgba(250,249,246,0.4);letter-spacing:0.5px;text-transform:uppercase;margin-top:1px">'+l+'</div>'
+                return '<div style="background:rgba(0,0,0,0.2);border-radius:5px;padding:6px 3px;text-align:center;border-bottom:2px solid '+col+'">'
+                  +'<div style="font-size:20px;font-weight:900;color:'+col+'">'+val+'%</div>'
+                  +'<div style="font-size:8px;color:rgba(250,249,246,0.4);letter-spacing:0.5px;text-transform:uppercase;margin-top:1px">'+l+'</div>'
                 +'</div>';
               }).join('')
           +'</div>'
         +'</div>'
-
-        // Shot Creation
-        +'<div style="padding:10px 12px;flex:1;overflow:hidden;min-height:0">'
+        // Shot Creation — % of attempts only, no make rate
+        +'<div style="padding:8px 10px;flex:1;overflow:hidden;min-height:0">'
           +sectionLabel('SHOT CREATION')
-          +(creationPanelHTML||'')
+          +creationPanelHTML
         +'</div>'
       +'</div>'
 
-      // ── RIGHT: Name | Grades | Stats | Statements | Guard+TOV+Assists ──
-      +'<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft);height:100%;overflow:hidden">'
+      // ── RIGHT: full flex column ──
+      +'<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft);min-height:0;overflow:hidden">'
 
-        // Name header
-        +'<div style="padding:12px 20px 10px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">'
+        // Name
+        +'<div style="padding:10px 18px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">'
           +'<div>'
-            +'<div style="font-size:32px;font-weight:900;letter-spacing:-1px;text-transform:uppercase;line-height:1">'+name+'</div>'
-            +'<div style="font-size:13px;color:rgba(250,249,246,0.4);margin-top:4px">'
+            +'<div style="font-size:30px;font-weight:900;letter-spacing:-1px;text-transform:uppercase;line-height:1">'+name+'</div>'
+            +'<div style="font-size:12px;color:rgba(250,249,246,0.4);margin-top:3px">'
               +'#'+num+' \u00b7 '+(p.position||'')+' \u00b7 '+(p.height||'')
               +(p.handed?' \u00b7 '+p.handed.replace('RIGHT HANDED','Right Handed').replace('LEFT HANDED','Left Handed'):'')
             +'</div>'
@@ -2092,46 +2087,46 @@ function slideCard(p, idx){
         +'</div>'
 
         // Grades
-        +'<div style="padding:10px 20px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
+        +'<div style="padding:8px 18px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
           +sectionLabel('PLAYER RATINGS')
-          +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">'
+          +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px">'
             +grades.map(function(gr){
-              return '<div style="background:var(--card3);border-radius:6px;padding:8px 4px;text-align:center">'
-                +'<div class="grade-badge '+gradeClass(gr.g)+'" style="font-size:24px;padding:3px 8px;display:block;margin-bottom:3px">'+gr.g+'</div>'
-                +'<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">'+gr.l+'</div>'
+              return '<div style="background:var(--card3);border-radius:6px;padding:7px 4px;text-align:center">'
+                +'<div class="grade-badge '+gradeClass(gr.g)+'" style="font-size:22px;padding:3px 8px;display:block;margin-bottom:3px">'+gr.g+'</div>'
+                +'<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">'+gr.l+'</div>'
               +'</div>';
             }).join('')
           +'</div>'
         +'</div>'
 
-        // Key Stats
-        +'<div style="padding:10px 20px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
+        // Key Stats — full width
+        +'<div style="padding:8px 18px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
           +sectionLabel('KEY STATISTICS')
           +'<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px">'
             +statsRow.map(function(s){ return statBox(s.v,s.l); }).join('')
           +'</div>'
         +'</div>'
 
-        // Statements — 3 columns across full width
-        +'<div style="padding:12px 20px;border-bottom:1px solid var(--border-soft);display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;flex-shrink:0">'
-          +(p.whoWhat?'<div>'+sectionLabel('WHO IS HE')+'<div style="font-size:15px;color:var(--offwhite);line-height:1.65">'+p.whoWhat+'</div></div>':'')
-          +(p.forcing?'<div>'+sectionLabel('WHAT TO FORCE','var(--green)')+'<div style="font-size:15px;color:var(--offwhite);line-height:1.65">'+p.forcing+'</div></div>':'')
-          +(p.stopping?'<div>'+sectionLabel('WHAT TO STOP','#ff8a8a')+'<div style="font-size:15px;color:var(--offwhite);line-height:1.65">'+p.stopping+'</div></div>':'')
+        // Statements — full width, same as key stats, 3 equal columns
+        +'<div style="padding:8px 18px;border-bottom:1px solid var(--border-soft);flex-shrink:0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">'
+          +(p.whoWhat?'<div>'+sectionLabel('WHO IS HE')+'<div style="font-size:13px;color:var(--offwhite);line-height:1.6">'+p.whoWhat+'</div></div>':'<div></div>')
+          +(p.forcing?'<div>'+sectionLabel('WHAT TO FORCE','var(--green)')+'<div style="font-size:13px;color:var(--offwhite);line-height:1.6">'+p.forcing+'</div></div>':'<div></div>')
+          +(p.stopping?'<div>'+sectionLabel('WHAT TO STOP','#ff8a8a')+'<div style="font-size:13px;color:var(--offwhite);line-height:1.6">'+p.stopping+'</div></div>':'<div></div>')
         +'</div>'
 
-        // HOW TO GUARD + TURNOVERS + ASSISTS — single row across the bottom
-        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;flex:1;min-height:0;overflow:hidden">'
+        // HOW TO GUARD + TURNOVERS + ASSISTS — full width, 3 equal columns, same as above
+        +'<div style="padding:8px 18px;flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;overflow:hidden">'
 
           // How To Guard
-          +'<div style="padding:12px 20px;border-right:1px solid var(--border-soft);overflow:hidden">'
+          +'<div style="overflow:hidden">'
             +sectionLabel('HOW TO GUARD','var(--green)')
             +guardHTML
           +'</div>'
 
           // Turnovers
-          +'<div style="padding:12px 20px;border-right:1px solid var(--border-soft);overflow:hidden">'
+          +'<div>'
             +sectionLabel('TURNOVERS','var(--amber)')
-            +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:0">'
+            +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px">'
               +miniStat(fmtN(p.tpg),'TOV/G','')
               +miniStat(livePct+'%','LIVE','#ff8a8a')
               +miniStat((100-livePct)+'%','DEAD','var(--amber)')
@@ -2139,7 +2134,7 @@ function slideCard(p, idx){
           +'</div>'
 
           // Assists
-          +'<div style="padding:12px 20px;overflow:hidden">'
+          +'<div>'
             +sectionLabel('ASSISTS','var(--green)')
             +(ap?(function(){
                 var tot=ap.total_ast||1;
@@ -2148,7 +2143,7 @@ function slideCard(p, idx){
                 var passTo=ap.top_targets_pct&&ap.top_targets_pct.length
                   ?ap.top_targets_pct[0][0]+' '+ap.top_targets_pct[0][1]+'%'
                   :(ap.top_targets&&ap.top_targets.length?ap.top_targets[0][0]:'—');
-                return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
+                return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px">'
                   +miniStat(pct2+'%','% TO 2PT','#60c8fa')
                   +miniStat(pct3+'%','% TO 3PT','var(--blue)')
                   +miniStat(passTo,'PASSES TO','var(--green)')
@@ -2158,8 +2153,8 @@ function slideCard(p, idx){
           +'</div>'
         +'</div>'
 
-        // Buttons — hidden from JPEG via class
-        +'<div style="padding:8px 20px;border-top:1px solid var(--border-soft);display:grid;grid-template-columns:1fr 1fr;gap:6px;flex-shrink:0" class="no-print slide-buttons">'
+        // Buttons
+        +'<div style="padding:6px 18px;border-top:1px solid var(--border-soft);display:grid;grid-template-columns:1fr 1fr;gap:6px;flex-shrink:0" class="no-print slide-buttons">'
           +'<button class="btn btn-green" style="font-size:11px" data-sideidx="'+idx+'" data-player="'+name+'" onclick="printSingleSlide(+this.dataset.sideidx,this.dataset.player)">&#128424; Print A3</button>'
           +'<button class="btn" style="font-size:11px;background:var(--card3);border:1px solid var(--border-soft);color:var(--offwhite)" data-sideidx="'+idx+'" data-player="'+name+'" onclick="saveSlideAsJpeg(+this.dataset.sideidx,this.dataset.player)">&#128247; Save JPEG</button>'
         +'</div>'
@@ -2630,7 +2625,7 @@ function slideCard(p, idx){
       +'</div>';
   }
   function barRows(types, colour){
-    return types.map(function(t){ return barRow(t.label, t.pct, colour, t.pct+'% '+t.madeRate+'%\u2713'); }).join('');
+    return types.map(function(t){ return barRow(t.label, t.pct, colour); }).join('');
   }
 
   // ── Build sections ──────────────────────────────────────────────────────────
@@ -2708,10 +2703,10 @@ function slideCard(p, idx){
 
   // ── Return complete slide ───────────────────────────────────────────────────
   return '<div class="slide-card" id="slide-'+idx+'">'
-    +'<div style="display:grid;grid-template-columns:21% 79%;width:100%;height:100%">'
+    +'<div style="display:contents">'
 
       // LEFT
-      +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column;height:100%;overflow:hidden">'
+      +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column;min-height:0;overflow:hidden">'
         +'<div style="height:35%;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'+photoHTML+'</div>'
         +'<div style="padding:10px 12px;border-bottom:1px solid var(--border-soft)">'
           +sectionLabel('SHOT MENU','var(--green)')
@@ -2724,7 +2719,7 @@ function slideCard(p, idx){
       +'</div>'
 
       // RIGHT
-      +'<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft);height:100%;overflow:hidden">'
+      +'<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft);min-height:0;overflow:hidden">'
         // Name
         +'<div style="padding:12px 20px 10px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between">'
           +'<div>'
@@ -2913,7 +2908,7 @@ function openPosterWindow(p, playerName, doPrint){
         <div style="height:100%;width:${t.pct}%;background:${col};border-radius:.2vh"></div>
       </div>
       <div style="font-size:1.1vw;font-weight:700;width:3%;text-align:right;color:${col}">${t.pct}%</div>
-      <div style="font-size:1vw;color:rgba(250,249,246,.4);width:4%;text-align:right">${t.madeRate}% FG</div>
+      <div style="font-size:1vw;color:rgba(250,249,246,.4);width:4%;text-align:right"></div>
     </div>`;
   }
 
@@ -3286,7 +3281,7 @@ function slideCard(p, idx){
       +'</div>';
   }
   function barRows(types, colour){
-    return types.map(function(t){ return barRow(t.label, t.pct, colour, t.pct+'% '+t.madeRate+'%\u2713'); }).join('');
+    return types.map(function(t){ return barRow(t.label, t.pct, colour); }).join('');
   }
 
   // ── Build sections ──────────────────────────────────────────────────────────
@@ -3364,10 +3359,10 @@ function slideCard(p, idx){
 
   // ── Return complete slide ───────────────────────────────────────────────────
   return '<div class="slide-card" id="slide-'+idx+'">'
-    +'<div style="display:grid;grid-template-columns:21% 79%;width:100%;height:100%">'
+    +'<div style="display:contents">'
 
       // LEFT
-      +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column;height:100%;overflow:hidden">'
+      +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column;min-height:0;overflow:hidden">'
         +'<div style="height:35%;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'+photoHTML+'</div>'
         +'<div style="padding:10px 12px;border-bottom:1px solid var(--border-soft)">'
           +sectionLabel('SHOT MENU','var(--green)')
@@ -3380,7 +3375,7 @@ function slideCard(p, idx){
       +'</div>'
 
       // RIGHT
-      +'<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft);height:100%;overflow:hidden">'
+      +'<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft);min-height:0;overflow:hidden">'
         // Name
         +'<div style="padding:12px 20px 10px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between">'
           +'<div>'
@@ -3660,7 +3655,7 @@ function openPosterWindow(p, playerName, doPrint){
         const s2=allPbp.filter(r=>r.Action==="2pt"&&matchPlayerName(r.Player,p.name||""));
         const t3=pbpTypes(s3,[{label:"Catch & Shoot",keys:["jumpshot"]},{label:"Pull-Up",keys:["pullupjumpshot"]},{label:"Step-Back",keys:["stepbackjumpshot"]},{label:"Fadeaway",keys:["fadeaway","turnaroundjumpshot"]}]);
         const t2=pbpTypes(s2,[{label:"Layup/Drive",keys:["layup","drivinglayup","reverselayup"]},{label:"Dunk",keys:["dunk","alleyoopdunk","alleyoop"]},{label:"Floater",keys:["floatingjumpshot"]},{label:"Mid-Range",keys:["jumpshot"]},{label:"Pull-Up Mid",keys:["pullupjumpshot","stepbackjumpshot"]},{label:"Hook/Post",keys:["hookshot","turnaroundjumpshot","fadeaway"]}]);
-        function brow(t,col){return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px"><div style="font-size:12px;color:rgba(250,249,246,0.55);width:92px;flex-shrink:0">${t.label}</div><div style="flex:1;height:5px;background:rgba(255,255,255,0.07);border-radius:3px"><div style="height:100%;width:${t.pct}%;background:${col};border-radius:3px"></div></div><div style="font-size:11px;font-weight:700;width:60px;text-align:right">${t.pct}% ${t.madeRate}%✓</div></div>`;}
+        function brow(t,col){return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px"><div style="font-size:12px;color:rgba(250,249,246,0.55);width:92px;flex-shrink:0">${t.label}</div><div style="flex:1;height:5px;background:rgba(255,255,255,0.07);border-radius:3px"><div style="height:100%;width:${t.pct}%;background:${col};border-radius:3px"></div></div><div style="font-size:11px;font-weight:700;width:60px;text-align:right">${t.pct}%</div></div>`;}
         return (t3.length?`<div class="lbl" style="color:#60c8fa;margin-bottom:6px">3PT</div>${t3.map(t=>brow(t,"#60c8fa")).join("")}<div style="height:6px"></div>`:"")
               +(t2.length?`<div class="lbl" style="color:#ff8a8a;margin-bottom:6px">2PT</div>${t2.map(t=>brow(t,"#ff8a8a")).join("")}`:"");
       })()}
