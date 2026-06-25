@@ -125,17 +125,35 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 @media print{
   .slide-buttons-hidden .slide-buttons{display:none!important}
+/* On screen: fixed height card so it's compact and readable */
 .slide-card{
   page-break-before:always;break-before:page;page-break-inside:avoid;
   width:100%;
-  aspect-ratio:420/297;
+  height:600px;
   overflow:hidden;
   border-radius:10px;
   display:grid;
-  grid-template-columns:21% 79%;
+  grid-template-columns:220px 1fr;
+  margin-bottom:24px;
 }
-.slide-card>div{
-  display:contents;
+.slide-card>div{display:contents;}
+/* When printing: fill the full A3 page */
+@media print{
+  body *{visibility:hidden}
+  .slide-card{
+    visibility:visible;
+    position:fixed;
+    inset:0;
+    width:100vw;
+    height:100vh;
+    display:grid;
+    grid-template-columns:21% 79%;
+    border-radius:0;
+    margin:0;
+  }
+  .slide-card *{visibility:visible}
+  .no-print,.slide-buttons{display:none!important}
+  @page{size:A3 landscape;margin:0}
 }
   .slide-card:first-child{page-break-before:avoid}
   @page{size:A3 landscape;margin:8mm}
