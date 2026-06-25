@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Scouting — Surrey 89ers</title>
 <link rel="manifest" href="/manifest.json">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="89ers Hub">
 <meta name="theme-color" content="#008348">
@@ -239,8 +240,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
 .lineup-stat-val{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700}
 .lineup-stat-lbl{font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
 
-/* SLIDE CARDS */
-.slide-card{background:var(--card);border:1px solid var(--border-soft);border-radius:12px;overflow:hidden;break-inside:avoid}
+/* SLIDE CARDS — layout handled by later .slide-card rule */
 .slide-header{background:linear-gradient(135deg,var(--card2),var(--card3));padding:20px 20px 16px}
 .slide-stat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px}
 .slide-stat-box{background:var(--card2);border-radius:6px;padding:8px 4px;text-align:center}
@@ -271,7 +271,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
   .card{border:1px solid #ddd;break-inside:avoid}
   .page-content{padding:0;max-width:100%}
   @page{size:A3 landscape;margin:10mm}
-  .slide-card{border:1px solid #ccc;page-break-inside:avoid}
+  /* .slide-card print handled by @media print block */
 }
 </style>
 </head>
