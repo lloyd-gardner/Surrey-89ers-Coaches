@@ -262,7 +262,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
 <div id="app" style="display:none">
   <div class="topbar">
     <div class="topbar-left">
-      <img class="topbar-logo" id="topbar-logo" alt="89ers">
+      <img class="topbar-logo" id="topbar-logo" alt="89ers" style="background:#fff;padding:2px;">
       <div>
         <div class="topbar-title">Surrey 89ers</div>
         <div class="topbar-sub">Scouting · 2025-26</div>
@@ -2023,16 +2023,15 @@ function slideCard(p, idx){
 
   // Who/Force/Stop
   var whoHTML = (p.whoWhat||p.forcing||p.stopping)
-    ? (p.whoWhat  ? '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">WHO IS HE</div><div style="font-size:10px;color:var(--offwhite);line-height:1.5">'+p.whoWhat+'</div></div>':'' )
-    + (p.forcing  ? '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:5px">WHAT TO FORCE</div><div style="font-size:10px;color:var(--offwhite);line-height:1.5">'+p.forcing+'</div></div>':'' )
-    + (p.stopping ? '<div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#ff8a8a;margin-bottom:5px">WHAT TO STOP</div><div style="font-size:10px;color:var(--offwhite);line-height:1.5">'+p.stopping+'</div></div>':'' )
+    ? (p.whoWhat  ? '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">WHO IS HE</div><div style="font-size:15px;color:var(--offwhite);line-height:1.8">'+p.whoWhat+'</div></div>':'' )
+    + (p.forcing  ? '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:5px">WHAT TO FORCE</div><div style="font-size:15px;color:var(--offwhite);line-height:1.8">'+p.forcing+'</div></div>':'' )
+    + (p.stopping ? '<div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#ff8a8a;margin-bottom:5px">WHAT TO STOP</div><div style="font-size:15px;color:var(--offwhite);line-height:1.8">'+p.stopping+'</div></div>':'' )
     : '<div style="color:var(--muted);font-size:10px;font-style:italic">Add WHO / FORCE / STOP text to Lions Data sheet</div>';
 
   // Shot type bars + TOV + ASSIST panel (now on RIGHT side of bottom)
 
 
-  var rightPanelHTML =
-    // 3PT creation
+  var creationPanelHTML =    // 3PT creation
     (types3.length
       ? '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--blue);margin-bottom:6px">3PT CREATION</div>'
         + barRows(types3,'var(--blue)')
@@ -2045,6 +2044,9 @@ function slideCard(p, idx){
         + '<div style="height:8px"></div>'
       : '')
     // TOV breakdown
+
+  var rightPanelHTML =
+    '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--amber);margin-bottom:6px">TURNOVERS</div>'
     + '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--amber);margin-bottom:6px">TURNOVERS</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:10px">'
       + miniStat(fmtN(p.tpg), 'TOV/G', '')
@@ -2066,110 +2068,114 @@ function slideCard(p, idx){
     : '';
 
   return '<div class="slide-card" id="slide-'+idx+'">'
+    // Outer grid: 220px left | 1fr right
     +'<div style="display:grid;grid-template-columns:220px 1fr;min-height:440px;border-radius:10px;overflow:hidden">'
 
-      // ── LEFT: Photo | Profile | Shot Menu | How To Guard ──
+      // ── LEFT COLUMN: Photo | Shot Menu+Creation | How To Guard ──
       +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column">'
+
         // Photo
-        +'<div style="height:240px;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'+photoHTML+'</div>'
-        // Profile
-        +'<div style="padding:10px 14px;border-bottom:1px solid var(--border-soft)">'
-          +'<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:6px">PLAYER PROFILE</div>'
-          +'<div style="font-size:14px;font-weight:700">'+(p.height||'—')+' · '+(p.position||'—')+'</div>'
-          +'<div style="font-size:12px;color:rgba(250,249,246,0.5);margin-top:3px">'+((p.handed||'').replace(' HANDED',''))+'</div>'
+        +'<div style="height:210px;overflow:hidden;flex-shrink:0;background:var(--card3);display:flex;align-items:center;justify-content:center">'
+          +(photoSrc
+            ? '<img src="'+photoSrc+'" style="width:100%;height:100%;object-fit:cover;object-position:top center" alt="'+name+'">'
+            : '<div style="text-align:center;color:rgba(250,249,246,0.15);padding:16px"><div style="font-size:36px;margin-bottom:6px">&#128100;</div><div style="font-size:8px;letter-spacing:1px">NO PHOTO</div>'
+              +(p._expectedPhotoUrl ? '<div style="font-size:7px;color:rgba(250,249,246,0.07);margin-top:4px">'+p._expectedPhotoUrl.split('/').pop()+'</div>' : '')
+            +'</div>')
         +'</div>'
-        // Shot Menu
-        +'<div style="padding:10px 14px;border-bottom:1px solid var(--border-soft)">'
-          +'<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:8px">SHOT MENU</div>'
-          +shotZoneHTML
+
+        // Shot Menu zones (2x2 grid)
+        +'<div style="padding:8px 12px;border-bottom:1px solid var(--border-soft)">'
+          +'<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:6px">SHOT MENU</div>'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">'
+            +['PAINT','MIDRANGE','FREE THROWS','3-POINTERS'].map(function(l,i){
+                var val=[paintPct,midPct,ftPct,threePct][i];
+                var col=['#ff8a8a','var(--amber)','var(--purple)','var(--blue)'][i];
+                return '<div style="background:rgba(0,0,0,0.2);border-radius:5px;padding:6px 4px;text-align:center;border-bottom:2px solid '+col+'">'
+                  +'<div style="font-size:16px;font-weight:800;color:'+col+'">'+val+'%</div>'
+                  +'<div style="font-size:8px;color:rgba(250,249,246,0.4);letter-spacing:0.5px;text-transform:uppercase;margin-top:1px">'+l+'</div>'
+                +'</div>';
+              }).join('')
+          +'</div>'
         +'</div>'
-        // How To Guard
-        +'<div style="padding:10px 14px;flex:1;overflow:hidden">'
-          +'<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">SHOT CREATION</div>'
-          +rightPanelHTML
+
+        // Shot Creation bars
+        +'<div style="padding:8px 12px;flex:1;overflow:auto">'
+          +'<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">SHOT CREATION</div>'
+          +creationPanelHTML
         +'</div>'
       +'</div>'
 
-      // ── RIGHT: Name | Grades | Stats | [WHO·FORCE·STOP] [3PT·2PT·TOV·ASSIST] ──
+      // ── RIGHT COLUMN ──
       +'<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft)">'
-        // Name
-        +'<div style="padding:14px 20px 10px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between">'
+
+        // Name header
+        +'<div style="padding:12px 20px 10px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between">'
           +'<div>'
-            +'<div style="font-family:\'Space Grotesk\',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;text-transform:uppercase">'+name+'</div>'
-            +'<div style="font-size:11px;color:rgba(250,249,246,0.4);margin-top:2px">#'+num+' · '+(p.position||'')+' · '+(p.height||'')+'</div>'
+            +'<div style="font-size:20px;font-weight:800;letter-spacing:-0.5px;text-transform:uppercase">'+name+'</div>'
+            +'<div style="font-size:11px;color:rgba(250,249,246,0.4);margin-top:2px">'
+              +'#'+num+' · '+(p.position||'')+' · '+(p.height||'')
+              +(p.handed ? ' · '+p.handed.replace('RIGHT HANDED','Right Handed').replace('LEFT HANDED','Left Handed') : '')
+            +'</div>'
           +'</div>'
           +surreyLogo
         +'</div>'
-        // Grades
-        +'<div style="padding:12px 20px;border-bottom:1px solid var(--border-soft)">'
-          +'<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">PLAYER RATINGS</div>'
-          +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">'+gradeHTML+'</div>'
-        +'</div>'
-        // Stats
-        +'<div style="padding:12px 20px;border-bottom:1px solid var(--border-soft)">'
-          +'<div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">KEY STATISTICS</div>'
-          +'<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px">'
-          +statsRow.map(function(s){ return statBox(s.v,s.l); }).join('')
+
+        // Player Ratings
+        +'<div style="padding:10px 20px;border-bottom:1px solid var(--border-soft)">'
+          +'<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:7px">PLAYER RATINGS</div>'
+          +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px">'
+            +grades.map(function(gr){
+                return '<div style="background:var(--card3);border-radius:6px;padding:7px 4px;text-align:center">'
+                  +'<div class="grade-badge '+gradeClass(gr.g)+'" style="font-size:14px;padding:3px 8px;display:block;margin-bottom:3px">'+gr.g+'</div>'
+                  +'<div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">'+gr.l+'</div>'
+                +'</div>';
+              }).join('')
           +'</div>'
         +'</div>'
-        // Bottom: 2 columns — WHO/FORCE/STOP left | shot types + TOV + assists right
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0">'
-          +'<div style="padding:12px 20px;border-right:1px solid var(--border-soft);overflow:auto">'+whoHTML+'</div>'
-          +'<div style="padding:14px 20px;overflow:auto">'+'<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:10px">HOW TO GUARD</div>'+guardHTML+'</div>'
+
+        // Key Statistics
+        +'<div style="padding:10px 20px;border-bottom:1px solid var(--border-soft)">'
+          +'<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:7px">KEY STATISTICS</div>'
+          +'<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px">'
+            +statsRow.map(function(s){ return statBox(s.v,s.l); }).join('')
+          +'</div>'
         +'</div>'
-        // Print
+
+        // Bottom: 2 columns — [WHO/FORCE/STOP] | [HOW TO GUARD + TOV + ASSISTS]
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0">'
+
+          // Left: Scouting statements
+          +'<div style="padding:14px 20px;border-right:1px solid var(--border-soft);overflow:auto">'
+            +whoHTML
+          +'</div>'
+
+          // Right: How To Guard + TOV + Assists
+          +'<div style="padding:14px 20px;overflow:auto">'
+            +'<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:8px">HOW TO GUARD</div>'
+            +guardHTML
+            +'<div style="height:12px"></div>'
+            +rightPanelHTML
+          +'</div>'
+        +'</div>'
+
+        // Print button
         +'<div style="padding:10px 20px;border-top:1px solid var(--border-soft)" class="no-print">'
-          +'<button class="btn btn-green" style="width:100%;font-size:11px" onclick="printSingleSlide('+idx+', \''+name.replace(/'/g,"\\'")+'\')">🖨️ Print A3</button>'
+          +'<button class="btn btn-green" style="width:100%;font-size:11px" onclick="printSingleSlide('+idx+', \''+name.replace(/'/g,"\\'")+'\')">'
+          +'&#128424; Print A3</button>'
         +'</div>'
       +'</div>'
     +'</div>'
   +'</div>';
 }
 
-function fmtN(v){ return (v!=null&&!isNaN(v)&&v!==0) ? Number(v).toFixed(1) : '—'; }
-function fmtPct1(v){ return (v!=null&&!isNaN(v)&&v!==0) ? (Number(v)*100).toFixed(1)+'%' : '—'; }
-function matchPlayerName(pbpName, dataName){
-  if(!pbpName||!dataName) return false;
-  var pb = (pbpName||'').toLowerCase();
-  var parts = dataName.split(',');
-  var sur = (parts[0]||'').trim().toLowerCase();
-  var fst = (parts[1]||'').trim().toLowerCase();
-  return pb.indexOf(sur)>=0 || (fst.charAt(0)&&pb.indexOf(fst.charAt(0)+'. '+sur)>=0);
-}
-
-
 function printSingleSlide(idx, playerName){
   const el=document.getElementById("slide-"+idx);
   if(!el) return;
   const w=window.open("","_blank");
-  // playerName is a function parameter — use it directly
-  // (el-based fallback removed to avoid duplicate const)
-  w.document.write(`<!DOCTYPE html><html><head>
-    <meta charset="UTF-8"><title>${playerName} — Scout Slide</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <style>
-      :root{--green:#008348;--green-dim:rgba(0,131,72,0.12);--border:rgba(0,131,72,0.2);--card2:#152a1c;--card3:#1a3323;--muted:rgba(250,249,246,0.4);--offwhite:#FAF9F6;--amber:#f59e0b;--blue:#60c8fa;--red:#e05555;--purple:#a78bfa;--border-soft:rgba(250,249,246,0.07)}
-      body{margin:0;padding:8mm;background:#080f0b;color:#FAF9F6;font-family:'Inter',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      @page{size:A3 landscape;margin:8mm}
-      .no-print{display:none!important}
-      .slide-card{page-break-inside:avoid}
-      .grade-badge{border-radius:4px;display:inline-block;padding:2px 8px;font-weight:700}
-      .grade-a{background:rgba(74,222,128,0.15);color:#4ade80;border:1px solid rgba(74,222,128,0.3)}
-      .grade-b{background:rgba(96,200,250,0.12);color:#60c8fa;border:1px solid rgba(96,200,250,0.2)}
-      .grade-c{background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.2)}
-      .grade-d{background:rgba(224,85,85,0.08);color:#ff8a8a;border:1px solid rgba(224,85,85,0.18)}
-      .pill{font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;display:inline-block}
-      .pill-blue{background:rgba(96,200,250,0.08);color:#60c8fa;border:1px solid rgba(96,200,250,0.15)}
-      .pill-green{background:rgba(0,131,72,0.15);color:#4ade80;border:1px solid rgba(0,131,72,0.3)}
-      .pill-amber{background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.2)}
-      .pill-red{background:rgba(224,85,85,0.08);color:#ff8a8a;border:1px solid rgba(224,85,85,0.18)}
-      .slide-header{background:linear-gradient(135deg,#152a1c,#1a3323)}
-    </style>
-    </head><body>${el.outerHTML}
-    <scr'+'ipt>window.onload=()=>window.print()<\/scr'+'ipt>
-    </body></html>`);
+  w.document.write("<!DOCTYPE html><html><head>\n    <meta charset=\"UTF-8\"><title>"+playerName+" — Scout Slide</title>\n    <link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700;800&display=swap\" rel=\"stylesheet\">\n    <style>\n      :root{--green:#008348;--green-dim:rgba(0,131,72,0.12);--border:rgba(0,131,72,0.2);--card2:#152a1c;--card3:#1a3323;--muted:rgba(250,249,246,0.4);--offwhite:#FAF9F6;--amber:#f59e0b;--blue:#60c8fa;--red:#e05555;--purple:#a78bfa;--border-soft:rgba(250,249,246,0.07)}\n      body{margin:0;padding:8mm;background:#080f0b;color:#FAF9F6;font-family:\'Inter\',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}\n      @page{size:A3 landscape;margin:8mm}\n      .no-print{display:none!important}\n      .slide-card{page-break-inside:avoid}\n      .grade-badge{border-radius:4px;display:inline-block;padding:2px 8px;font-weight:700}\n      .grade-a{background:rgba(74,222,128,0.15);color:#4ade80;border:1px solid rgba(74,222,128,0.3)}\n      .grade-b{background:rgba(96,200,250,0.12);color:#60c8fa;border:1px solid rgba(96,200,250,0.2)}\n      .grade-c{background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.2)}\n      .grade-d{background:rgba(224,85,85,0.08);color:#ff8a8a;border:1px solid rgba(224,85,85,0.18)}\n      .pill{font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;display:inline-block}\n      .slide-header{background:linear-gradient(135deg,#152a1c,#1a3323)}\n    </style>\n    </head><body>"+el.outerHTML+"\n    <scr"+"ipt>window.onload=()=>window.print()<\/scr"+"ipt>\n    </body></html>");
   w.document.close();
 }
+
 
 // ═══════════════════════════════════════════
 // SELF SCOUT
