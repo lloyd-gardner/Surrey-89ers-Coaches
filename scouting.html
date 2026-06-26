@@ -153,7 +153,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
   .slide-card{max-width:none!important}
   body *{visibility:hidden}
   .slide-card{
-    visibility:visible;
+    visibility:visible !important;
     position:fixed;
     inset:0;
     width:100vw;
@@ -162,57 +162,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
     grid-template-columns:220px 1fr;
     border-radius:0;
     margin:0;
-    background:#fff !important;
-    color:#111 !important;
   }
-  .slide-card *{visibility:visible; color:#111 !important; background:transparent !important; border-color:#ddd !important;}
+  .slide-card *{visibility:visible !important}
   .no-print,.slide-buttons{display:none!important}
   @page{size:A3 landscape;margin:0}
-
-  /* Left panel */
-  .slide-header{ background:#fff !important; border-right:3px solid #008348 !important; }
-
-  /* Grade badges — outlined */
-  .slide-card .grade-a{ border:2px solid #4ade80 !important; background:#fff !important; color:#111 !important; }
-  .slide-card .grade-b{ border:2px solid #008348 !important; background:#fff !important; color:#111 !important; }
-  .slide-card .grade-c{ border:2px solid #f59e0b !important; background:#fff !important; color:#111 !important; }
-  .slide-card .grade-d{ border:2px solid #e05555 !important; background:#fff !important; color:#111 !important; }
-
-  /* HOW TO GUARD rows */
-  .slide-card .guard-row{ border:1px solid #008348 !important; background:#fff !important; }
-
-  /* Dividers */
-  .slide-card [style*="border-left:1px solid var(--border-soft)"]{ border-left:1px solid #ccc !important; }
-  .slide-card [style*="border-right:1px solid var(--border-soft)"]{ border-right:1px solid #ccc !important; }
-  .slide-card [style*="border-bottom:1px solid var(--border-soft)"]{ border-bottom:1px solid #ccc !important; }
-  .slide-card [style*="border-top:1px solid var(--border-soft)"]{ border-top:1px solid #ccc !important; }
-
-  /* Accent text colours — keep meaningful colour */
-  .slide-card [style*="color:var(--green)"]{ color:#008348 !important; }
-  .slide-card [style*="color:#4ade80"]{ color:#008348 !important; }
-  .slide-card [style*="color:#60c8fa"]{ color:#008348 !important; }
-  .slide-card [style*="color:var(--blue)"]{ color:#008348 !important; }
-  .slide-card [style*="color:var(--amber)"]{ color:#b45309 !important; }
-  .slide-card [style*="color:#f59e0b"]{ color:#b45309 !important; }
-  .slide-card [style*="color:#ff8a8a"]{ color:#c0392b !important; }
-  .slide-card [style*="color:var(--muted)"]{ color:#666 !important; }
-  .slide-card [style*="color:rgba(250,249,246,0.4"]{ color:#666 !important; }
-  .slide-card [style*="color:rgba(250,249,246,0.45"]{ color:#555 !important; }
-  .slide-card [style*="color:rgba(250,249,246,0.5"]{ color:#444 !important; }
-  .slide-card [style*="color:rgba(250,249,246,0.35"]{ color:#888 !important; }
-  .slide-card [style*="color:rgba(250,249,246,0.55"]{ color:#444 !important; }
-  .slide-card [style*="color:rgba(250,249,246,0.6"]{ color:#333 !important; }
-  .slide-card [style*="color:#FAF9F6"]{ color:#111 !important; }
-  .slide-card [style*="color:var(--offwhite)"]{ color:#111 !important; }
-
-  /* Bar tracks */
-  .slide-card [style*="background:rgba(250,249,246,0.06)"]{ background:#eee !important; }
-  .slide-card [style*="background:rgba(255,255,255,.07)"]{ background:#eee !important; }
-  .slide-card [style*="background:rgba(255,255,255,0.07)"]{ background:#eee !important; }
-
-  /* Shot zone bottom borders — keep colour accent */
-  .slide-card [style*="border-bottom:2px solid"]{ border-bottom-width:2px !important; }
-  .slide-card [style*="border-bottom:3px solid"]{ border-bottom-width:3px !important; }
 }</style>
 </head>
 <body>
@@ -2234,6 +2187,15 @@ function printSingleSlide(idx, playerName){
     // Recurse children
     Array.from(el.children).forEach(applyPrint);
   })(clone);
+  // Fix letter-spacing on section labels — reduce from 1-2px to 0.3px for clean PDF rendering
+  // but keep name/header fonts untouched
+  clone.querySelectorAll('[style]').forEach(function(e){
+    var s = e.getAttribute('style')||'';
+    var fs = parseFloat(s.match(/font-size:(\d+)px/)?.[1]||'0');
+    if(fs <= 12 && (s.includes('letter-spacing:1px')||s.includes('letter-spacing:1.5px')||s.includes('letter-spacing:2px'))){
+      e.style.letterSpacing = '0.5px';
+    }
+  });
   // Left panel green border
   var hdr=clone.querySelector('.slide-header');
   if(hdr){hdr.style.background='#fff';hdr.style.borderRight='3px solid #008348';}
@@ -2244,16 +2206,21 @@ function printSingleSlide(idx, playerName){
   clone.querySelectorAll('.grade-d').forEach(function(e){e.style.background='#fff';e.style.border='2px solid #c0392b';e.style.color='#111';});
 
   // Collect all page CSS
+  // Collect page CSS but skip @media print rules — they'd apply unconditionally in new window
   const styles = Array.from(document.styleSheets).map(function(ss){
-    try{ return Array.from(ss.cssRules).map(function(r){ return r.cssText; }).join('\n'); }
-    catch(e){ return ''; }
+    try{
+      return Array.from(ss.cssRules).map(function(r){
+        if(r.type===4 && r.conditionText && r.conditionText.indexOf('print')>=0) return '';
+        return r.cssText;
+      }).join('\n');
+    }catch(e){ return ''; }
   }).join('\n');
 
   const w = window.open('','_blank');
   w.document.write([
     '<!DOCTYPE html><html><head>',
     '<meta charset="UTF-8">',
-    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">',
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Space+Grotesk:wght@400;600;700;800;900&display=swap" rel="stylesheet">',
     '<style>',
     styles,
     '@page { size: A3 landscape; margin: 0; }',
@@ -2289,7 +2256,7 @@ function printSingleSlide(idx, playerName){
     '      dstCanvas.getContext("2d").drawImage(srcCanvas, 0, 0);',
     '    }',
     '  } catch(e) {}',
-    '  setTimeout(function() { window.print(); }, 500);',
+    '  setTimeout(function() { window.print(); }, 800);',
     '});',
     '<'+'/scr'+'ipt>',
     '</body></html>'
