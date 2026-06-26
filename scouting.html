@@ -2435,51 +2435,56 @@ function saveSlideAsJpeg(idx, playerName){
   const el = document.getElementById("slide-"+idx);
   if(!el){ alert("Slide not found"); return; }
 
-  el.classList.add("slide-buttons-hidden");
+  function doCapture(){
+    el.classList.add("slide-buttons-hidden");
+    const rect = el.getBoundingClientRect();
 
-  // Capture the card at its natural rendered size
-  const rect = el.getBoundingClientRect();
+    html2canvas(el, {
+      scale: 2,
+      backgroundColor: "#080f0b",
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      x: 0,
+      y: 0,
+      scrollX: -window.scrollX,
+      scrollY: -window.scrollY,
+      width: rect.width,
+      height: rect.height,
+    }).then(function(rawCanvas){
+      el.classList.remove("slide-buttons-hidden");
 
-  html2canvas(el, {
-    scale: 2,
-    backgroundColor: "#080f0b",
-    useCORS: true,
-    allowTaint: false,
-    logging: false,
-    x: 0,
-    y: 0,
-    scrollX: -window.scrollX,
-    scrollY: -window.scrollY,
-    width: rect.width,
-    height: rect.height,
-    windowWidth: document.documentElement.scrollWidth,
-    windowHeight: document.documentElement.scrollHeight,
-  }).then(function(rawCanvas){
-    el.classList.remove("slide-buttons-hidden");
+      var TW = 1920, TH = 1080;
+      var scale = TW / rawCanvas.width;
+      var dh = Math.round(rawCanvas.height * scale);
+      var dy = Math.round((TH - dh) / 2);
 
-    // Place on 1920×1080 canvas, scaled to fill width
-    var TW = 1920, TH = 1080;
-    var scale = TW / rawCanvas.width;
-    var dh = Math.round(rawCanvas.height * scale);
+      var canvas = document.createElement('canvas');
+      canvas.width  = TW;
+      canvas.height = TH;
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#080f0b';
+      ctx.fillRect(0, 0, TW, TH);
+      ctx.drawImage(rawCanvas, 0, dy, TW, dh);
 
-    var canvas = document.createElement('canvas');
-    canvas.width  = TW;
-    canvas.height = TH;
-    var ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#080f0b';
-    ctx.fillRect(0, 0, TW, TH);
+      const link = document.createElement("a");
+      link.download = playerName.replace(/ /g,"_")+".jpg";
+      link.href = canvas.toDataURL("image/jpeg", 0.95);
+      link.click();
+    }).catch(function(err){
+      el.classList.remove("slide-buttons-hidden");
+      alert("Export failed: "+err.message);
+    });
+  }
 
-    var dy = Math.round((TH - dh) / 2);
-    ctx.drawImage(rawCanvas, 0, dy, TW, dh);
-
-    const link = document.createElement("a");
-    link.download = playerName.replace(/ /g,"_")+".jpg";
-    link.href = canvas.toDataURL("image/jpeg", 0.95);
-    link.click();
-  }).catch(function(e){
-    el.classList.remove("slide-buttons-hidden");
-    alert("Export failed: "+e.message);
-  });
+  if(window.html2canvas){
+    doCapture();
+  } else {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+    s.onload = doCapture;
+    document.head.appendChild(s);
+  }
 }
 
 
