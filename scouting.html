@@ -2277,30 +2277,67 @@ function printSingleSlide(idx, playerName){
   clone.querySelectorAll('.slide-buttons,.no-print').forEach(function(b){ b.remove(); });
   // Apply Surrey brand print styles — walk all elements
   (function applyPrint(el){
-    el.style.background = 'transparent';
     var s = el.getAttribute('style')||'';
-    // Text colours
-    if(s.match(/color:#FAF9F6|color:var\(--offwhite\)/)) el.style.color='#111';
-    if(s.match(/color:rgba\(250,249,246,0\.[0-4]/)) el.style.color='#666';
-    if(s.match(/color:rgba\(250,249,246,0\.[5-9]/)) el.style.color='#333';
-    if(s.match(/color:var\(--muted\)/)) el.style.color='#666';
-    if(s.match(/color:var\(--green\)|color:#4ade80/)) el.style.color='#008348';
-    if(s.match(/color:#60c8fa|color:var\(--blue\)/)) el.style.color='#008348';
-    if(s.match(/color:var\(--amber\)|color:#f59e0b/)) el.style.color='#b45309';
-    if(s.match(/color:#ff8a8a/)) el.style.color='#c0392b';
-    // Borders → grey
-    if(s.includes('border-soft')) el.style.borderColor='#ccc';
-    // HOW TO GUARD rows → green outlined
-    if(s.includes('rgba(0,0,0,0.2)')) { el.style.background='#fff'; el.style.border='1px solid #008348'; }
+    var cls = el.className||'';
+
+    // ── Backgrounds ──────────────────────────────────────────────────────────
+    // HOW TO GUARD rows → white + green border
+    if(s.includes('rgba(0,0,0,0.2)')){
+      el.style.cssText = el.style.cssText.replace(/background:[^;]+;?/g,'');
+      el.style.background='#fff'; el.style.border='1px solid #008348';
+    }
     // Statement pills
-    if(s.includes('rgba(0,131,72,0.08)')) { el.style.background='#fff'; el.style.border='1px solid #008348'; el.style.borderLeft='3px solid #008348'; }
-    if(s.includes('rgba(224,85,85,0.06)')) { el.style.background='#fff'; el.style.border='1px solid #c0392b'; el.style.borderLeft='3px solid #c0392b'; }
+    else if(s.includes('rgba(0,131,72,0.08)')){
+      el.style.background='#fff'; el.style.border='1px solid #008348'; el.style.borderLeft='3px solid #008348';
+    }
+    else if(s.includes('rgba(224,85,85,0.06)')){
+      el.style.background='#fff'; el.style.border='1px solid #c0392b'; el.style.borderLeft='3px solid #c0392b';
+    }
     // Shot profile pills
-    if(s.includes('rgba(74,222,128,0.07)')) { el.style.background='#fff'; el.style.border='1px solid #008348'; }
-    if(s.includes('rgba(255,138,138,0.07)')) { el.style.background='#fff'; el.style.border='1px solid #c0392b'; }
-    // Bar chart track
-    if(s.includes('rgba(250,249,246,0.06)')||s.includes('rgba(255,255,255,.07)')) el.style.background='#eee';
-    // Recurse children
+    else if(s.includes('rgba(74,222,128,0.07)')){
+      el.style.background='#fff'; el.style.border='1px solid #008348';
+    }
+    else if(s.includes('rgba(255,138,138,0.07)')){
+      el.style.background='#fff'; el.style.border='1px solid #c0392b';
+    }
+    // Bar track → light grey (keep it visible)
+    else if(s.includes('rgba(250,249,246,0.06)')||s.includes('rgba(255,255,255,.07)')||s.includes('rgba(255,255,255,0.07)')){
+      el.style.background='#e0e0e0';
+    }
+    // Bar fill — keep the colour (it's the bar itself)
+    else if(s.includes('height:100%') && s.includes('border-radius:2px') && s.includes('width:')){
+      // Keep bar fill colour as-is
+    }
+    // Everything else with an explicit background → white
+    else if(s.includes('background:') || s.includes('background :')){
+      el.style.background='#fff';
+    }
+
+    // ── Text colours ─────────────────────────────────────────────────────────
+    if(s.includes('color:#FAF9F6')||s.includes('color:var(--offwhite)')) el.style.color='#111';
+    else if(s.includes('color:rgba(250,249,246,0.0')||s.includes('color:rgba(250,249,246,0.1')||
+            s.includes('color:rgba(250,249,246,0.2')||s.includes('color:rgba(250,249,246,0.3')||
+            s.includes('color:rgba(250,249,246,0.4')) el.style.color='#666';
+    else if(s.includes('color:rgba(250,249,246')) el.style.color='#444';
+    else if(s.includes('color:var(--muted)')) el.style.color='#666';
+    // Keep accent colours
+    if(s.includes('color:var(--green)')||s.includes('color:#4ade80')) el.style.color='#008348';
+    if(s.includes('color:#60c8fa')||s.includes('color:var(--blue)')) el.style.color='#008348';
+    if(s.includes('color:var(--amber)')||s.includes('color:#f59e0b')) el.style.color='#b45309';
+    if(s.includes('color:#ff8a8a')) el.style.color='#c0392b';
+
+    // ── Borders ──────────────────────────────────────────────────────────────
+    if(s.includes('var(--border-soft)')){
+      el.style.borderColor='#ccc';
+    }
+
+    // ── Font size filter for letter-spacing ──────────────────────────────────
+    var fs = parseFloat((s.match(/font-size:(\d+)px/)||[])[1]||'0');
+    if(fs > 0 && fs <= 12 && (s.includes('letter-spacing:1px')||s.includes('letter-spacing:1.5px')||s.includes('letter-spacing:2px'))){
+      el.style.letterSpacing = '0.5px';
+    }
+
+    // Recurse
     Array.from(el.children).forEach(applyPrint);
   })(clone);
   // Fix letter-spacing on section labels — reduce from 1-2px to 0.3px for clean PDF rendering
@@ -2342,7 +2379,7 @@ function printSingleSlide(idx, playerName){
     '@page { size: A3 landscape; margin: 0; }',
     'html, body {',
     '  margin: 0; padding: 0;',
-    '  background: #080f0b;',
+    '  background: #ffffff;',
     '  -webkit-print-color-adjust: exact;',
     '  print-color-adjust: exact;',
     '}',
@@ -2355,6 +2392,11 @@ function printSingleSlide(idx, playerName){
     '  display: grid !important;',
     '  grid-template-columns: 220px 1fr !important;',
     '  overflow: hidden !important;',
+    '  background: #ffffff !important;',
+    '}',
+    '.slide-header {',
+    '  background: #ffffff !important;',
+    '  border-right: 3px solid #008348 !important;',
     '}',
     '.slide-buttons, .no-print { display: none !important; }',
     '</style>',
