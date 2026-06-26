@@ -132,7 +132,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
 .slide-card{
   page-break-before:always;break-before:page;page-break-inside:avoid;
   width:100%;
-  height:620px;
+  height:820px;
   overflow:hidden;
   border-radius:10px;
   display:grid;
@@ -1836,6 +1836,17 @@ function buildSlides(db,teamName){
       <div style="display:flex;flex-direction:column;gap:20px">
         ${converted.map((p,i)=>slideCard(p,i)).join("")}
       </div>`;
+    // Draw shot charts
+    if(DB && DB.raw && DB.raw.pbp){
+      setTimeout(function(){
+        allPlayers.forEach(function(p,i){
+          var shots=(DB.raw.pbp||[]).filter(function(r){
+            return (r.Action==="2pt"||r.Action==="3pt")&&matchPlayerName(r.Player||"",p.name||"")&&r["Shot X"]!=null&&r["Shot X"]!=="";
+          });
+          drawShotChart("chart-"+i, shots);
+        });
+      }, 100);
+    }
   }
 }
 
@@ -2055,6 +2066,14 @@ function slideCard(p, idx){
       +'<img src="'+teamLogoSrc+'" style="width:30px;height:30px;object-fit:contain"></div>';
   }
 
+
+  // ── Shot chart canvas (built after return, drawn via setTimeout) ─────────────
+  var chartId = 'chart-'+idx;
+  var playerShots = allPbp.filter(function(r){
+    return (r.Action==='2pt'||r.Action==='3pt') && matchPbp(r.Player,p.name||'')
+      && r['Shot X']!=null && r['Shot X']!=='' && r['Shot Y']!=null && r['Shot Y']!=='';
+  });
+
   // ── Return complete slide ───────────────────────────────────────────────────
   return '<div class="slide-card" id="slide-'+idx+'">'
 
@@ -2104,29 +2123,37 @@ function slideCard(p, idx){
         +'</div>'
       +'</div>'
 
-      // Statements — full width, stacked vertically
-      +'<div style="padding:8px 18px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
-        +(p.whoWhat
-          ? '<div style="margin-bottom:8px">'+sectionLabel('WHO IS HE')+'<div style="font-size:15px;color:var(--offwhite);line-height:1.6">'+p.whoWhat+'</div></div>'
-          : '')
-        +(p.forcing
-          ? '<div style="margin-bottom:8px">'+sectionLabel('WHAT TO FORCE','var(--green)')+'<div style="font-size:15px;color:var(--offwhite);line-height:1.6">'+p.forcing+'</div></div>'
-          : '')
-        +(p.stopping
-          ? '<div>'+sectionLabel('WHAT TO STOP','#ff8a8a')+'<div style="font-size:15px;color:var(--offwhite);line-height:1.6">'+p.stopping+'</div></div>'
-          : '')
+      // Statements + Shot Chart side by side
+      +'<div style="display:grid;grid-template-columns:1fr 280px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
+
+        // Statements stacked
+        +'<div style="padding:8px 18px;border-right:1px solid var(--border-soft)">'
+          +(p.whoWhat
+            ? '<div style="margin-bottom:8px">'+sectionLabel('WHO IS HE')+'<div style="font-size:15px;color:var(--offwhite);line-height:1.6">'+p.whoWhat+'</div></div>'
+            : '')
+          +(p.forcing
+            ? '<div style="margin-bottom:8px">'+sectionLabel('WHAT TO FORCE','var(--green)')+'<div style="font-size:15px;color:var(--offwhite);line-height:1.6">'+p.forcing+'</div></div>'
+            : '')
+          +(p.stopping
+            ? '<div>'+sectionLabel('WHAT TO STOP','#ff8a8a')+'<div style="font-size:15px;color:var(--offwhite);line-height:1.6">'+p.stopping+'</div></div>'
+            : '')
+        +'</div>'
+
+        // Shot chart
+        +'<div style="padding:8px 12px;display:flex;flex-direction:column">'
+          +sectionLabel('SHOT CHART')
+          +'<div style="flex:1;position:relative;min-height:0">'
+            +'<canvas id="'+chartId+'" style="width:100%;height:100%;display:block"></canvas>'
+          +'</div>'
+        +'</div>'
       +'</div>'
 
-      // HOW TO GUARD (left) | TOV + ASSISTS (right) — 2 columns, fills remaining space
+      // HOW TO GUARD (left) | TOV + ASSISTS (right)
       +'<div style="display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0;overflow:hidden">'
-
-        // HOW TO GUARD
         +'<div style="padding:8px 18px;border-right:1px solid var(--border-soft);overflow:hidden">'
           +sectionLabel('HOW TO GUARD','var(--green)')
           +guardHTML
         +'</div>'
-
-        // TURNOVERS + ASSISTS stacked
         +'<div style="padding:8px 18px;overflow:hidden;display:flex;flex-direction:column;gap:10px">'
           +'<div>'
             +sectionLabel('TURNOVERS','var(--amber)')
@@ -2196,6 +2223,88 @@ function printSingleSlide(idx, playerName){
     +'<scr'+'ipt>document.fonts.ready.then(function(){setTimeout(function(){window.print();},300);});<'+'/scr'+'ipt>'
     +'</body></html>');
   w.document.close();
+}
+
+
+// ── Draw shot charts for all visible slides ───────────────────────────────────
+function drawShotChart(canvasId, shots){
+  var canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  var ctx = canvas.getContext('2d');
+
+  // Size canvas to its display size
+  var W = canvas.offsetWidth;
+  var H = canvas.offsetHeight;
+  canvas.width  = W * 2; // retina
+  canvas.height = H * 2;
+  ctx.scale(2, 2);
+
+  // Half court: FIBA court is 28m x 15m, we show offense end
+  // Shot coords from LiveStats: X 0-100 (left to right), Y 0-100 (baseline to halfcourt)
+  // We map X→canvas width, Y→canvas height (0=baseline at bottom)
+
+  function cx(x){ return (x/100)*W; }
+  function cy(y){ return H - (y/100)*H; }
+
+  // Draw court outline
+  ctx.strokeStyle = 'rgba(250,249,246,0.15)';
+  ctx.lineWidth = 1;
+
+  // Baseline
+  ctx.beginPath(); ctx.moveTo(0,H); ctx.lineTo(W,H); ctx.stroke();
+  // Sidelines (partial — just the half we show)
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W,0); ctx.lineTo(W,H); ctx.stroke();
+
+  // 3PT line: FIBA — arc radius 6.75m from basket
+  // Basket at centre bottom = (50, ~8) in normalised coords
+  // 3PT line corners: x=0/100 from y=0 to y≈22, arc from there
+  var bx = cx(50), by = cy(7.5);
+  var r3 = (6.75/15)*W; // 3pt radius scaled to court width
+
+  ctx.beginPath();
+  ctx.moveTo(cx(0), cy(20));
+  ctx.lineTo(cx(0), cy(0));  // left corner
+  ctx.arc(bx, by, r3, Math.PI, 0, false);
+  ctx.lineTo(cx(100), cy(20));
+  ctx.stroke();
+
+  // Paint: FIBA key 4.9m wide, 5.8m long
+  var keyW = (4.9/15)*W, keyH = (5.8/28)*H*2;
+  ctx.strokeRect(cx(50)-keyW/2, cy(0)-keyH, keyW, keyH);
+
+  // Free throw circle
+  ctx.beginPath();
+  ctx.arc(bx, cy(0)-keyH, (1.8/15)*W, 0, Math.PI*2);
+  ctx.stroke();
+
+  // Basket
+  ctx.beginPath();
+  ctx.arc(bx, by, (0.45/15)*W, 0, Math.PI*2);
+  ctx.strokeStyle = 'rgba(250,249,246,0.4)';
+  ctx.stroke();
+
+  // Plot shots
+  shots.forEach(function(s){
+    var x = parseFloat(s['Shot X']);
+    var y = parseFloat(s['Shot Y']);
+    if(isNaN(x)||isNaN(y)) return;
+    var made = s.Success==1||s.Success==='1';
+    var is3  = s.Action==='3pt';
+
+    ctx.beginPath();
+    ctx.arc(cx(x), cy(y), 3.5, 0, Math.PI*2);
+    if(made){
+      ctx.fillStyle   = is3 ? 'rgba(96,200,250,0.85)' : 'rgba(74,222,128,0.85)';
+      ctx.strokeStyle = 'transparent';
+      ctx.fill();
+    } else {
+      ctx.fillStyle   = 'transparent';
+      ctx.strokeStyle = is3 ? 'rgba(96,200,250,0.6)' : 'rgba(255,138,138,0.6)';
+      ctx.lineWidth   = 1.2;
+      ctx.stroke();
+    }
+  });
 }
 
 
