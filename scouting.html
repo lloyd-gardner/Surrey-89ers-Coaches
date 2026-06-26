@@ -2275,68 +2275,62 @@ function printSingleSlide(idx, playerName){
   const clone = el.cloneNode(true);
   // Remove buttons from clone
   clone.querySelectorAll('.slide-buttons,.no-print').forEach(function(b){ b.remove(); });
-  // Apply Surrey brand print styles — walk all elements
+  // Apply Surrey brand print styles — recursive DOM walk
   (function applyPrint(el){
     var s = el.getAttribute('style')||'';
 
-    // ── Bar fills: keep colour, skip ─────────────────────────────────────────
+    // ── 1. Bar fills: preserve colour, skip background reset ─────────────────
     var isBarFill = s.includes('height:100%') && s.includes('width:') &&
                     (s.includes('border-radius:2px')||s.includes('border-radius:3px'));
-    if(isBarFill){ Array.from(el.children).forEach(applyPrint); return; }
+    if(!isBarFill){
 
-    // ── Specific background contexts ──────────────────────────────────────────
-    if(s.includes('rgba(0,0,0,0.2)')){
-      // Shot zone boxes + HOW TO GUARD rows
-      el.style.background='#fff'; el.style.border='1px solid #ccc';
-    } else if(s.includes('rgba(0,131,72,0.08)')){
-      el.style.background='#fff'; el.style.border='1px solid #008348'; el.style.borderLeft='3px solid #008348';
-    } else if(s.includes('rgba(224,85,85,0.06)')){
-      el.style.background='#fff'; el.style.border='1px solid #c0392b'; el.style.borderLeft='3px solid #c0392b';
-    } else if(s.includes('rgba(74,222,128,0.07)')){
-      el.style.background='#fff'; el.style.border='1px solid #008348';
-    } else if(s.includes('rgba(255,138,138,0.07)')){
-      el.style.background='#fff'; el.style.border='1px solid #c0392b';
-    } else if(s.includes('rgba(250,249,246,0.06)')||s.includes('rgba(255,255,255,.07)')||s.includes('rgba(255,255,255,0.07)')){
-      // Bar track
-      el.style.background='#e0e0e0';
-    } else if(s.includes('rgba(0,131,72')){
-      // Other green tints
-      el.style.background='#fff'; el.style.border='1px solid #008348';
-    } else if(s.includes('background:var(--card3)')||s.includes('background:var(--card2)')||s.includes('background:var(--card)')){
-      // All card pill backgrounds → white + grey outline
-      el.style.background='#fff';
-      if(!el.style.border) el.style.border='1px solid #ccc';
-    } else if(s.includes('background:#1a3323')||s.includes('background:#152a1c')||s.includes('background:#0d1f10')||s.includes('background:#080f0b')){
-      el.style.background='#fff';
-    } else if(s.match && s.match(/background:#[0-9a-f]{3,6}/i) && !s.includes('background:#fff')){
-      el.style.background='#fff';
-    } else if(s.includes('background:rgba')){
-      el.style.background='#fff';
+      // ── 2. Specific pill backgrounds ───────────────────────────────────────
+      if(s.includes('rgba(0,131,72,0.08)')){
+        el.style.background='#fff'; el.style.border='1px solid #008348'; el.style.borderLeft='3px solid #008348';
+      } else if(s.includes('rgba(224,85,85,0.06)')){
+        el.style.background='#fff'; el.style.border='1px solid #c0392b'; el.style.borderLeft='3px solid #c0392b';
+      } else if(s.includes('rgba(74,222,128,0.07)')){
+        el.style.background='#fff'; el.style.border='1px solid #008348';
+      } else if(s.includes('rgba(255,138,138,0.07)')){
+        el.style.background='#fff'; el.style.border='1px solid #c0392b';
+      } else if(s.includes('rgba(250,249,246,0.06)')||s.includes('rgba(255,255,255,.07)')||s.includes('rgba(255,255,255,0.07)')){
+        // Bar tracks
+        el.style.background='#e0e0e0';
+      } else if(s.includes('rgba(0,0,0,0.2)')){
+        // HOW TO GUARD rows + shot zone boxes
+        el.style.background='#fff'; el.style.border='1px solid #ccc';
+      } else if(s.includes('background')){
+        // All other backgrounds → white
+        el.style.background='#fff';
+        // Card pills get a grey outline so they're visible
+        if(s.includes('border-radius')){
+          el.style.border='1px solid #ccc';
+        }
+      }
+
+      // ── 3. Borders ─────────────────────────────────────────────────────────
+      if(s.includes('var(--border-soft)')) el.style.borderColor='#ddd';
     }
 
-    // ── Grade badge containers: outlined ─────────────────────────────────────
-    if(el.className && typeof el.className === 'string' && el.className.includes('grade-badge')){
-      el.style.background='#fff';
-    }
+    // ── 4. ALL text → black by default, then restore accents ─────────────────
+    // Set every element's color to #111 regardless of what style it has
+    el.style.color = '#111';
 
-    // ── Text colours ─────────────────────────────────────────────────────────
-    if(s.includes('color:#FAF9F6')||s.includes('color:var(--offwhite)')) el.style.color='#111';
-    if(s.includes('color:var(--muted)')) el.style.color='#666';
-    if(s.includes('color:rgba(250,249,246,0.4')||s.includes('color:rgba(250,249,246,0.35')||
-       s.includes('color:rgba(250,249,246,0.15')) el.style.color='#888';
-    if(s.includes('color:rgba(250,249,246,0.5')||s.includes('color:rgba(250,249,246,0.45')||
-       s.includes('color:rgba(250,249,246,0.55')) el.style.color='#555';
-    if(s.includes('color:rgba(250,249,246,0.6')) el.style.color='#444';
-    // Accent colours — preserve
+    // Now restore meaningful accent colours
     if(s.includes('color:var(--green)')||s.includes('color:#4ade80')) el.style.color='#008348';
     if(s.includes('color:#60c8fa')||s.includes('color:var(--blue)')) el.style.color='#008348';
     if(s.includes('color:var(--amber)')||s.includes('color:#f59e0b')) el.style.color='#b45309';
     if(s.includes('color:#ff8a8a')) el.style.color='#c0392b';
+    if(s.includes('color:var(--muted)')||s.includes('color:rgba(250,249,246,0.4')||
+       s.includes('color:rgba(250,249,246,0.35')) el.style.color='#666';
+    if(s.includes('color:rgba(250,249,246,0.5')||s.includes('color:rgba(250,249,246,0.45')||
+       s.includes('color:rgba(250,249,246,0.55')) el.style.color='#555';
+    if(s.includes('color:rgba(250,249,246,0.6')) el.style.color='#444';
+    // STRENGTHS/WEAKNESSES labels
+    if(s.includes('color:#4ade80')) el.style.color='#008348';
+    if(s.includes('color:#ff8a8a') && s.includes('letter-spacing')) el.style.color='#c0392b';
 
-    // ── Borders ──────────────────────────────────────────────────────────────
-    if(s.includes('var(--border-soft)')) el.style.borderColor='#ddd';
-
-    // ── Letter-spacing: tighten on small labels only ──────────────────────────
+    // ── 5. Letter-spacing: tighten on small labels only ──────────────────────
     var fsMatch = s.match(/font-size:(\d+)px/);
     var fs = fsMatch ? parseFloat(fsMatch[1]) : 0;
     if(fs > 0 && fs <= 12 &&
