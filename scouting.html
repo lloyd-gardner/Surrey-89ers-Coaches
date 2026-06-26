@@ -2187,7 +2187,7 @@ function slideCard(p, idx){
 
       // Statements + Shot Chart
       +'<div style="display:grid;grid-template-columns:1fr 280px;border-bottom:1px solid var(--border-soft);flex:1;min-height:0;overflow:hidden">'
-        +'<div style="padding:10px 18px;border-right:1px solid var(--border-soft);overflow:visible;display:grid;grid-template-rows:1fr 1fr 1fr;gap:8px">'
+        +'<div style="padding:10px 18px;border-right:1px solid var(--border-soft);overflow:hidden;display:grid;grid-template-rows:1fr 1fr 1fr;gap:8px">'
           +'<div style="background:var(--card3);border-radius:8px;padding:10px 14px;overflow:hidden">'
             +'<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">WHO IS HE</div>'
             +'<div style="font-size:13px;color:var(--offwhite);line-height:1.5;overflow:hidden">'+(p.whoWhat||'')+'</div>'
@@ -2434,80 +2434,54 @@ function printSingleSlide(idx, playerName){
 function saveSlideAsJpeg(idx, playerName){
   const el = document.getElementById("slide-"+idx);
   if(!el){ alert("Slide not found"); return; }
-  const teamPlayers = DEPTH_CHARTS[slidesTeam]||[];
-  const p = teamPlayers[idx] || null;
 
-  function doCapture(){
-    // Temporarily make it poster-sized for capture
-    el.style.width  = "1587px";
-    el.style.height = "1123px";
-    el.style.position = "fixed";
-    el.style.top = "0";
-    el.style.left = "0";
-    el.style.zIndex = "99999";
+  el.classList.add("slide-buttons-hidden");
 
-    // Hide buttons before capture
-    el.classList.add("slide-buttons-hidden");
-    // Scroll card into view before measuring/capturing
-    el.scrollIntoView({block:'start', behavior:'instant'});
-    const rect = el.getBoundingClientRect();
-    // Capture at exactly 1920×1080 — scale so card width = 1920px
-    var TARGET_W = 1920, TARGET_H = 1080;
-    var captureScale = TARGET_W / rect.width;
-    html2canvas(el, {
-      scale: captureScale,
-      backgroundColor: "#080f0b",
-      useCORS: true,
-      allowTaint: false,
-      logging: false,
-      width: rect.width,
-      height: rect.height,
-    }).then(function(rawCanvas){
-      // rawCanvas is now exactly 1920px wide
-      // Create the output canvas at 1920x1080
-      var canvas = document.createElement('canvas');
-      canvas.width  = TARGET_W;
-      canvas.height = TARGET_H;
-      var ctx = canvas.getContext('2d');
+  // Capture the card at its natural rendered size
+  const rect = el.getBoundingClientRect();
 
-      // Dark background fills any vertical gap
-      ctx.fillStyle = '#080f0b';
-      ctx.fillRect(0, 0, TARGET_W, TARGET_H);
+  html2canvas(el, {
+    scale: 2,
+    backgroundColor: "#080f0b",
+    useCORS: true,
+    allowTaint: false,
+    logging: false,
+    x: 0,
+    y: 0,
+    scrollX: -window.scrollX,
+    scrollY: -window.scrollY,
+    width: rect.width,
+    height: rect.height,
+    windowWidth: document.documentElement.scrollWidth,
+    windowHeight: document.documentElement.scrollHeight,
+  }).then(function(rawCanvas){
+    el.classList.remove("slide-buttons-hidden");
 
-      // Draw card centred vertically (it may be shorter or taller than 1080)
-      var dy = Math.round((TARGET_H - rawCanvas.height) / 2);
-      ctx.drawImage(rawCanvas, 0, dy);
-      el.classList.remove("slide-buttons-hidden");
-      el.style.width = "";
-      el.style.height = "";
-      el.style.position = "";
-      el.style.top = "";
-      el.style.left = "";
-      el.style.zIndex = "";
-      const link = document.createElement("a");
-      link.download = playerName.replace(/ /g,"_")+".jpg";
-      link.href = canvas.toDataURL("image/jpeg", 0.93);
-      link.click();
-    }).catch(function(err){
-      el.style.width = "";
-      el.style.height = "";
-      el.style.position = "";
-      el.style.top = "";
-      el.style.left = "";
-      el.style.zIndex = "";
-      alert("Export failed: "+err.message);
-    });
-  }
+    // Place on 1920×1080 canvas, scaled to fill width
+    var TW = 1920, TH = 1080;
+    var scale = TW / rawCanvas.width;
+    var dh = Math.round(rawCanvas.height * scale);
 
-  if(window.html2canvas){
-    doCapture();
-  } else {
-    const s = document.createElement("script");
-    s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-    s.onload = doCapture;
-    document.head.appendChild(s);
-  }
+    var canvas = document.createElement('canvas');
+    canvas.width  = TW;
+    canvas.height = TH;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#080f0b';
+    ctx.fillRect(0, 0, TW, TH);
+
+    var dy = Math.round((TH - dh) / 2);
+    ctx.drawImage(rawCanvas, 0, dy, TW, dh);
+
+    const link = document.createElement("a");
+    link.download = playerName.replace(/ /g,"_")+".jpg";
+    link.href = canvas.toDataURL("image/jpeg", 0.95);
+    link.click();
+  }).catch(function(e){
+    el.classList.remove("slide-buttons-hidden");
+    alert("Export failed: "+e.message);
+  });
 }
+
 
 function openPosterWindow(p, playerName, doPrint){
   // Rebuild the full slide HTML with poster-scale fonts
