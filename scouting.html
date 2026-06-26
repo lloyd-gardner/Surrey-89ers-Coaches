@@ -2028,7 +2028,7 @@ function slideCard(p, idx){
 
   var guardHTML = guardItems.length
     ? guardItems.map(function(g){
-        return '<div style="background:rgba(0,0,0,0.2);border-radius:6px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;flex:1">'
+        return '<div style="background:rgba(0,0,0,0.2);border-radius:6px;padding:0 16px;display:flex;justify-content:space-between;align-items:center;flex:1;min-height:44px">'
           +'<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:rgba(250,249,246,0.5)">'+g[0]+'</div>'
           +'<div style="font-size:18px;font-weight:900;color:var(--green);text-transform:uppercase">'+g[1]+'</div>'
         +'</div>';
@@ -2214,7 +2214,7 @@ function slideCard(p, idx){
         // HOW TO GUARD — guard rows fill the column
         +'<div style="padding:14px 20px;border-right:1px solid var(--border-soft);display:flex;flex-direction:column">'
           +sectionLabel('HOW TO GUARD','var(--green)')
-          +'<div style="display:flex;flex-direction:column;gap:8px;flex:1">'
+          +'<div style="display:flex;flex-direction:column;justify-content:space-between;flex:1;gap:6px">'
             +guardHTML
           +'</div>'
         +'</div>'
@@ -2235,8 +2235,8 @@ function slideCard(p, idx){
         +'</div>'
 
         // TURNOVERS + ASSISTS stacked, filling column
-        +'<div style="padding:14px 20px;display:flex;flex-direction:column;gap:0">'
-          +'<div style="margin-bottom:16px">'
+        +'<div style="padding:14px 20px;display:flex;flex-direction:column;justify-content:space-between">'
+          +'<div>'
             +sectionLabel('TURNOVERS','var(--amber)')
             +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px">'
               +miniStat(fmtN(p.tpg),'TOV/G','')
@@ -2244,7 +2244,7 @@ function slideCard(p, idx){
               +miniStat((100-livePct)+'%','DEAD','var(--amber)')
             +'</div>'
           +'</div>'
-          +'<div style="flex:1">'
+          +'<div>'
             +sectionLabel('ASSISTS','var(--green)')
             +(ap?(function(){
                 var tot=ap.total_ast||1;
