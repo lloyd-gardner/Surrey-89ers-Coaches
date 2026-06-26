@@ -130,34 +130,21 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
 
 /* SLIDE CARD — screen layout */
 /* Slides grid — constrained width on screen to match other sections */
-/* Slides section: break out of page-content padding */
-#section-player-slides {
-  margin-left: -24px;
-  margin-right: -24px;
-  margin-top: -28px;
-}
-#section-player-slides .page-header,
-#section-player-slides #slides-team-btns,
-#section-player-slides #slides-info {
-  padding-left: 24px;
-  padding-right: 24px;
-}
-#section-player-slides .page-header { padding-top: 28px; }
-
 #slides-grid{
-  width: 100%;
+  max-width:1280px;
+  margin:0 auto;
 }
 
 .slide-card{
   page-break-before:always;break-before:page;page-break-inside:avoid;
-  width: 100%;
-  /* 16:9 aspect ratio */
-  aspect-ratio: 16 / 9;
+  width:100%;
+  max-width:1280px;
+  aspect-ratio:16/9;
   overflow:hidden;
-  border-radius:0;
+  border-radius:10px;
   display:grid;
   grid-template-columns:280px 1fr;
-  margin-bottom:32px;
+  margin-bottom:24px;
 }
 
 /* SLIDE CARD — print layout fills full A3 */
@@ -2462,9 +2449,10 @@ function saveSlideAsJpeg(idx, playerName){
     // Hide buttons before capture
     el.classList.add("slide-buttons-hidden");
     const rect = el.getBoundingClientRect();
-    // Capture at natural size, then scale to 16:9 for video/scout use
+    // Capture at 1920×1080 (16:9) — scale card to fill exactly
+    var TARGET_W = 1920, TARGET_H = 1080;
     html2canvas(el, {
-      scale: 2,
+      scale: TARGET_W / rect.width,
       backgroundColor: "#080f0b",
       useCORS: true,
       allowTaint: false,
@@ -2472,21 +2460,14 @@ function saveSlideAsJpeg(idx, playerName){
       width: rect.width,
       height: rect.height,
     }).then(function(rawCanvas){
-      // Reframe to 16:9 (1920×1080) — letterbox if needed
+      // Fit into exactly 1920x1080 with no padding
       var canvas = document.createElement('canvas');
-      canvas.width  = 1920;
-      canvas.height = 1080;
+      canvas.width  = TARGET_W;
+      canvas.height = TARGET_H;
       var ctx = canvas.getContext('2d');
       ctx.fillStyle = '#080f0b';
-      ctx.fillRect(0, 0, 1920, 1080);
-      // Scale the card to fit within 16:9, centred
-      var scale = Math.min(1920 / rawCanvas.width, 1080 / rawCanvas.height);
-      var dw = rawCanvas.width  * scale;
-      var dh = rawCanvas.height * scale;
-      var dx = (1920 - dw) / 2;
-      var dy = (1080 - dh) / 2;
-      ctx.drawImage(rawCanvas, dx, dy, dw, dh);
-      var canvas = canvas;
+      ctx.fillRect(0, 0, TARGET_W, TARGET_H);
+      ctx.drawImage(rawCanvas, 0, 0, TARGET_W, TARGET_H);
       el.classList.remove("slide-buttons-hidden");
       el.style.width = "";
       el.style.height = "";
