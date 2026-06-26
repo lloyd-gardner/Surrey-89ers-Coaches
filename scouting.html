@@ -2081,7 +2081,48 @@ function slideCard(p, idx){
       && r['Shot X']!=null && r['Shot X']!=='' && r['Shot Y']!=null && r['Shot Y']!=='';
   });
 
-  // ── Return complete slide ───────────────────────────────────────────────────
+  // ── Best & Worst shots — score = pct × madeRate (frequency × efficiency) ──────
+  var allTypes = [];
+  types3.forEach(function(t){ allTypes.push({label:t.label, pct:t.pct, fg:t.madeRate, is3:true,  score:t.pct*t.madeRate}); });
+  types2.forEach(function(t){ allTypes.push({label:t.label, pct:t.pct, fg:t.madeRate, is3:false, score:t.pct*t.madeRate}); });
+
+  // Only include shot types with meaningful volume (>=5% of attempts)
+  var qualifiedTypes = allTypes.filter(function(t){ return t.pct >= 5; });
+  qualifiedTypes.sort(function(a,b){ return b.score - a.score; });
+
+  var bestShots  = qualifiedTypes.slice(0, 2);
+  var worstShots = qualifiedTypes.slice(-2).reverse();
+
+  function shotStrengthPill(t, good){
+    var col   = good ? (t.is3 ? 'var(--blue)' : '#4ade80') : '#ff8a8a';
+    var bgcol = good ? (t.is3 ? 'rgba(96,200,250,0.1)' : 'rgba(74,222,128,0.1)') : 'rgba(255,138,138,0.1)';
+    var arrow = good ? '&#9650;' : '&#9660;';
+    return '<div style="background:'+bgcol+';border:1px solid '+col.replace(')',',0.3)').replace('var(','rgba(')+';border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">'
+      +'<div>'
+        +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:rgba(250,249,246,0.55)">'+t.label+'</div>'
+        +'<div style="font-size:10px;color:rgba(250,249,246,0.35);margin-top:2px">'+(t.is3?'3PT':'2PT')+'</div>'
+      +'</div>'
+      +'<div style="text-align:right">'
+        +'<div style="font-size:18px;font-weight:900;color:'+col+'">'+t.fg+'%</div>'
+        +'<div style="font-size:10px;color:rgba(250,249,246,0.4);margin-top:1px">'+t.pct+'% of shots</div>'
+      +'</div>'
+    +'</div>';
+  }
+
+  var bestWorstHTML = qualifiedTypes.length
+    ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        +'<div>'
+          +'<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#4ade80;margin-bottom:7px">&#9650; STRENGTHS</div>'
+          +bestShots.map(function(t){ return shotStrengthPill(t, true); }).join('')
+        +'</div>'
+        +'<div>'
+          +'<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#ff8a8a;margin-bottom:7px">&#9660; WEAKNESSES</div>'
+          +worstShots.map(function(t){ return shotStrengthPill(t, false); }).join('')
+        +'</div>'
+      +'</div>'
+    : '<div style="color:var(--muted);font-size:11px">No shot data</div>';
+
+    var guardHTML = guardItems.length  // ── Return complete slide ───────────────────────────────────────────────────
   return '<div class="slide-card" id="slide-'+idx+'">'
 
     // LEFT
@@ -2151,12 +2192,22 @@ function slideCard(p, idx){
         +'</div>'
       +'</div>'
 
-      // HOW TO GUARD | TOV + ASSISTS — fills remaining space
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0;overflow:hidden">'
+      // HOW TO GUARD | SHOT STRENGTHS/WEAKNESSES | TOV + ASSISTS
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;flex:1;min-height:0;overflow:hidden">'
+
+        // HOW TO GUARD
         +'<div style="padding:10px 20px;border-right:1px solid var(--border-soft);overflow:hidden">'
           +sectionLabel('HOW TO GUARD','var(--green)')
           +guardHTML
         +'</div>'
+
+        // SHOT STRENGTHS & WEAKNESSES
+        +'<div style="padding:10px 20px;border-right:1px solid var(--border-soft);overflow:hidden">'
+          +sectionLabel('SHOT PROFILE')
+          +bestWorstHTML
+        +'</div>'
+
+        // TOV + ASSISTS
         +'<div style="padding:10px 20px;overflow:hidden;display:flex;flex-direction:column;gap:12px">'
           +'<div>'
             +sectionLabel('TURNOVERS','var(--amber)')
