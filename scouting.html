@@ -129,9 +129,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
 .slide-buttons-hidden .slide-buttons{display:none!important}
 
 /* SLIDE CARD — screen layout */
+/* Slides grid — constrained width on screen to match other sections */
+#slides-grid{
+  max-width:1280px;
+  margin:0 auto;
+}
+
 .slide-card{
   page-break-before:always;break-before:page;page-break-inside:avoid;
   width:100%;
+  max-width:1280px;
   height:820px;
   overflow:hidden;
   border-radius:10px;
@@ -142,6 +149,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
 
 /* SLIDE CARD — print layout fills full A3 */
 @media print{
+  #slides-grid{max-width:none!important;margin:0!important}
+  .slide-card{max-width:none!important}
   body *{visibility:hidden}
   .slide-card{
     visibility:visible;
@@ -2143,7 +2152,7 @@ function slideCard(p, idx){
         +'<div style="padding:8px 12px;display:flex;flex-direction:column">'
           +sectionLabel('SHOT CHART')
           +'<div style="flex:1;position:relative;min-height:0">'
-            +'<canvas id="'+chartId+'" style="width:100%;height:100%;display:block"></canvas>'
+            +'<canvas id="'+chartId+'" width="260" height="200" style="width:100%;height:100%;display:block"></canvas>'
           +'</div>'
         +'</div>'
       +'</div>'
@@ -2232,12 +2241,11 @@ function drawShotChart(canvasId, shots){
   if(!canvas) return;
   var ctx = canvas.getContext('2d');
 
-  // Size canvas to its display size
-  var W = canvas.offsetWidth;
-  var H = canvas.offsetHeight;
-  canvas.width  = W * 2; // retina
-  canvas.height = H * 2;
-  ctx.scale(2, 2);
+  // Use canvas pixel dimensions directly (set in HTML)
+  // Reset to ensure clean draw
+  canvas.width = canvas.width;
+  var W = canvas.width;
+  var H = canvas.height;
 
   // Half court: FIBA court is 28m x 15m, we show offense end
   // Shot coords from LiveStats: X 0-100 (left to right), Y 0-100 (baseline to halfcourt)
