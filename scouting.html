@@ -1977,7 +1977,7 @@ function slideCard(p, idx){
   }
   function statBox(v, l){
     var rank=getLeagueRank(l);
-    return '<div style="background:var(--card3);border-radius:6px;padding:12px 4px 10px;text-align:center">'
+    return '<div style="background:var(--card3);border-radius:6px;padding:8px 4px 7px;text-align:center">'
       +'<div style="font-size:20px;font-weight:900;line-height:1">'+v+'</div>'
       +'<div style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:5px">'+l+'</div>'
       +rankPill(rank)
@@ -2156,7 +2156,7 @@ function slideCard(p, idx){
     +'<div style="display:flex;flex-direction:column;border-left:1px solid var(--border-soft);overflow:hidden">'
 
       // Name — taller, bigger text
-      +'<div style="padding:14px 20px 12px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">'
+      +'<div style="padding:8px 20px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">'
         +'<div>'
           +'<div style="font-size:36px;font-weight:900;letter-spacing:-1px;text-transform:uppercase;line-height:1">'+name+'</div>'
           +'<div style="font-size:14px;color:rgba(250,249,246,0.45);margin-top:5px;font-weight:500">#'+num+' · '+(p.position||'')+' · '+(p.height||'')+(p.handed?' · '+p.handed.replace('RIGHT HANDED','Right Handed').replace('LEFT HANDED','Left Handed'):'')+' </div>'
@@ -2165,11 +2165,11 @@ function slideCard(p, idx){
       +'</div>'
 
       // Grades — taller boxes, bigger letters and labels
-      +'<div style="padding:10px 20px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
+      +'<div style="padding:6px 20px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
         +sectionLabel('PLAYER RATINGS')
         +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">'
           +grades.map(function(gr){
-            return '<div style="background:var(--card3);border-radius:8px;padding:12px 4px;text-align:center">'
+            return '<div style="background:var(--card3);border-radius:8px;padding:7px 4px;text-align:center">'
               +'<div class="grade-badge '+gradeClass(gr.g)+'" style="font-size:28px;padding:4px 12px;display:block;margin-bottom:5px">'+gr.g+'</div>'
               +'<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">'+gr.l+'</div>'
             +'</div>';
@@ -2178,7 +2178,7 @@ function slideCard(p, idx){
       +'</div>'
 
       // Key Stats — taller pills, bigger numbers
-      +'<div style="padding:10px 20px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
+      +'<div style="padding:6px 20px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
         +sectionLabel('KEY STATISTICS')
         +'<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:5px">'
           +statsRow.map(function(s){ return statBox(s.v,s.l); }).join('')
@@ -2210,7 +2210,7 @@ function slideCard(p, idx){
       +'</div>'
 
       // HOW TO GUARD | SHOT PROFILE | TOV + ASSISTS — fixed height bottom row
-      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;height:240px;flex-shrink:0;border-top:1px solid var(--border-soft);align-items:start">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;height:200px;flex-shrink:0;border-top:1px solid var(--border-soft);align-items:start">'
 
         +'<div style="padding:10px 16px;border-right:1px solid var(--border-soft);overflow:hidden">'
           +sectionLabel('HOW TO GUARD','var(--green)')
