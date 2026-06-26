@@ -130,21 +130,34 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
 
 /* SLIDE CARD — screen layout */
 /* Slides grid — constrained width on screen to match other sections */
+/* Slides section: break out of page-content padding */
+#section-player-slides {
+  margin-left: -24px;
+  margin-right: -24px;
+  margin-top: -28px;
+}
+#section-player-slides .page-header,
+#section-player-slides #slides-team-btns,
+#section-player-slides #slides-info {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+#section-player-slides .page-header { padding-top: 28px; }
+
 #slides-grid{
-  max-width:1280px;
-  margin:0 auto;
+  width: 100%;
 }
 
 .slide-card{
   page-break-before:always;break-before:page;page-break-inside:avoid;
-  width:100%;
-  max-width:1280px;
-  height:820px;
+  width: 100%;
+  /* 16:9 aspect ratio */
+  aspect-ratio: 16 / 9;
   overflow:hidden;
-  border-radius:10px;
+  border-radius:0;
   display:grid;
-  grid-template-columns:220px 1fr;
-  margin-bottom:24px;
+  grid-template-columns:280px 1fr;
+  margin-bottom:32px;
 }
 
 /* SLIDE CARD — print layout fills full A3 */
@@ -159,7 +172,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
     width:100vw;
     height:100vh;
     display:grid;
-    grid-template-columns:220px 1fr;
+    grid-template-columns:280px 1fr;
     border-radius:0;
     margin:0;
   }
@@ -2113,12 +2126,12 @@ function slideCard(p, idx){
     var eff   = effLabel(t.fg, t.is3);
     var eCol  = effColour(t.fg, t.is3);
     var shotType = (t.is3?'3PT':'2PT');
-    return '<div style="background:'+bgcol+';border:1px solid rgba(250,249,246,0.08);border-radius:8px;padding:10px 12px;margin-bottom:6px">'
-      +'<div style="font-size:13px;font-weight:800;text-transform:uppercase;color:var(--offwhite);margin-bottom:2px">'+t.label+'</div>'
-      +'<div style="font-size:9px;font-weight:700;color:rgba(250,249,246,0.35);text-transform:uppercase;margin-bottom:6px">'+shotType+'</div>'
-      +'<div style="display:flex;gap:5px">'
-        +'<div style="background:rgba(250,249,246,0.06);border-radius:4px;padding:3px 7px;font-size:9px;font-weight:700;text-transform:uppercase;color:rgba(250,249,246,0.6)">'+vol+'</div>'
-        +'<div style="background:rgba(250,249,246,0.06);border-radius:4px;padding:3px 7px;font-size:9px;font-weight:700;text-transform:uppercase;color:'+eCol+'">'+eff+'</div>'
+    return '<div style="background:'+bgcol+';border:1px solid rgba(250,249,246,0.08);border-radius:8px;padding:8px 10px;margin-bottom:5px">'
+      +'<div style="font-size:12px;font-weight:800;text-transform:uppercase;color:var(--offwhite);margin-bottom:1px;line-height:1.1">'+t.label+'</div>'
+      +'<div style="font-size:8px;font-weight:700;color:rgba(250,249,246,0.35);text-transform:uppercase;margin-bottom:4px">'+shotType+'</div>'
+      +'<div style="display:flex;flex-wrap:nowrap;gap:4px;margin-top:4px">'
+        +'<div style="background:rgba(250,249,246,0.06);border-radius:3px;padding:2px 5px;font-size:8px;font-weight:700;text-transform:uppercase;color:rgba(250,249,246,0.6);white-space:nowrap">'+vol+'</div>'
+        +'<div style="background:rgba(250,249,246,0.06);border-radius:3px;padding:2px 5px;font-size:8px;font-weight:700;text-transform:uppercase;color:'+eCol+';white-space:nowrap">'+eff+'</div>'
       +'</div>'
     +'</div>';
   }
@@ -2210,7 +2223,7 @@ function slideCard(p, idx){
       +'</div>'
 
       // HOW TO GUARD | SHOT PROFILE | TOV + ASSISTS — fixed height bottom row
-      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;height:220px;flex-shrink:0;border-top:1px solid var(--border-soft);align-items:start">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;height:240px;flex-shrink:0;border-top:1px solid var(--border-soft);align-items:start">'
 
         +'<div style="padding:10px 16px;border-right:1px solid var(--border-soft);overflow:hidden">'
           +sectionLabel('HOW TO GUARD','var(--green)')
@@ -2395,7 +2408,7 @@ function printSingleSlide(idx, playerName){
     '  border-radius: 0 !important;',
     '  margin: 0 !important;',
     '  display: grid !important;',
-    '  grid-template-columns: 220px 1fr !important;',
+    '  grid-template-columns: 280px 1fr !important;',
     '  overflow: hidden !important;',
     '  background: #ffffff !important;',
     '}',
