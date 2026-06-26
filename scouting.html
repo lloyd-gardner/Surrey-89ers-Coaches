@@ -2286,9 +2286,18 @@ function printSingleSlide(idx, playerName){
 
       // ── 2. Specific pill backgrounds ───────────────────────────────────────
       if(s.includes('rgba(0,131,72,0.08)')){
-        el.style.background='#fff'; el.style.border='1px solid #008348'; el.style.borderLeft='3px solid #008348';
+        el.style.background='#fff';
+        el.style.borderTop='1px solid #008348';
+        el.style.borderRight='1px solid #008348';
+        el.style.borderBottom='1px solid #008348';
+        el.style.borderLeft='3px solid #008348';
       } else if(s.includes('rgba(224,85,85,0.06)')){
-        el.style.background='#fff'; el.style.border='1px solid #c0392b'; el.style.borderLeft='3px solid #c0392b';
+        el.style.cssText = el.style.cssText + ';background:#fff!important';
+        el.style.background='#fff';
+        el.style.borderTop='1px solid #c0392b';
+        el.style.borderRight='1px solid #c0392b';
+        el.style.borderBottom='1px solid #c0392b';
+        el.style.borderLeft='3px solid #c0392b';
       } else if(s.includes('rgba(74,222,128,0.07)')){
         el.style.background='#fff'; el.style.border='1px solid #008348';
       } else if(s.includes('rgba(255,138,138,0.07)')){
@@ -2390,6 +2399,9 @@ function printSingleSlide(idx, playerName){
     '  border-right: 3px solid #008348 !important;',
     '}',
     '.slide-buttons, .no-print { display: none !important; }',
+    /* Blanket: all text black, all backgrounds white */
+    '.slide-card, .slide-card * { color: #111 !important; }',
+    '.slide-card [style] { background: #fff !important; }',
     '</style>',
     '</head><body>',
     clone.outerHTML,
