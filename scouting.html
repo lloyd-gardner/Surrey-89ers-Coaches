@@ -1977,16 +1977,16 @@ function slideCard(p, idx){
   }
   function statBox(v, l){
     var rank=getLeagueRank(l);
-    return '<div style="background:var(--card3);border-radius:6px;padding:10px 2px;text-align:center">'
-      +'<div style="font-size:22px;font-weight:900">'+v+'</div>'
-      +'<div style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:3px">'+l+'</div>'
+    return '<div style="background:var(--card3);border-radius:6px;padding:12px 4px 10px;text-align:center">'
+      +'<div style="font-size:20px;font-weight:900;line-height:1">'+v+'</div>'
+      +'<div style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:5px">'+l+'</div>'
       +rankPill(rank)
       +'</div>';
   }
   function miniStat(v, l, col){
-    return '<div style="background:var(--card3);border-radius:6px;padding:16px 4px;text-align:center;flex:1">'
-      +'<div style="font-size:24px;font-weight:900'+(col?';color:'+col:'')+'" >'+v+'</div>'
-      +'<div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:4px">'+l+'</div>'
+    return '<div style="background:var(--card3);border-radius:8px;padding:14px 6px;text-align:center">'
+      +'<div style="font-size:22px;font-weight:900;line-height:1'+(col?';color:'+col:'')+'" >'+v+'</div>'
+      +'<div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:6px">'+l+'</div>'
       +'</div>';
   }
   function barRow(label, pct, colour, suffix){
@@ -2138,7 +2138,7 @@ function slideCard(p, idx){
       +'</div>'
     : '<div style="color:var(--muted);font-size:11px">No shot data</div>';
 
-    // ── Return complete slide ───────────────────────────────────────────────────
+  // ── Return complete slide ───────────────────────────────────────────────────
   return '<div class="slide-card" id="slide-'+idx+'">'
 
     // LEFT
@@ -2238,7 +2238,7 @@ function slideCard(p, idx){
         +'<div style="padding:14px 20px;display:flex;flex-direction:column;gap:0">'
           +'<div style="margin-bottom:16px">'
             +sectionLabel('TURNOVERS','var(--amber)')
-            +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
+            +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px">'
               +miniStat(fmtN(p.tpg),'TOV/G','')
               +miniStat(livePct+'%','LIVE','#ff8a8a')
               +miniStat((100-livePct)+'%','DEAD','var(--amber)')
@@ -2253,7 +2253,7 @@ function slideCard(p, idx){
                 var passTo=ap.top_targets_pct&&ap.top_targets_pct.length
                   ?ap.top_targets_pct[0][0]+' '+ap.top_targets_pct[0][1]+'%'
                   :(ap.top_targets&&ap.top_targets.length?ap.top_targets[0][0]:'—');
-                return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
+                return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px">'
                   +miniStat(pct2+'%','% TO 2PT','#60c8fa')
                   +miniStat(pct3+'%','% TO 3PT','var(--blue)')
                   +miniStat(passTo,'PASSES TO','var(--green)')
@@ -2277,12 +2277,10 @@ function slideCard(p, idx){
 function printSingleSlide(idx, playerName){
   const el = document.getElementById("slide-"+idx);
   if(!el) return;
-
-  // Clone the slide, strip buttons
   const clone = el.cloneNode(true);
   clone.querySelectorAll('.slide-buttons').forEach(function(b){ b.remove(); });
 
-  // Collect all page styles
+  // Get all page styles
   const styles = Array.from(document.styleSheets).map(function(ss){
     try{ return Array.from(ss.cssRules).map(function(r){ return r.cssText; }).join('\n'); }
     catch(e){ return ''; }
@@ -2295,96 +2293,33 @@ function printSingleSlide(idx, playerName){
     +'<style>'
     +styles
     +'@page{size:A3 landscape;margin:0}'
-    +'html,body{margin:0;padding:0;width:1587px;height:1123px;overflow:hidden;background:#080f0b;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-    +'.slide-card{width:1587px!important;height:1123px!important;border-radius:0!important;margin:0!important;display:grid!important;grid-template-columns:220px 1fr!important}'
+    +'html,body{margin:0;padding:0;width:1587px;height:1123px;overflow:hidden;'
+    +'background:#080f0b;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'.slide-card{'
+    +'  width:1587px!important;height:1123px!important;'
+    +'  max-width:none!important;'
+    +'  border-radius:0!important;margin:0!important;'
+    +'  display:grid!important;grid-template-columns:220px 1fr!important;'
+    +'  overflow:hidden!important;'
+    +'}'
     +'.no-print,.slide-buttons{display:none!important}'
+    +'canvas{display:block}'
     +'</style>'
-    +'</head><body>'
+    +'</head><body style="margin:0;padding:0">'
     +clone.outerHTML
-    +'<scr'+'ipt>document.fonts.ready.then(function(){setTimeout(function(){window.print();},300);});<'+'/scr'+'ipt>'
+    +'<scr'+'ipt>'
+    +'document.fonts.ready.then(function(){'
+    +'  // Redraw shot charts in the print window'
+    +'  const canvases = document.querySelectorAll("canvas");'
+    +'  canvases.forEach(function(c){'
+    +'    const src = window.opener && window.opener.document.getElementById(c.id);'
+    +'    if(src){ const ctx=c.getContext("2d"); ctx.drawImage(src,0,0); }'
+    +'  });'
+    +'  setTimeout(function(){ window.print(); }, 400);'
+    +'});'
+    +'<'+'/scr'+'ipt>'
     +'</body></html>');
   w.document.close();
-}
-
-
-// ── Draw shot charts for all visible slides ───────────────────────────────────
-function drawShotChart(canvasId, shots){
-  var canvas = document.getElementById(canvasId);
-  if(!canvas) return;
-  var ctx = canvas.getContext('2d');
-
-  // Use canvas pixel dimensions directly (set in HTML)
-  // Reset to ensure clean draw
-  canvas.width = canvas.width;
-  var W = canvas.width;
-  var H = canvas.height;
-
-  // Half court: FIBA court is 28m x 15m, we show offense end
-  // Shot coords from LiveStats: X 0-100 (left to right), Y 0-100 (baseline to halfcourt)
-  // We map X→canvas width, Y→canvas height (0=baseline at bottom)
-
-  function cx(x){ return (x/100)*W; }
-  function cy(y){ return H - (y/100)*H; }
-
-  // Draw court outline
-  ctx.strokeStyle = 'rgba(250,249,246,0.15)';
-  ctx.lineWidth = 1;
-
-  // Baseline
-  ctx.beginPath(); ctx.moveTo(0,H); ctx.lineTo(W,H); ctx.stroke();
-  // Sidelines (partial — just the half we show)
-  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,H); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(W,0); ctx.lineTo(W,H); ctx.stroke();
-
-  // 3PT line: FIBA — arc radius 6.75m from basket
-  // Basket at centre bottom = (50, ~8) in normalised coords
-  // 3PT line corners: x=0/100 from y=0 to y≈22, arc from there
-  var bx = cx(50), by = cy(7.5);
-  var r3 = (6.75/15)*W; // 3pt radius scaled to court width
-
-  ctx.beginPath();
-  ctx.moveTo(cx(0), cy(20));
-  ctx.lineTo(cx(0), cy(0));  // left corner
-  ctx.arc(bx, by, r3, Math.PI, 0, false);
-  ctx.lineTo(cx(100), cy(20));
-  ctx.stroke();
-
-  // Paint: FIBA key 4.9m wide, 5.8m long
-  var keyW = (4.9/15)*W, keyH = (5.8/28)*H*2;
-  ctx.strokeRect(cx(50)-keyW/2, cy(0)-keyH, keyW, keyH);
-
-  // Free throw circle
-  ctx.beginPath();
-  ctx.arc(bx, cy(0)-keyH, (1.8/15)*W, 0, Math.PI*2);
-  ctx.stroke();
-
-  // Basket
-  ctx.beginPath();
-  ctx.arc(bx, by, (0.45/15)*W, 0, Math.PI*2);
-  ctx.strokeStyle = 'rgba(250,249,246,0.4)';
-  ctx.stroke();
-
-  // Plot shots
-  shots.forEach(function(s){
-    var x = parseFloat(s['Shot X']);
-    var y = parseFloat(s['Shot Y']);
-    if(isNaN(x)||isNaN(y)) return;
-    var made = s.Success==1||s.Success==='1';
-    var is3  = s.Action==='3pt';
-
-    ctx.beginPath();
-    ctx.arc(cx(x), cy(y), 3.5, 0, Math.PI*2);
-    if(made){
-      ctx.fillStyle   = is3 ? 'rgba(96,200,250,0.85)' : 'rgba(74,222,128,0.85)';
-      ctx.strokeStyle = 'transparent';
-      ctx.fill();
-    } else {
-      ctx.fillStyle   = 'transparent';
-      ctx.strokeStyle = is3 ? 'rgba(96,200,250,0.6)' : 'rgba(255,138,138,0.6)';
-      ctx.lineWidth   = 1.2;
-      ctx.stroke();
-    }
-  });
 }
 
 
