@@ -2033,7 +2033,7 @@ function slideCard(p, idx){
           +'<div style="font-size:16px;font-weight:900;color:var(--green);text-transform:uppercase">'+g[1]+'</div>'
         +'</div>';
       }).join('')
-    : '<div style="color:var(--muted);font-size:10px">No notes</div>';
+    : '<div style="color:var(--muted);font-size:11px">No guard notes</div>';
 
   var whoHTML = (p.whoWhat||p.forcing||p.stopping)
     ? (p.whoWhat  ? '<div style="margin-bottom:12px">'+sectionLabel('WHO IS HE')+'<div style="font-size:14px;color:var(--offwhite);line-height:1.7">'+p.whoWhat+'</div></div>' : '')
@@ -2093,36 +2093,52 @@ function slideCard(p, idx){
   var bestShots  = qualifiedTypes.slice(0, 2);
   var worstShots = qualifiedTypes.slice(-2).reverse();
 
+  function volLabel(pct){
+    return pct>=30?'HIGH VOLUME':pct>=15?'MED VOLUME':'LOW VOLUME';
+  }
+  function effLabel(fg, is3){
+    // 3PT: elite≥40, good≥33, avg≥28, poor<28
+    // 2PT: elite≥60, good≥50, avg≥40, poor<40
+    if(is3) return fg>=40?'ELITE %':fg>=33?'GOOD %':fg>=28?'AVERAGE %':'POOR %';
+    return fg>=60?'ELITE %':fg>=50?'GOOD %':fg>=40?'AVERAGE %':'POOR %';
+  }
+  function effColour(fg, is3){
+    if(is3) return fg>=40?'#4ade80':fg>=33?'#60c8fa':fg>=28?'var(--amber)':'#ff8a8a';
+    return fg>=60?'#4ade80':fg>=50?'#60c8fa':fg>=40?'var(--amber)':'#ff8a8a';
+  }
   function shotStrengthPill(t, good){
     var col   = good ? (t.is3 ? 'var(--blue)' : '#4ade80') : '#ff8a8a';
-    var bgcol = good ? (t.is3 ? 'rgba(96,200,250,0.1)' : 'rgba(74,222,128,0.1)') : 'rgba(255,138,138,0.1)';
-    var arrow = good ? '&#9650;' : '&#9660;';
-    return '<div style="background:'+bgcol+';border:1px solid '+col.replace(')',',0.3)').replace('var(','rgba(')+';border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">'
-      +'<div>'
-        +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:rgba(250,249,246,0.55)">'+t.label+'</div>'
-        +'<div style="font-size:10px;color:rgba(250,249,246,0.35);margin-top:2px">'+(t.is3?'3PT':'2PT')+'</div>'
+    var bgcol = good ? 'rgba(74,222,128,0.07)' : 'rgba(255,138,138,0.07)';
+    var vol   = volLabel(t.pct);
+    var eff   = effLabel(t.fg, t.is3);
+    var eCol  = effColour(t.fg, t.is3);
+    var shotType = (t.is3?'3PT':'2PT');
+    return '<div style="background:'+bgcol+';border:1px solid rgba(250,249,246,0.08);border-radius:8px;padding:10px 12px;margin-bottom:7px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
+        +'<div style="font-size:13px;font-weight:800;text-transform:uppercase;color:var(--offwhite);line-height:1.2">'+t.label+'</div>'
+        +'<div style="font-size:9px;font-weight:700;color:rgba(250,249,246,0.4);text-transform:uppercase;margin-top:2px">'+shotType+'</div>'
       +'</div>'
-      +'<div style="text-align:right">'
-        +'<div style="font-size:18px;font-weight:900;color:'+col+'">'+t.fg+'%</div>'
-        +'<div style="font-size:10px;color:rgba(250,249,246,0.4);margin-top:1px">'+t.pct+'% of shots</div>'
+      +'<div style="display:flex;gap:6px">'
+        +'<div style="background:rgba(250,249,246,0.06);border-radius:4px;padding:3px 8px;font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(250,249,246,0.6)">'+vol+'</div>'
+        +'<div style="background:rgba(250,249,246,0.06);border-radius:4px;padding:3px 8px;font-size:10px;font-weight:700;text-transform:uppercase;color:'+eCol+'">'+eff+'</div>'
       +'</div>'
     +'</div>';
   }
 
   var bestWorstHTML = qualifiedTypes.length
-    ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+    ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
         +'<div>'
-          +'<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#4ade80;margin-bottom:7px">&#9650; STRENGTHS</div>'
+          +'<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#4ade80;margin-bottom:6px">STRENGTHS</div>'
           +bestShots.map(function(t){ return shotStrengthPill(t, true); }).join('')
         +'</div>'
         +'<div>'
-          +'<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#ff8a8a;margin-bottom:7px">&#9660; WEAKNESSES</div>'
+          +'<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#ff8a8a;margin-bottom:6px">WEAKNESSES</div>'
           +worstShots.map(function(t){ return shotStrengthPill(t, false); }).join('')
         +'</div>'
       +'</div>'
     : '<div style="color:var(--muted);font-size:11px">No shot data</div>';
 
-    var guardHTML = guardItems.length  // ── Return complete slide ───────────────────────────────────────────────────
+    // ── Return complete slide ───────────────────────────────────────────────────
   return '<div class="slide-card" id="slide-'+idx+'">'
 
     // LEFT
@@ -2379,6 +2395,7 @@ function saveSlideAsJpeg(idx, playerName){
     // Hide buttons before capture
     el.classList.add("slide-buttons-hidden");
     const rect = el.getBoundingClientRect();
+    // Capture at natural size, then scale to 16:9 for video/scout use
     html2canvas(el, {
       scale: 2,
       backgroundColor: "#080f0b",
@@ -2387,7 +2404,22 @@ function saveSlideAsJpeg(idx, playerName){
       logging: false,
       width: rect.width,
       height: rect.height,
-    }).then(function(canvas){
+    }).then(function(rawCanvas){
+      // Reframe to 16:9 (1920×1080) — letterbox if needed
+      var canvas = document.createElement('canvas');
+      canvas.width  = 1920;
+      canvas.height = 1080;
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#080f0b';
+      ctx.fillRect(0, 0, 1920, 1080);
+      // Scale the card to fit within 16:9, centred
+      var scale = Math.min(1920 / rawCanvas.width, 1080 / rawCanvas.height);
+      var dw = rawCanvas.width  * scale;
+      var dh = rawCanvas.height * scale;
+      var dx = (1920 - dw) / 2;
+      var dy = (1080 - dh) / 2;
+      ctx.drawImage(rawCanvas, dx, dy, dw, dh);
+      var canvas = canvas;
       el.classList.remove("slide-buttons-hidden");
       el.style.width = "";
       el.style.height = "";
