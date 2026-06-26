@@ -159,13 +159,53 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
     width:100vw;
     height:100vh;
     display:grid;
-    grid-template-columns:21% 79%;
+    grid-template-columns:220px 1fr;
     border-radius:0;
     margin:0;
+    background:#fff !important;
   }
   .slide-card *{visibility:visible}
   .no-print,.slide-buttons{display:none!important}
   @page{size:A3 landscape;margin:0}
+
+  /* White background ink-saving overrides */
+  .slide-header{background:#f2f2f2 !important}
+  .slide-card [style*="background:#080f0b"]{background:#fff !important}
+  .slide-card [style*="background:var(--card2)"]{background:#f5f5f5 !important}
+  .slide-card [style*="background:var(--card3)"]{background:#f0f0f0 !important}
+  .slide-card [style*="background:var(--card)"]{background:#f0f0f0 !important}
+  .slide-card [style*="background:#152a1c"]{background:#f0f0f0 !important}
+  .slide-card [style*="background:#1a3323"]{background:#f0f0f0 !important}
+  .slide-card [style*="background:#0d1f10"]{background:#f2f2f2 !important}
+  .slide-card [style*="background:rgba(0,0,0"]{background:#f5f5f5 !important}
+  .slide-card [style*="background:linear-gradient"]{background:#f2f2f2 !important}
+  .slide-card [style*="background:rgba(250,249,246,0.06)"]{background:#eee !important}
+
+  /* Text colours: lighten to dark on white */
+  .slide-card [style*="color:#FAF9F6"]{color:#111 !important}
+  .slide-card [style*="color:var(--offwhite)"]{color:#111 !important}
+  .slide-card [style*="color:rgba(250,249,246,0.4"]{color:#666 !important}
+  .slide-card [style*="color:rgba(250,249,246,0.45"]{color:#555 !important}
+  .slide-card [style*="color:rgba(250,249,246,0.5"]{color:#444 !important}
+  .slide-card [style*="color:rgba(250,249,246,0.55"]{color:#444 !important}
+  .slide-card [style*="color:rgba(250,249,246,0.6"]{color:#333 !important}
+  .slide-card [style*="color:rgba(250,249,246,0.15"]{color:#ccc !important}
+  .slide-card [style*="color:rgba(250,249,246,0.35"]{color:#888 !important}
+  .slide-card [style*="color:var(--muted)"]{color:#666 !important}
+
+  /* Borders: dark → light */
+  .slide-card [style*="border-left:1px solid var(--border-soft)"]{border-color:#ddd !important}
+  .slide-card [style*="border-right:1px solid var(--border-soft)"]{border-color:#ddd !important}
+  .slide-card [style*="border-bottom:1px solid var(--border-soft)"]{border-color:#ddd !important}
+  .slide-card [style*="border-top:1px solid var(--border-soft)"]{border-color:#ddd !important}
+
+  /* Grade badges */
+  .grade-a{background:rgba(74,222,128,0.15) !important}
+  .grade-b{background:rgba(96,200,250,0.12) !important}
+  .grade-c{background:rgba(245,158,11,0.15) !important}
+  .grade-d{background:rgba(224,85,85,0.10) !important}
+
+  /* Keep accent colours (green, amber, blue, red) — they print fine and carry meaning */
 }
 
 /* PAGE HEADERS */
@@ -2210,7 +2250,7 @@ function slideCard(p, idx){
       +'</div>'
 
       // HOW TO GUARD | SHOT PROFILE | TOV + ASSISTS — fixed height bottom row
-      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;height:220px;flex-shrink:0;border-top:1px solid var(--border-soft)">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;height:220px;flex-shrink:0;border-top:1px solid var(--border-soft);align-items:start">'
 
         +'<div style="padding:10px 16px;border-right:1px solid var(--border-soft);overflow:hidden">'
           +sectionLabel('HOW TO GUARD','var(--green)')
@@ -2275,6 +2315,16 @@ function printSingleSlide(idx, playerName){
   const clone = el.cloneNode(true);
   // Remove buttons from clone
   clone.querySelectorAll('.slide-buttons,.no-print').forEach(function(b){ b.remove(); });
+  // Apply ink-saving styles directly to cloned elements
+  clone.style.background = '#fff';
+  clone.querySelectorAll('.slide-header').forEach(function(e){ e.style.background='#f2f2f2'; });
+  clone.querySelectorAll('[style*="background:var(--card3)"]').forEach(function(e){ e.style.background='#f0f0f0'; });
+  clone.querySelectorAll('[style*="background:var(--card2)"]').forEach(function(e){ e.style.background='#f5f5f5'; });
+  clone.querySelectorAll('[style*="background:#152a1c"],[style*="background:#1a3323"],[style*="background:#0d1f10"]').forEach(function(e){ e.style.background='#f0f0f0'; });
+  clone.querySelectorAll('[style*="background:rgba(0,0,0"]').forEach(function(e){ e.style.background='#f5f5f5'; });
+  clone.querySelectorAll('[style*="background:linear-gradient"]').forEach(function(e){ e.style.background='#f2f2f2'; });
+  clone.querySelectorAll('[style*="color:#FAF9F6"],[style*="color:var(--offwhite)"]').forEach(function(e){ e.style.color='#111'; });
+  clone.querySelectorAll('[style*="border-color:var(--border-soft)"],[style*="border:1px solid var(--border-soft)"]').forEach(function(e){ e.style.borderColor='#ddd'; });
 
   // Collect all page CSS
   const styles = Array.from(document.styleSheets).map(function(ss){
