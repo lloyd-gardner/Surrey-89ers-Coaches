@@ -2107,13 +2107,13 @@ function slideCard(p, idx){
       // Statements — full width, stacked vertically
       +'<div style="padding:8px 18px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
         +(p.whoWhat
-          ? '<div style="margin-bottom:8px">'+sectionLabel('WHO IS HE')+'<div style="font-size:12px;color:var(--offwhite);line-height:1.5">'+p.whoWhat+'</div></div>'
+          ? '<div style="margin-bottom:8px">'+sectionLabel('WHO IS HE')+'<div style="font-size:15px;color:var(--offwhite);line-height:1.6">'+p.whoWhat+'</div></div>'
           : '')
         +(p.forcing
-          ? '<div style="margin-bottom:8px">'+sectionLabel('WHAT TO FORCE','var(--green)')+'<div style="font-size:12px;color:var(--offwhite);line-height:1.5">'+p.forcing+'</div></div>'
+          ? '<div style="margin-bottom:8px">'+sectionLabel('WHAT TO FORCE','var(--green)')+'<div style="font-size:15px;color:var(--offwhite);line-height:1.6">'+p.forcing+'</div></div>'
           : '')
         +(p.stopping
-          ? '<div>'+sectionLabel('WHAT TO STOP','#ff8a8a')+'<div style="font-size:12px;color:var(--offwhite);line-height:1.5">'+p.stopping+'</div></div>'
+          ? '<div>'+sectionLabel('WHAT TO STOP','#ff8a8a')+'<div style="font-size:15px;color:var(--offwhite);line-height:1.6">'+p.stopping+'</div></div>'
           : '')
       +'</div>'
 
@@ -2169,12 +2169,35 @@ function slideCard(p, idx){
 function printSingleSlide(idx, playerName){
   const el = document.getElementById("slide-"+idx);
   if(!el) return;
-  // Find the player data from DEPTH_CHARTS
-  const teamPlayers = DEPTH_CHARTS[slidesTeam]||[];
-  const p = teamPlayers[idx] || null;
-  if(!p){ alert("Player data not found"); return; }
-  openPosterWindow(p, playerName, true);
+
+  // Clone the slide, strip buttons
+  const clone = el.cloneNode(true);
+  clone.querySelectorAll('.slide-buttons').forEach(function(b){ b.remove(); });
+
+  // Collect all page styles
+  const styles = Array.from(document.styleSheets).map(function(ss){
+    try{ return Array.from(ss.cssRules).map(function(r){ return r.cssText; }).join('\n'); }
+    catch(e){ return ''; }
+  }).join('\n');
+
+  const w = window.open('','_blank','width=1587,height=1123');
+  w.document.write('<!DOCTYPE html><html><head>'
+    +'<meta charset="UTF-8">'
+    +'<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">'
+    +'<style>'
+    +styles
+    +'@page{size:A3 landscape;margin:0}'
+    +'html,body{margin:0;padding:0;width:1587px;height:1123px;overflow:hidden;background:#080f0b;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'.slide-card{width:1587px!important;height:1123px!important;border-radius:0!important;margin:0!important;display:grid!important;grid-template-columns:220px 1fr!important}'
+    +'.no-print,.slide-buttons{display:none!important}'
+    +'</style>'
+    +'</head><body>'
+    +clone.outerHTML
+    +'<scr'+'ipt>document.fonts.ready.then(function(){setTimeout(function(){window.print();},300);});<'+'/scr'+'ipt>'
+    +'</body></html>');
+  w.document.close();
 }
+
 
 function saveSlideAsJpeg(idx, playerName){
   const el = document.getElementById("slide-"+idx);
@@ -2193,12 +2216,15 @@ function saveSlideAsJpeg(idx, playerName){
 
     // Hide buttons before capture
     el.classList.add("slide-buttons-hidden");
+    const rect = el.getBoundingClientRect();
     html2canvas(el, {
       scale: 2,
       backgroundColor: "#080f0b",
       useCORS: true,
       allowTaint: false,
       logging: false,
+      width: rect.width,
+      height: rect.height,
     }).then(function(canvas){
       el.classList.remove("slide-buttons-hidden");
       el.style.width = "";
