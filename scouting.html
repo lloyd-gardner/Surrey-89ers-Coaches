@@ -163,109 +163,56 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
     border-radius:0;
     margin:0;
     background:#fff !important;
+    color:#111 !important;
   }
-  .slide-card *{visibility:visible}
+  .slide-card *{visibility:visible; color:#111 !important; background:transparent !important; border-color:#ddd !important;}
   .no-print,.slide-buttons{display:none!important}
   @page{size:A3 landscape;margin:0}
 
-  /* ── Surrey 89ers brand print theme: white bg, #008348 green, black text ── */
+  /* Left panel */
+  .slide-header{ background:#fff !important; border-right:3px solid #008348 !important; }
 
-  /* Left panel: white with thin green left border */
-  .slide-header{
-    background:#fff !important;
-    border-right:3px solid #008348 !important;
-  }
+  /* Grade badges — outlined */
+  .slide-card .grade-a{ border:2px solid #4ade80 !important; background:#fff !important; color:#111 !important; }
+  .slide-card .grade-b{ border:2px solid #008348 !important; background:#fff !important; color:#111 !important; }
+  .slide-card .grade-c{ border:2px solid #f59e0b !important; background:#fff !important; color:#111 !important; }
+  .slide-card .grade-d{ border:2px solid #e05555 !important; background:#fff !important; color:#111 !important; }
 
-  /* ALL dark backgrounds → white */
-  .slide-card [style*="background"]{background:#fff !important}
-  .slide-card [style*="linear-gradient"]{background:#fff !important}
+  /* HOW TO GUARD rows */
+  .slide-card .guard-row{ border:1px solid #008348 !important; background:#fff !important; }
 
-  /* ALL text → black, then we restore specific accents below */
-  .slide-card *{color:#111 !important}
+  /* Dividers */
+  .slide-card [style*="border-left:1px solid var(--border-soft)"]{ border-left:1px solid #ccc !important; }
+  .slide-card [style*="border-right:1px solid var(--border-soft)"]{ border-right:1px solid #ccc !important; }
+  .slide-card [style*="border-bottom:1px solid var(--border-soft)"]{ border-bottom:1px solid #ccc !important; }
+  .slide-card [style*="border-top:1px solid var(--border-soft)"]{ border-top:1px solid #ccc !important; }
 
-  /* Section labels → #008348 green */
-  .slide-card [style*="letter-spacing:1.5px"]{color:#008348 !important}
-  .slide-card [style*="letter-spacing:1px"]{color:#555 !important}
+  /* Accent text colours — keep meaningful colour */
+  .slide-card [style*="color:var(--green)"]{ color:#008348 !important; }
+  .slide-card [style*="color:#4ade80"]{ color:#008348 !important; }
+  .slide-card [style*="color:#60c8fa"]{ color:#008348 !important; }
+  .slide-card [style*="color:var(--blue)"]{ color:#008348 !important; }
+  .slide-card [style*="color:var(--amber)"]{ color:#b45309 !important; }
+  .slide-card [style*="color:#f59e0b"]{ color:#b45309 !important; }
+  .slide-card [style*="color:#ff8a8a"]{ color:#c0392b !important; }
+  .slide-card [style*="color:var(--muted)"]{ color:#666 !important; }
+  .slide-card [style*="color:rgba(250,249,246,0.4"]{ color:#666 !important; }
+  .slide-card [style*="color:rgba(250,249,246,0.45"]{ color:#555 !important; }
+  .slide-card [style*="color:rgba(250,249,246,0.5"]{ color:#444 !important; }
+  .slide-card [style*="color:rgba(250,249,246,0.35"]{ color:#888 !important; }
+  .slide-card [style*="color:rgba(250,249,246,0.55"]{ color:#444 !important; }
+  .slide-card [style*="color:rgba(250,249,246,0.6"]{ color:#333 !important; }
+  .slide-card [style*="color:#FAF9F6"]{ color:#111 !important; }
+  .slide-card [style*="color:var(--offwhite)"]{ color:#111 !important; }
 
-  /* Grade badges: outlined only, no fill */
-  .slide-card .grade-a,.slide-card .grade-b,.slide-card .grade-c,.slide-card .grade-d{
-    background:#fff !important;
-  }
-  .slide-card .grade-a{border:2px solid #4ade80 !important;color:#111 !important}
-  .slide-card .grade-b{border:2px solid #008348 !important;color:#111 !important}
-  .slide-card .grade-c{border:2px solid #f59e0b !important;color:#111 !important}
-  .slide-card .grade-d{border:2px solid #e05555 !important;color:#111 !important}
+  /* Bar tracks */
+  .slide-card [style*="background:rgba(250,249,246,0.06)"]{ background:#eee !important; }
+  .slide-card [style*="background:rgba(255,255,255,.07)"]{ background:#eee !important; }
+  .slide-card [style*="background:rgba(255,255,255,0.07)"]{ background:#eee !important; }
 
-  /* All pill/card backgrounds → white with black border */
-  .slide-card [style*="border-radius:6px"],
-  .slide-card [style*="border-radius:8px"],
-  .slide-card [style*="border-radius:7px"],
-  .slide-card [style*="border-radius:5px"]{
-    background:#fff !important;
-    border:1px solid #ddd !important;
-  }
-
-  /* Statement pills: keep coloured left border as accent */
-  .slide-card [style*="rgba(0,131,72"]{
-    background:#fff !important;
-    border:1px solid #008348 !important;
-    border-left:3px solid #008348 !important;
-  }
-  .slide-card [style*="rgba(224,85,85"]{
-    background:#fff !important;
-    border:1px solid #e05555 !important;
-    border-left:3px solid #e05555 !important;
-  }
-
-  /* Shot profile pills: outlined */
-  .slide-card [style*="rgba(74,222,128,0.07)"]{
-    background:#fff !important;
-    border:1px solid #008348 !important;
-  }
-  .slide-card [style*="rgba(255,138,138,0.07)"]{
-    background:#fff !important;
-    border:1px solid #e05555 !important;
-  }
-
-  /* Dividers → light grey */
-  .slide-card [style*="border-left:1px solid var(--border-soft)"]{border-left:1px solid #ccc !important}
-  .slide-card [style*="border-right:1px solid var(--border-soft)"]{border-right:1px solid #ccc !important}
-  .slide-card [style*="border-bottom:1px solid var(--border-soft)"]{border-bottom:1px solid #ccc !important}
-  .slide-card [style*="border-top:1px solid var(--border-soft)"]{border-top:1px solid #ccc !important}
-
-  /* HOW TO GUARD values → #008348 */
-  .slide-card [style*="color:var(--green)"]{color:#008348 !important}
-  .slide-card [style*="color:#4ade80"]{color:#008348 !important}
-
-  /* TURNOVERS/LIVE → keep amber/red as accents — they're informational */
-  .slide-card [style*="color:var(--amber)"]{color:#b45309 !important}
-  .slide-card [style*="color:#f59e0b"]{color:#b45309 !important}
-  .slide-card [style*="color:#ff8a8a"]{color:#c0392b !important}
-
-  /* ASSISTS → green */
-  .slide-card [style*="color:#60c8fa"]{color:#008348 !important}
-  .slide-card [style*="color:var(--blue)"]{color:#008348 !important}
-
-  /* HOW TO GUARD rows → outlined */
-  .slide-card [style*="background:rgba(0,0,0,0.2)"]{
-    background:#fff !important;
-    border:1px solid #008348 !important;
-  }
-
-  /* Bar chart track → light grey */
-  .slide-card [style*="background:rgba(250,249,246,0.06)"]{background:#f0f0f0 !important}
-  .slide-card [style*="background:rgba(255,255,255,.07)"]{background:#f0f0f0 !important}
-
-  /* Shot zone boxes: white with coloured bottom border only */
-  .slide-card [style*="border-bottom:2px solid"]{
-    background:#fff !important;
-  }
-  .slide-card [style*="border-bottom:3px solid"]{
-    background:#fff !important;
-  }
-
-  /* Canvas (shot chart) stays as-is */
-  canvas{background:#fff !important}
+  /* Shot zone bottom borders — keep colour accent */
+  .slide-card [style*="border-bottom:2px solid"]{ border-bottom-width:2px !important; }
+  .slide-card [style*="border-bottom:3px solid"]{ border-bottom-width:3px !important; }
 }</style>
 </head>
 <body>
@@ -2259,78 +2206,42 @@ function printSingleSlide(idx, playerName){
   const clone = el.cloneNode(true);
   // Remove buttons from clone
   clone.querySelectorAll('.slide-buttons,.no-print').forEach(function(b){ b.remove(); });
-  // Apply Surrey brand print styles to clone
-  clone.style.background = '#fff';
-  // All backgrounds → white
-  clone.querySelectorAll('[style]').forEach(function(e){
-    var s = e.getAttribute('style')||'';
-    if(s.includes('background')){
-      // Keep coloured borders, just clear fills
-      e.style.background = '#fff';
-    }
-    // All text → black by default
-    if(s.includes('color:#FAF9F6')||s.includes('color:var(--offwhite)')||s.includes('color:rgba(250,249,246')){
-      e.style.color = '#111';
-    }
-    if(s.includes('color:var(--muted)')){
-      e.style.color = '#555';
-    }
-    // Borders → light grey
-    if(s.includes('border-soft')){
-      e.style.borderColor = '#ccc';
-    }
-    // Keep greens as #008348
-    if(s.includes('color:var(--green)')||s.includes('color:#4ade80')){
-      e.style.color = '#008348';
-    }
-    if(s.includes('color:#60c8fa')||s.includes('color:var(--blue)')){
-      e.style.color = '#008348';
-    }
-    // Amber/red informational colours
-    if(s.includes('color:var(--amber)')||s.includes('color:#f59e0b')){
-      e.style.color = '#b45309';
-    }
-    if(s.includes('color:#ff8a8a')){
-      e.style.color = '#c0392b';
-    }
-    // HOW TO GUARD rows → outlined
-    if(s.includes('rgba(0,0,0,0.2)')){
-      e.style.background = '#fff';
-      e.style.border = '1px solid #008348';
-    }
+  // Apply Surrey brand print styles — walk all elements
+  (function applyPrint(el){
+    el.style.background = 'transparent';
+    var s = el.getAttribute('style')||'';
+    // Text colours
+    if(s.match(/color:#FAF9F6|color:var\(--offwhite\)/)) el.style.color='#111';
+    if(s.match(/color:rgba\(250,249,246,0\.[0-4]/)) el.style.color='#666';
+    if(s.match(/color:rgba\(250,249,246,0\.[5-9]/)) el.style.color='#333';
+    if(s.match(/color:var\(--muted\)/)) el.style.color='#666';
+    if(s.match(/color:var\(--green\)|color:#4ade80/)) el.style.color='#008348';
+    if(s.match(/color:#60c8fa|color:var\(--blue\)/)) el.style.color='#008348';
+    if(s.match(/color:var\(--amber\)|color:#f59e0b/)) el.style.color='#b45309';
+    if(s.match(/color:#ff8a8a/)) el.style.color='#c0392b';
+    // Borders → grey
+    if(s.includes('border-soft')) el.style.borderColor='#ccc';
+    // HOW TO GUARD rows → green outlined
+    if(s.includes('rgba(0,0,0,0.2)')) { el.style.background='#fff'; el.style.border='1px solid #008348'; }
     // Statement pills
-    if(s.includes('rgba(0,131,72,0.08)')){
-      e.style.background = '#fff';
-      e.style.border = '1px solid #008348';
-      e.style.borderLeft = '3px solid #008348';
-    }
-    if(s.includes('rgba(224,85,85,0.06)')){
-      e.style.background = '#fff';
-      e.style.border = '1px solid #e05555';
-      e.style.borderLeft = '3px solid #e05555';
-    }
+    if(s.includes('rgba(0,131,72,0.08)')) { el.style.background='#fff'; el.style.border='1px solid #008348'; el.style.borderLeft='3px solid #008348'; }
+    if(s.includes('rgba(224,85,85,0.06)')) { el.style.background='#fff'; el.style.border='1px solid #c0392b'; el.style.borderLeft='3px solid #c0392b'; }
     // Shot profile pills
-    if(s.includes('rgba(74,222,128,0.07)')){
-      e.style.background = '#fff';
-      e.style.border = '1px solid #008348';
-    }
-    if(s.includes('rgba(255,138,138,0.07)')){
-      e.style.background = '#fff';
-      e.style.border = '1px solid #c0392b';
-    }
-    // Bar tracks
-    if(s.includes('rgba(250,249,246,0.06)')||s.includes('rgba(255,255,255,.07)')){
-      e.style.background = '#eee';
-    }
-  });
-  // Left panel border
-  var header = clone.querySelector('.slide-header');
-  if(header){ header.style.background='#fff'; header.style.borderRight='3px solid #008348'; }
-  // Grade badges → outlined
-  clone.querySelectorAll('.grade-a,.grade-b,.grade-c,.grade-d').forEach(function(e){
-    e.style.background='#fff';
-    e.style.color='#111';
-  });
+    if(s.includes('rgba(74,222,128,0.07)')) { el.style.background='#fff'; el.style.border='1px solid #008348'; }
+    if(s.includes('rgba(255,138,138,0.07)')) { el.style.background='#fff'; el.style.border='1px solid #c0392b'; }
+    // Bar chart track
+    if(s.includes('rgba(250,249,246,0.06)')||s.includes('rgba(255,255,255,.07)')) el.style.background='#eee';
+    // Recurse children
+    Array.from(el.children).forEach(applyPrint);
+  })(clone);
+  // Left panel green border
+  var hdr=clone.querySelector('.slide-header');
+  if(hdr){hdr.style.background='#fff';hdr.style.borderRight='3px solid #008348';}
+  // Grade badges
+  clone.querySelectorAll('.grade-a').forEach(function(e){e.style.background='#fff';e.style.border='2px solid #4ade80';e.style.color='#111';});
+  clone.querySelectorAll('.grade-b').forEach(function(e){e.style.background='#fff';e.style.border='2px solid #008348';e.style.color='#111';});
+  clone.querySelectorAll('.grade-c').forEach(function(e){e.style.background='#fff';e.style.border='2px solid #f59e0b';e.style.color='#111';});
+  clone.querySelectorAll('.grade-d').forEach(function(e){e.style.background='#fff';e.style.border='2px solid #c0392b';e.style.color='#111';});
 
   // Collect all page CSS
   const styles = Array.from(document.styleSheets).map(function(ss){
