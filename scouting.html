@@ -1984,9 +1984,9 @@ function slideCard(p, idx){
       +'</div>';
   }
   function miniStat(v, l, col){
-    return '<div style="background:var(--card3);border-radius:8px;padding:14px 6px;text-align:center">'
+    return '<div style="background:var(--card3);border-radius:8px;padding:12px 6px;text-align:center">'
+      +'<div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">'+l+'</div>'
       +'<div style="font-size:22px;font-weight:900;line-height:1'+(col?';color:'+col:'')+'" >'+v+'</div>'
-      +'<div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:6px">'+l+'</div>'
       +'</div>';
   }
   function barRow(label, pct, colour, suffix){
@@ -2264,61 +2264,76 @@ function slideCard(p, idx){
         +'</div>'
       +'</div>'
 
-      // Buttons
-      +'<div style="padding:6px 20px;border-top:1px solid var(--border-soft);display:grid;grid-template-columns:1fr 1fr;gap:6px;flex-shrink:0" class="no-print slide-buttons">'
-        +'<button class="btn btn-green" style="font-size:11px" data-sideidx="'+idx+'" data-player="'+name+'" onclick="printSingleSlide(+this.dataset.sideidx,this.dataset.player)">&#128424; Print A3</button>'
-        +'<button class="btn" style="font-size:11px;background:var(--card3);border:1px solid var(--border-soft);color:var(--offwhite)" data-sideidx="'+idx+'" data-player="'+name+'" onclick="saveSlideAsJpeg(+this.dataset.sideidx,this.dataset.player)">&#128247; Save JPEG</button>'
-      +'</div>'
     +'</div>'
-  +'</div>';
+  +'</div>'
+  // Buttons sit BELOW the card, not inside it
+  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px" class="no-print slide-buttons">'
+    +'<button class="btn btn-green" style="font-size:12px;padding:10px" data-sideidx="'+idx+'" data-player="'+name+'" onclick="printSingleSlide(+this.dataset.sideidx,this.dataset.player)">&#128424; Print A3</button>'
+    +'<button class="btn" style="font-size:12px;padding:10px;background:var(--card3);border:1px solid var(--border-soft);color:var(--offwhite)" data-sideidx="'+idx+'" data-player="'+name+'" onclick="saveSlideAsJpeg(+this.dataset.sideidx,this.dataset.player)">&#128247; Save JPEG</button>'
+  +'</div>'
++'</div>';
 }
 
 
 function printSingleSlide(idx, playerName){
   const el = document.getElementById("slide-"+idx);
   if(!el) return;
-  const clone = el.cloneNode(true);
-  clone.querySelectorAll('.slide-buttons').forEach(function(b){ b.remove(); });
 
-  // Get all page styles
+  const clone = el.cloneNode(true);
+  // Remove buttons from clone
+  clone.querySelectorAll('.slide-buttons,.no-print').forEach(function(b){ b.remove(); });
+
+  // Collect all page CSS
   const styles = Array.from(document.styleSheets).map(function(ss){
     try{ return Array.from(ss.cssRules).map(function(r){ return r.cssText; }).join('\n'); }
     catch(e){ return ''; }
   }).join('\n');
 
-  const w = window.open('','_blank','width=1587,height=1123');
-  w.document.write('<!DOCTYPE html><html><head>'
-    +'<meta charset="UTF-8">'
-    +'<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">'
-    +'<style>'
-    +styles
-    +'@page{size:A3 landscape;margin:0}'
-    +'html,body{margin:0;padding:0;width:1587px;height:1123px;overflow:hidden;'
-    +'background:#080f0b;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-    +'.slide-card{'
-    +'  width:1587px!important;height:1123px!important;'
-    +'  max-width:none!important;'
-    +'  border-radius:0!important;margin:0!important;'
-    +'  display:grid!important;grid-template-columns:220px 1fr!important;'
-    +'  overflow:hidden!important;'
-    +'}'
-    +'.no-print,.slide-buttons{display:none!important}'
-    +'canvas{display:block}'
-    +'</style>'
-    +'</head><body style="margin:0;padding:0">'
-    +clone.outerHTML
-    +'<scr'+'ipt>'
-    +'document.fonts.ready.then(function(){'
-    +'  // Redraw shot charts in the print window'
-    +'  const canvases = document.querySelectorAll("canvas");'
-    +'  canvases.forEach(function(c){'
-    +'    const src = window.opener && window.opener.document.getElementById(c.id);'
-    +'    if(src){ const ctx=c.getContext("2d"); ctx.drawImage(src,0,0); }'
-    +'  });'
-    +'  setTimeout(function(){ window.print(); }, 400);'
-    +'});'
-    +'<'+'/scr'+'ipt>'
-    +'</body></html>');
+  const w = window.open('','_blank');
+  w.document.write([
+    '<!DOCTYPE html><html><head>',
+    '<meta charset="UTF-8">',
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">',
+    '<style>',
+    styles,
+    '@page { size: A3 landscape; margin: 0; }',
+    'html, body {',
+    '  margin: 0; padding: 0;',
+    '  background: #080f0b;',
+    '  -webkit-print-color-adjust: exact;',
+    '  print-color-adjust: exact;',
+    '}',
+    '.slide-card {',
+    '  width: 100vw !important;',
+    '  height: 100vh !important;',
+    '  max-width: none !important;',
+    '  border-radius: 0 !important;',
+    '  margin: 0 !important;',
+    '  display: grid !important;',
+    '  grid-template-columns: 220px 1fr !important;',
+    '  overflow: hidden !important;',
+    '}',
+    '.slide-buttons, .no-print { display: none !important; }',
+    '</style>',
+    '</head><body>',
+    clone.outerHTML,
+    '<scr'+'ipt>',
+    'document.fonts.ready.then(function() {',
+    '  // Copy shot chart canvas from opener',
+    '  try {',
+    '    var srcCanvas = window.opener.document.getElementById("chart-'+idx+'");',
+    '    var dstCanvas = document.querySelector("canvas");',
+    '    if (srcCanvas && dstCanvas) {',
+    '      dstCanvas.width = srcCanvas.width;',
+    '      dstCanvas.height = srcCanvas.height;',
+    '      dstCanvas.getContext("2d").drawImage(srcCanvas, 0, 0);',
+    '    }',
+    '  } catch(e) {}',
+    '  setTimeout(function() { window.print(); }, 500);',
+    '});',
+    '<'+'/scr'+'ipt>',
+    '</body></html>'
+  ].join('\n'));
   w.document.close();
 }
 
