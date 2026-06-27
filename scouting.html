@@ -590,8 +590,52 @@ const LEAGUE_RANKS = {"ranks":{"PPG":{"BATTLE, RAEQUAN":1,"ROBINSON, PATRICK":2,
 // CONFIG — change NEXT_OPP each week
 // ═══════════════════════════════════════════
 const PW   = "89ers2627";
-const DATA_URL = "https://raw.githubusercontent.com/lloyd-gardner/Surrey-89ers-Coaches/main/data/scout_data.xlsx";
-const SCHEDULE_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTxFit7jrGqaHcbBTuK15aBvfn4AVsd5MWK4tMLgDyoQdCJSHvQM7F4cRFK-3w91n65RlfMlNISYFD8/pub?gid=0&single=true&output=csv";
+const SUPABASE_URL  = "https://xxhotbyqajzosxtczezh.supabase.co";
+const SUPABASE_ANON = "YOUR_ANON_KEY_HERE";
+const SEASON_LABEL  = "2024-25";
+
+async function sbFetch(path) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      "apikey": SUPABASE_ANON,
+      "Authorization": `Bearer ${SUPABASE_ANON}`,
+    }
+  });
+  if (!r.ok) { console.error("Supabase fetch failed:", path, r.status); return []; }
+  return r.json();
+}
+
+async function sbFetchAll(table, params = "") {
+  const rows = [];
+  let offset = 0;
+  const PAGE = 1000;
+  while (true) {
+    const sep = params ? "&" : "?";
+    const batch = await sbFetch(`${table}?${params}${sep}limit=${PAGE}&offset=${offset}`);
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+    offset += PAGE;
+  }
+  return rows;
+}
+
+const CAPS_MAP = {
+  "Surrey 89ers":                "SURREY 89ERS",
+  "London Lions":                "LONDON LIONS",
+  "Bristol Flyers":              "BRISTOL FLYERS",
+  "Newcastle Eagles":            "NEWCASTLE EAGLES",
+  "Leicester Riders":            "LEICESTER RIDERS",
+  "Manchester Giants":           "MANCHESTER BASKETBALL",
+  "Plymouth Raiders":            "PLYMOUTH RAIDERS",
+  "Sheffield Sharks":            "B. BRAUN SHEFFIELD SHARKS",
+  "Cheshire Phoenix":            "CHESHIRE PHOENIX",
+  "Glasgow Rocks":               "GLASGOW ROCKS",
+  "London City Royals":          "LONDON CITY ROYALS",
+  "Caledonia Gladiators":        "CALEDONIA GLADIATORS",
+  "Manchester Basketball":       "MANCHESTER BASKETBALL",
+  "B. Braun Sheffield Sharks":   "B. BRAUN SHEFFIELD SHARKS",
+};
+function capsTeam(name) { return CAPS_MAP[name] || (name || "").toUpperCase(); }const SCHEDULE_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTxFit7jrGqaHcbBTuK15aBvfn4AVsd5MWK4tMLgDyoQdCJSHvQM7F4cRFK-3w91n65RlfMlNISYFD8/pub?gid=0&single=true&output=csv";
 
 // Mapping from schedule title keywords → ALL CAPS team name used in scout data
 const TEAM_NAME_MAP = {
@@ -802,30 +846,199 @@ function parseTeamDataSheet(wb, sheetName) {
 
 async function loadData(){
   if(DB) return DB;
-  const res = await fetch(DATA_URL);
-  const buf = await res.arrayBuffer();
-  const wb  = XLSX.read(buf,{type:"array",cellDates:true});
 
-  const ts  = XLSX.utils.sheet_to_json(wb.Sheets["Team_Stats"]);
-  const ps  = XLSX.utils.sheet_to_json(wb.Sheets["Player_Stats"]);
-  const lu  = XLSX.utils.sheet_to_json(wb.Sheets["Line Up Data"]);
-  const lr  = XLSX.utils.sheet_to_json(wb.Sheets["League Ratings"]);
-  const tr  = XLSX.utils.sheet_to_json(wb.Sheets["Team Ratings"]);
-  const pbp = XLSX.utils.sheet_to_json(wb.Sheets["PBP Events"]);
+  const seasons = await sbFetch(`slb_seasons?label=eq.${encodeURIComponent(SEASON_LABEL)}&select=id`);
+  const seasonId = seasons[0]?.id;
+  if(!seasonId){ console.error("Season not found:", SEASON_LABEL); return null; }
 
-  // Pre-parse all available team Data sheets (row 37: shot menu + scoring breakdown)
-  const teamDataSheets = {};
-  Object.entries(TEAM_DATA_SHEET).forEach(([team, sheetName]) => {
-    const parsed = parseTeamDataSheet(wb, sheetName);
-    if (parsed) teamDataSheets[team] = parsed;
+  const [tgsRows, pgsRows, luRows, pbpRows, lrRows, trRows] = await Promise.all([
+    sbFetchAll("slb_team_game_stats", `select=*,game:slb_games!inner(livestats_game_id,game_date,round,status,home_score,away_score,season_id),team:slb_teams(name)&game.season_id=eq.${seasonId}&game.status=eq.final`),
+    sbFetchAll("slb_player_game_stats", `select=*,game:slb_games!inner(livestats_game_id,game_date,season_id,status),team:slb_teams(name),player:slb_players(full_name,jersey_number)&game.season_id=eq.${seasonId}&game.status=eq.final`),
+    sbFetchAll("slb_lineup_stints", `select=*,game:slb_games!inner(livestats_game_id,season_id,status),team:slb_teams(name)&game.season_id=eq.${seasonId}&game.status=eq.final`),
+    sbFetchAll("slb_pbp_events", `select=*,game:slb_games!inner(livestats_game_id,season_id,status),team:slb_teams(name),player:slb_players(full_name)&game.season_id=eq.${seasonId}&game.status=eq.final`),
+    sbFetchAll(`slb_player_season_averages`, `season_id=eq.${seasonId}`),
+    sbFetchAll(`slb_team_season_averages`, `season_id=eq.${seasonId}`),
+  ]);
+
+  // ── raw.ts — per-game team rows ──
+  const ts = tgsRows
+    .filter(r => r.game)
+    .map(r => {
+      const g       = r.game;
+      const scored  = r.pts || 0;
+      const allowed = r.is_home ? (g.away_score || 0) : (g.home_score || 0);
+      const result  = scored > allowed ? "WIN" : "LOSS";
+      return {
+        "Game id":      g.livestats_game_id,
+        "Date":         g.game_date,
+        "Season":       SEASON_LABEL,
+        "Format":       g.round || "",
+        "Team":         capsTeam(r.team?.name || ""),
+        "Opp":          "",
+        "Location":     r.is_home ? "HOME" : "AWAY",
+        "Result":       result,
+        "FGM": r.fgm, "FGA": r.fga,
+        "FG%":          r.fga ? r.fgm / r.fga : 0,
+        "2PM": r.fg2m, "2PA": r.fg2a,
+        "2P%":          r.fg2a ? r.fg2m / r.fg2a : 0,
+        "3PM": r.fg3m, "3PA": r.fg3a,
+        "3P%":          r.fg3a ? r.fg3m / r.fg3a : 0,
+        "FTM": r.ftm,  "FTA": r.fta,
+        "FT%":          r.fta  ? r.ftm  / r.fta  : 0,
+        "OREB": r.oreb, "DREB": r.dreb, "REB": r.reb,
+        "AST": r.ast, "STL": r.stl, "BLK": r.blk, "PF": r.pf, "TOV": r.tov,
+        "Pts Scored":   scored,
+        "Pts Allowed":  allowed,
+        "Q1 Scored": r.q1_pts, "Q2 Scored": r.q2_pts,
+        "Q3 Scored": r.q3_pts, "Q4 Scored": r.q4_pts,
+        "Q1 Allowed": null, "Q2 Allowed": null,
+        "Q3 Allowed": null, "Q4 Allowed": null,
+        "Tempo":        r.pace,
+        "OFFRTG":       r.off_rtg ? r.off_rtg / 100 : null,
+        "DEFRTG":       r.def_rtg ? r.def_rtg / 100 : null,
+        "NET RTG":      r.net_rtg ? r.net_rtg / 100 : null,
+        "eFG%":         r.efg_pct,
+        "3PT Taken%":   r.fga ? r.fg3a / r.fga : null,
+        "TOV%": null, "OREB%": null, "DREB%": null, "AST%": null,
+        "FBP": null, "PIP": null,
+        "_gameId":      g.livestats_game_id,
+      };
+    });
+
+  // Fill Opp and Q-Allowed by pairing home+away rows for the same game
+  const tsByGame = {};
+  ts.forEach(r => {
+    if(!tsByGame[r._gameId]) tsByGame[r._gameId] = [];
+    tsByGame[r._gameId].push(r);
+  });
+  ts.forEach(r => {
+    const pair = (tsByGame[r._gameId] || []).find(x => x.Team !== r.Team);
+    if(pair){
+      r.Opp           = pair.Team;
+      r["Q1 Allowed"] = pair["Q1 Scored"];
+      r["Q2 Allowed"] = pair["Q2 Scored"];
+      r["Q3 Allowed"] = pair["Q3 Scored"];
+      r["Q4 Allowed"] = pair["Q4 Scored"];
+    }
   });
 
+  // ── raw.ps — per-game player rows ──
+  const ps = pgsRows
+    .filter(r => r.game && r.player && !r.dnp)
+    .map(r => {
+      const efg = r.fga ? (r.fgm + 0.5 * r.fg3m) / r.fga : 0;
+      return {
+        "Game id":  r.game.livestats_game_id,
+        "Date":     r.game.game_date,
+        "Season":   SEASON_LABEL,
+        "Format":   "",
+        "Player":   r.player.full_name,
+        "Team":     capsTeam(r.team?.name || ""),
+        "#":        r.jersey_number || r.player.jersey_number || "",
+        "GS":       0,
+        "MIN":      r.seconds_played ? r.seconds_played / 60 : 0,
+        "FGM": r.fgm, "FGA": r.fga,
+        "FG%":      r.fga  ? r.fgm / r.fga  : 0,
+        "2PM": r.fg2m, "2PA": r.fg2a,
+        "2P%":      r.fg2a ? r.fg2m / r.fg2a : 0,
+        "3PM": r.fg3m, "3PA": r.fg3a,
+        "3P%":      r.fg3a ? r.fg3m / r.fg3a : 0,
+        "FTM": r.ftm, "FTA": r.fta,
+        "FT%":      r.fta  ? r.ftm  / r.fta  : 0,
+        "OREB": r.oreb, "DREB": r.dreb, "REB": r.reb,
+        "AST": r.ast, "STL": r.stl, "BLK": r.blk, "PF": r.pf, "TOV": r.tov,
+        "PTS":      r.pts,
+        "+/-":      r.plus_minus,
+        "eFG%":     efg,
+        "PIP": null, "FBP": null, "Usage%": null,
+      };
+    });
+
+  // ── raw.lu — lineup stints ──
+  const lu = luRows
+    .filter(r => r.game && r.team)
+    .map(r => {
+      const parts = (r.lineup_label || "").split(" / ");
+      return {
+        "Game id":     r.game.livestats_game_id,
+        "Team":        capsTeam(r.team.name),
+        "P1": parts[0]||"", "P2": parts[1]||"",
+        "P3": parts[2]||"", "P4": parts[3]||"",
+        "P5": parts[4]||"",
+        "Stints":      1,
+        "Pts Scored":  r.pts_scored,
+        "Pts Allowed": r.pts_allowed,
+        "+/-":         r.plus_minus,
+        "Poss":        r.possessions_off,
+        "Poss Opp":    r.possessions_def,
+        "OFFRTG":      r.off_rtg,
+        "DEFRTG":      r.def_rtg,
+        "NETRTG":      r.net_rtg,
+        "Pts Paint%":  null,
+        "Pts 3PT%":    null,
+      };
+    });
+
+  // ── raw.pbp — play-by-play ──
+  const pbp = pbpRows
+    .filter(r => r.game && r.team)
+    .map(r => ({
+      "Game id":  r.game.livestats_game_id,
+      "Period":   r.quarter,
+      "Clock":    r.game_clock,
+      "Team":     capsTeam(r.team.name),
+      "Player":   r.player?.full_name || "",
+      "Action":   r.action_type,
+      "Sub Type": r.sub_type,
+      "Success":  null,
+      "Shot X":   null,
+      "Shot Y":   null,
+    }));
+
+  // ── lr — player season averages ──
+  const lr = lrRows.map(r => {
+    const fga  = r.fga_total || 0;
+    const fgm  = r.fgm_total || 0;
+    const fg3m = r.fg3m_total || 0;
+    const fta  = r.fta_total || 0;
+    const pts  = r.pts_total || 0;
+    const mpg  = parseFloat(r.mpg) || 0;
+    const efg  = fga ? (fgm + 0.5 * fg3m) / fga : 0;
+    const pp40 = mpg ? (parseFloat(r.ppg) || 0) / mpg * 40 : 0;
+    const fg3pg = r.games_played ? fg3m / r.games_played : 0;
+    return {
+      "PLAYER":  r.full_name,
+      "TEAM":    capsTeam(r.team_name),
+      "GP":      r.games_played,
+      "MPG":     mpg,
+      "PPG":     parseFloat(r.ppg),
+      "RPG":     parseFloat(r.rpg),
+      "APG":     parseFloat(r.apg),
+      "TPG":     parseFloat(r.topg),
+      "eFG%":    efg,
+      "+/-":     parseFloat(r.plus_minus),
+      "USAGE%":  null,
+      "PP40":    pp40,
+      "3PM/G":   fg3pg,
+      "OFFRTG":  null,
+      "DEFRTG":  null,
+      "GRADE":   null,
+    };
+  });
+
+  // ── tr — team season averages ──
+  const tr = trRows.map(r => ({
+    "TEAM":  capsTeam(r.team_name),
+    "Grade": null,
+  }));
+
   DB = {
-    raw: { ts, ps, lu, lr, tr, pbp },
-    teamAgg:   buildTeamAgg(ts),
-    playerAgg: buildPlayerAgg(ps),
-    lr, tr,
-    teamDataSheets,
+    raw: { ts, ps, lu, pbp },
+    teamAgg:        buildTeamAgg(ts),
+    playerAgg:      buildPlayerAgg(ps),
+    lr,
+    tr,
+    teamDataSheets: {},
   };
   return DB;
 }
