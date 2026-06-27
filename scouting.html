@@ -2272,12 +2272,13 @@ async function showTeamProfile(teamName){
           ${tr.Fouling?`<span class="pill pill-muted">${tr.Fouling} Fouling</span>`:""}
         </div>`:""}
       </div>
-      <div style="text-align:right">
+     <div style="text-align:right">
         <div class="opp-record-num">${t.w}-${t.l}</div>
         <div class="opp-record-lbl">Record</div>
-        <div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end">
+        <div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end;align-items:center">
           <span class="pill pill-blue">#${pos}</span>
           ${h2h.length?`<span class="pill pill-muted">vs Surrey ${h2hW}W-${h2h.length-h2hW}L</span>`:""}
+          <a href="admin.html?team=${encodeURIComponent(teamName)}" class="btn no-print" style="font-size:11px;padding:5px 12px;background:var(--green);color:#fff">⚙ Edit</a>
         </div>
       </div>
     </div>
