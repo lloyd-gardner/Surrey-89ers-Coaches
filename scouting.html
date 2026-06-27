@@ -1766,8 +1766,6 @@ async function fillNextOpponent(){
     menuCard.innerHTML = html;
   })();
 
-  const h2h=db.raw.ts.filter(r=>r.Team==="SURREY 89ERS"&&(r.Opp||"")=== NEXT_OPP)
-
   // ── Passing & Turnovers panel ───────────────────────────────────────────────
   (function renderPassingPanel(){
     const passingCard = document.getElementById("no-passing-card");
@@ -1929,6 +1927,7 @@ async function fillNextOpponent(){
     passingCard.innerHTML = html;
   })();
 
+  const h2h=db.raw.ts.filter(r=>r.Team==="SURREY 89ERS"&&(r.Opp||"")=== NEXT_OPP)
     .sort((a,b)=>new Date(b.Date)-new Date(a.Date));
   document.getElementById("no-h2h").innerHTML=h2h.length
     ? h2h.map(g=>`<tr>
