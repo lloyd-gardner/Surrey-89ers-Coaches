@@ -355,12 +355,11 @@ document.getElementById("depth-counts").innerHTML=`
   let html="";
   if(starters.length){
     html+='<div class="depth-section"><div class="depth-section-label">Starters</div>';
-bench.forEach((p,i)=>{html+=playerRowHTML(p,starters.length+i+1);});    html+='</div>';
+starters.forEach(p=>{html+=playerRowHTML(p,scoutingMap[p.id]?.depth_pos);});   html+='</div>';
   }
 if(bench.length){
     html+=\'<div class="depth-divider"></div><div class="depth-section"><div class="depth-section-label">Bench</div>\';
-    bench.forEach((p,i)=>{html+=playerRowHTML(p,starters.length+i+1);});
-    html+=\'</div>\';
+bench.forEach(p=>{html+=playerRowHTML(p,scoutingMap[p.id]?.depth_pos);});    html+=\'</div>\';
   }
   if(unassigned.length){
     html+=\'<div class="depth-divider"></div><div class="depth-section"><div class="depth-section-label">Unassigned</div>\';
