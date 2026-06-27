@@ -730,8 +730,7 @@ async function loadFixtures() {
       const rawNotes = (cols[8]||"").trim();
       const oppShort = parseScheduleTeam(title) ? SHORT[parseScheduleTeam(title)] : teamShort;
       // Format as "London Lions RS2"
-      const notesLabel = rawNotes ? `${fullNameMap[team]||teamShort} ${rawNotes.toUpperCase()}` : parseCompetition(rawNotes);
-      upcomingGames.push({
+const notesLabel = rawNotes ? rawNotes.toUpperCase() : parseCompetition(rawNotes);      upcomingGames.push({
         team,
         date: formatScheduleDate(dateStr.trim(), timeStr ? timeStr.trim() : ""),
         venue: isHome ? "Home" : "Away",
