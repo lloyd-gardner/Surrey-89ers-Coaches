@@ -347,10 +347,10 @@ function renderDepthChart(){
   const starters=assigned.filter((_,i)=>i<5);
   const bench=assigned.filter((_,i)=>i>=5);
 
-  document.getElementById("depth-counts").innerHTML=`
-    <span class="depth-count-pill green">${active.length} active</span>
-    <span class="depth-count-pill">${inactive.length} inactive</span>
-    <span class="depth-count-pill">${players.length} total</span>`;
+document.getElementById("depth-counts").innerHTML=`
+    <span class="depth-count-pill green">${assigned.length} assigned</span>
+    <span class="depth-count-pill">${unassigned.length} unassigned</span>
+    <span class="depth-count-pill">${inactive.length} inactive</span>`;
 
   let html="";
   if(starters.length){
