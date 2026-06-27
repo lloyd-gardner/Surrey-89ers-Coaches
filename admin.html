@@ -314,6 +314,8 @@ async function init(){
   const teamIdByName={};
   dbTeams.forEach(t=>{teamIdByName[t.name]=t.id;});
   const bar=document.getElementById("team-bar");
+  const urlTeam=new URLSearchParams(window.location.search).get("team");
+  let autoBtn=null, autoTeam=null;
   TEAMS.forEach(t=>{
     t.id=teamIdByName[t.name]||null;
     const btn=document.createElement("button");
@@ -321,7 +323,9 @@ async function init(){
     btn.textContent=t.name==="Manchester Basketball"?"Manchester":t.name==="Sheffield Sharks"?"Sheffield":t.name==="Caledonia Gladiators"?"Caledonia":t.name;
     btn.onclick=()=>selectTeam(t,btn);
     bar.appendChild(btn);
+    if(urlTeam&&t.caps===urlTeam){ autoBtn=btn; autoTeam=t; }
   });
+  if(autoBtn&&autoTeam) selectTeam(autoTeam,autoBtn);
 }
 
 // TEAM SELECT
