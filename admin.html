@@ -355,8 +355,7 @@ document.getElementById("depth-counts").innerHTML=`
   let html="";
   if(starters.length){
     html+='<div class="depth-section"><div class="depth-section-label">Starters</div>';
-    starters.forEach((p,i)=>{html+=playerRowHTML(p,i+1);});
-    html+='</div>';
+bench.forEach((p,i)=>{html+=playerRowHTML(p,starters.length+i+1);});    html+='</div>';
   }
 if(bench.length){
     html+=\'<div class="depth-divider"></div><div class="depth-section"><div class="depth-section-label">Bench</div>\';
