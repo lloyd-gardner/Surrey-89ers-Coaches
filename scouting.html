@@ -925,8 +925,7 @@ async function loadData(){
   const seasonId = seasons[0]?.id;
   if(!seasonId){ console.error("Season not found:", SEASON_LABEL); return null; }
 
-  const gameRows = await sbFetchAll("slb_games", `select=id,livestats_game_id,game_date,round,competition,status,home_score,away_score,home_team_id,away_team_id&season_id=eq.${seasonId}&status=eq.final`);
-  const gameIds  = gameRows.map(g => g.id);
+const gameRows = await sbFetchAll("slb_games", `select=id,livestats_game_id,game_date,round,status,home_score,away_score,home_team_id,away_team_id&season_id=eq.${seasonId}&status=eq.final`);  const gameIds  = gameRows.map(g => g.id);
   const gidIn    = `game_id=in.(${gameIds.join(",")})`;
   const gameById = {};
   gameRows.forEach(g => { gameById[g.id] = g; });
