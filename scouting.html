@@ -1742,7 +1742,8 @@ async function fillNextOpponent(){
     </div>`;
 
   // Depth Chart — use Data sheet if available, else fall back to League Ratings
-  const depthData = DEPTH_CHARTS[NEXT_OPP];
+// Depth Chart — fetch from Supabase admin data, fall back to League Ratings
+  const depthData = await fetchSupabaseDepthChart(NEXT_OPP);
   if(depthData && depthData.length){
     renderDepthChart(depthData, db);
   } else {
@@ -1750,7 +1751,7 @@ async function fillNextOpponent(){
       .sort((a,b)=>(parseFloat(b.MPG)||0)-(parseFloat(a.MPG)||0));
     document.getElementById("no-roster").innerHTML=players.length
       ? players.map(p=>playerRowHTML(p)).join("")
-      : "<div class='loading-state'>No player data — add a Data sheet for this team</div>";
+      : "<div class='loading-state'>No player data</div>";
   }
 
   // Lineups — filter 20+ possessions then show best/worst
