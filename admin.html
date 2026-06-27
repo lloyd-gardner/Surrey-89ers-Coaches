@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>89ers — Scouting Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green:       #008348;
+    --green-dim:   rgba(0,131,72,0.12);
+    --green-mid:   rgba(0,131,72,0.25);
+    --offwhite:    #FAF9F6;
+    --bg:          #0e0e0e;
+    --card:        #161616;
+    --card2:       #1e1e1e;
+    --border:      #2a2a2a;
+    --border-soft: #222;
+    --muted:       #666;
+    --red:         #ff5a5a;
+    --amber:       #f59e0b;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--offwhite);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* ── LOGIN ── */
+  #login-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .login-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px 40px;
+    width: 360px;
+    text-align: center;
+  }
+  .login-card .logo {
+    width: 56px; height: 56px;
+    background: var(--green);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 24px;
+    font-size: 22px; font-weight: 900; color: #fff;
+    letter-spacing: -1px;
+  }
+  .login-card h1 { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+  .login-card p  { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+  .login-card input {
+    width: 100%; padding: 12px 16px;
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--offwhite);
+    font-size: 15px; font-family: inherit;
+    margin-bottom: 12px; outline: none;
+  }
+  .login-card input:focus { border-color: var(--green); }
+  .login-card .err { color: var(--red); font-size: 12px; margin-bottom: 10px; min-height: 16px; }
+
+  /* ── HEADER ── */
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 24px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .hdr-logo {
+    width: 36px; height: 36px;
+    background: var(--green); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 900; color: #fff; flex-shrink: 0;
+  }
+  header h1 { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; }
+  header .sub { font-size: 12px; color: var(--muted); margin-left: 2px; }
+  .hdr-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .save-status { font-size: 12px; color: var(--muted); }
+  .save-status.saving { color: var(--amber); }
+  .save-status.saved  { color: var(--green); }
+  .save-status.error  { color: var(--red); }
+
+  /* ── TEAM SELECTOR ── */
+  #team-bar {
+    padding: 16px 24px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  #team-bar .bar-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--muted);
+    margin-right: 4px; flex-shrink: 0;
+  }
+  .team-btn {
+    padding: 6px 14px; border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--card2); color: var(--muted);
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: inherit; transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .team-btn:hover  { border-color: var(--green); color: var(--offwhite); }
+  .team-btn.active { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+
+  /* ── MAIN LAYOUT ── */
+  #app { display: none; flex-direction: column; min-height: calc(100vh - 57px); }
+  #app.visible { display: flex; }
+
+  #player-panel {
+    padding: 24px;
+    display: none;
+  }
+  #player-panel.visible { display: block; }
+
+  /* ── PLAYER LIST + EDITOR SPLIT ── */
+  .panel-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* ── PLAYER LIST ── */
+  .player-list-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    position: sticky;
+    top: 117px;
+  }
+  .player-list-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .player-count { font-size: 11px; color: var(--muted); font-weight: 500; }
+
+  .player-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 16px; cursor: pointer;
+    border-bottom: 1px solid var(--border-soft);
+    transition: background 0.1s;
+    user-select: none;
+  }
+  .player-item:last-child { border-bottom: none; }
+  .player-item:hover { background: var(--card2); }
+  .player-item.selected { background: var(--green-dim); }
+
+  .player-item .drag-handle {
+    color: var(--muted); font-size: 12px; cursor: grab;
+    flex-shrink: 0;
+  }
+  .player-item .pos-badge {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--card2); border: 1px solid var(--border);
+    font-size: 10px; font-weight: 700; color: var(--muted);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .player-item.selected .pos-badge {
+    background: var(--green); border-color: var(--green); color: #fff;
+  }
+  .player-item .player-name {
+    font-size: 13px; font-weight: 600; flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .player-item .player-meta {
+    font-size: 11px; color: var(--muted);
+  }
+  .player-item .inactive-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--muted); flex-shrink: 0;
+  }
+  .player-item.active-player .inactive-dot { background: var(--green); }
+
+  /* ── EDITOR ── */
+  .editor-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .editor-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .editor-header .player-avatar {
+    width: 42px; height: 42px; border-radius: 10px;
+    background: var(--green-dim); border: 1px solid var(--green-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800; color: var(--green);
+    flex-shrink: 0;
+  }
+  .editor-header .player-title { font-size: 16px; font-weight: 800; }
+  .editor-header .player-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .editor-header .active-toggle {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .toggle-switch {
+    width: 36px; height: 20px; border-radius: 10px;
+    background: var(--border); position: relative;
+    transition: background 0.2s; flex-shrink: 0;
+    cursor: pointer;
+  }
+  .toggle-switch.on { background: var(--green); }
+  .toggle-switch::after {
+    content: '';
+    position: absolute; top: 3px; left: 3px;
+    width: 14px; height: 14px; border-radius: 50%; background: #fff;
+    transition: transform 0.2s;
+  }
+  .toggle-switch.on::after { transform: translateX(16px); }
+
+  .editor-body { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+  .editor-empty {
+    padding: 60px 20px; text-align: center;
+    color: var(--muted); font-size: 13px;
+  }
+  .editor-empty .icon { font-size: 36px; margin-bottom: 12px; }
+
+  /* ── FORM SECTIONS ── */
+  .form-section { display: flex; flex-direction: column; gap: 12px; }
+  .section-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--muted);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-row.three { grid-template-columns: 1fr 1fr 1fr; }
+  .form-row.four  { grid-template-columns: 1fr 1fr 1fr 1fr; }
+  .form-row.five  { grid-template-columns: 1fr 1fr 1fr 1fr 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group label {
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--offwhite);
+    font-size: 13px; font-family: inherit; padding: 9px 12px;
+    outline: none; transition: border-color 0.15s; width: 100%;
+  }
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus { border-color: var(--green); }
+  .form-group textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+  .form-group select { cursor: pointer; }
+  .form-group select option { background: var(--card2); }
+
+  /* ── GRADE BUTTONS ── */
+  .grade-group { display: flex; flex-direction: column; gap: 5px; }
+  .grade-group label {
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .grade-btns { display: flex; flex-wrap: wrap; gap: 4px; }
+  .grade-btn {
+    padding: 4px 8px; border-radius: 5px;
+    border: 1px solid var(--border); background: var(--card2);
+    color: var(--muted); font-size: 11px; font-weight: 700;
+    cursor: pointer; font-family: inherit; transition: all 0.1s;
+  }
+  .grade-btn:hover { border-color: var(--green); color: var(--offwhite); }
+  .grade-btn.selected { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+
+  /* ── PHOTO ── */
+  .photo-row { display: flex; gap: 16px; align-items: flex-start; }
+  .photo-preview {
+    width: 80px; height: 80px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--card2);
+    object-fit: cover; object-position: center top;
+    flex-shrink: 0;
+  }
+  .photo-preview-empty {
+    width: 80px; height: 80px; border-radius: 10px;
+    border: 1px dashed var(--border); background: var(--card2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; flex-shrink: 0; color: var(--muted);
+  }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 10px 20px; border-radius: 8px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    font-family: inherit; border: none; transition: all 0.15s;
+  }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-green:hover { background: #009a56; }
+  .btn-ghost {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--offwhite); border-color: var(--offwhite); }
+
+  .editor-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+  }
+  .updated-info { font-size: 11px; color: var(--muted); }
+
+  /* ── LOADING ── */
+  .loading-state {
+    padding: 40px; text-align: center; color: var(--muted); font-size: 13px;
+  }
+  .spinner {
+    width: 24px; height: 24px;
+    border: 2px solid var(--border);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── EMPTY STATE (no team selected) ── */
+  #no-team {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px; color: var(--muted);
+    font-size: 14px;
+  }
+  #no-team .icon { font-size: 40px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="logo">89</div>
+    <h1>Scouting Admin</h1>
+    <p>Surrey 89ers coaching staff only</p>
+    <input type="password" id="pw-input" placeholder="Password" onkeydown="if(event.key==='Enter')tryLogin()">
+    <div class="err" id="pw-err"></div>
+    <button class="btn btn-green" style="width:100%" onclick="tryLogin()">Sign in</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <div class="hdr-logo">89</div>
+    <div>
+      <h1>Scouting Admin</h1>
+      <div class="sub">Surrey 89ers · 2024-25</div>
+    </div>
+    <div class="hdr-right">
+      <span class="save-status" id="save-status"></span>
+      <button class="btn btn-ghost" style="font-size:12px;padding:7px 14px" onclick="logout()">Sign out</button>
+    </div>
+  </header>
+
+  <!-- TEAM BAR -->
+  <div id="team-bar">
+    <span class="bar-label">Team</span>
+  </div>
+
+  <!-- PANEL -->
+  <div id="player-panel">
+    <div class="panel-grid">
+      <!-- Player list -->
+      <div class="player-list-card">
+        <div class="player-list-header">
+          <span>Roster</span>
+          <span class="player-count" id="player-count"></span>
+        </div>
+        <div id="player-list">
+          <div class="loading-state"><div class="spinner"></div>Loading...</div>
+        </div>
+      </div>
+
+      <!-- Editor -->
+      <div class="editor-card" id="editor-card">
+        <div class="editor-empty">
+          <div class="icon">👆</div>
+          Select a player from the roster to edit their scouting profile
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="no-team">
+    <div class="icon">🏀</div>
+    Select a team above to get started
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────
+const SUPABASE_URL     = "https://xxhotbyqajzosxtczezh.supabase.co";
+const SUPABASE_ANON    = "YOUR_ANON_KEY_HERE";
+const SUPABASE_SERVICE = "YOUR_SERVICE_ROLE_KEY_HERE";
+const SEASON_LABEL     = "2024-25";
+const PW               = "89ers2627";
+
+const TEAMS = [
+  { caps: "SURREY 89ERS",           name: "Surrey 89ers" },
+  { caps: "LONDON LIONS",           name: "London Lions" },
+  { caps: "BRISTOL FLYERS",         name: "Bristol Flyers" },
+  { caps: "NEWCASTLE EAGLES",       name: "Newcastle Eagles" },
+  { caps: "LEICESTER RIDERS",       name: "Leicester Riders" },
+  { caps: "MANCHESTER BASKETBALL",  name: "Manchester Basketball" },
+  { caps: "B. BRAUN SHEFFIELD SHARKS", name: "Sheffield Sharks" },
+  { caps: "CHESHIRE PHOENIX",       name: "Cheshire Phoenix" },
+  { caps: "CALEDONIA GLADIATORS",   name: "Caledonia Gladiators" },
+];
+
+const GRADES = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-"];
+
+// ── STATE ────────────────────────────────────────────────────────────────
+let seasonId      = null;
+let selectedTeam  = null;   // { caps, name, id }
+let players       = [];     // slb_players rows for selected team
+let scoutingMap   = {};     // player_id → slb_player_scouting row
+let selectedPid   = null;   // currently editing player_id
+let saveTimer     = null;
+
+// ── AUTH ─────────────────────────────────────────────────────────────────
+function tryLogin() {
+  const val = document.getElementById("pw-input").value;
+  if (val === PW) {
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app").classList.add("visible");
+    init();
+  } else {
+    document.getElementById("pw-err").textContent = "Incorrect password";
+  }
+}
+function logout() {
+  location.reload();
+}
+
+// ── SUPABASE HELPERS ─────────────────────────────────────────────────────
+async function sbGet(path) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: { "apikey": SUPABASE_ANON, "Authorization": `Bearer ${SUPABASE_ANON}` }
+  });
+  return r.ok ? r.json() : [];
+}
+
+async function sbUpsert(table, row) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: "POST",
+    headers: {
+      "apikey":        SUPABASE_SERVICE,
+      "Authorization": `Bearer ${SUPABASE_SERVICE}`,
+      "Content-Type":  "application/json",
+      "Prefer":        "resolution=merge-duplicates,return=representation",
+    },
+    body: JSON.stringify(row),
+  });
+  if (!r.ok) {
+    const err = await r.text();
+    throw new Error(err);
+  }
+  const data = await r.json();
+  return Array.isArray(data) ? data[0] : data;
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────
+async function init() {
+  // Get season id
+  const seasons = await sbGet(`slb_seasons?label=eq.${encodeURIComponent(SEASON_LABEL)}&select=id`);
+  seasonId = seasons[0]?.id;
+
+  // Fetch all teams to get their IDs
+  const dbTeams = await sbGet("slb_teams?select=id,name");
+  const teamIdByName = {};
+  dbTeams.forEach(t => { teamIdByName[t.name] = t.id; });
+
+  // Build team bar
+  const bar = document.getElementById("team-bar");
+  TEAMS.forEach(t => {
+    t.id = teamIdByName[t.name] || null;
+    const btn = document.createElement("button");
+    btn.className = "team-btn";
+    btn.textContent = t.name.replace(" Basketball","").replace("B. Braun ","");
+    btn.onclick = () => selectTeam(t, btn);
+    bar.appendChild(btn);
+  });
+}
+
+// ── TEAM SELECTION ────────────────────────────────────────────────────────
+async function selectTeam(team, btn) {
+  // Update button states
+  document.querySelectorAll(".team-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+
+  selectedTeam = team;
+  selectedPid  = null;
+
+  document.getElementById("no-team").style.display = "none";
+  document.getElementById("player-panel").classList.add("visible");
+  document.getElementById("player-list").innerHTML =
+    '<div class="loading-state"><div class="spinner"></div>Loading roster...</div>';
+  document.getElementById("editor-card").innerHTML =
+    '<div class="editor-empty"><div class="icon">👆</div>Select a player from the roster to edit their scouting profile</div>';
+
+  if (!team.id || !seasonId) {
+    document.getElementById("player-list").innerHTML =
+      '<div class="loading-state">Team not found in database</div>';
+    return;
+  }
+
+  // Load players for this team
+  players = await sbGet(
+    `slb_players?current_team_id=eq.${team.id}&season_id=eq.${seasonId}&select=id,full_name,jersey_number,position&order=full_name.asc`
+  );
+
+  // Load existing scouting records for this team+season
+  const pids = players.map(p => p.id).join(",");
+  const scoutRows = pids.length
+    ? await sbGet(`slb_player_scouting?player_id=in.(${pids})&season_id=eq.${seasonId}&select=*`)
+    : [];
+
+  scoutingMap = {};
+  scoutRows.forEach(r => { scoutingMap[r.player_id] = r; });
+
+  // Sort by depth_pos, then name
+  players.sort((a, b) => {
+    const pa = scoutingMap[a.id]?.depth_pos ?? 99;
+    const pb = scoutingMap[b.id]?.depth_pos ?? 99;
+    return pa !== pb ? pa - pb : a.full_name.localeCompare(b.full_name);
+  });
+
+  renderPlayerList();
+  document.getElementById("player-count").textContent = `${players.length} players`;
+}
+
+// ── PLAYER LIST ───────────────────────────────────────────────────────────
+function renderPlayerList() {
+  const list = document.getElementById("player-list");
+  if (!players.length) {
+    list.innerHTML = '<div class="loading-state">No players found</div>';
+    return;
+  }
+  list.innerHTML = players.map((p, i) => {
+    const sc     = scoutingMap[p.id] || {};
+    const active = sc.active !== false;
+    const pos    = sc.depth_pos || (i + 1);
+    const sel    = selectedPid === p.id;
+    return `<div class="player-item ${sel ? "selected" : ""} ${active ? "active-player" : ""}"
+      data-pid="${p.id}" onclick="selectPlayer(${p.id})">
+      <span class="drag-handle">⠿</span>
+      <span class="pos-badge">${pos}</span>
+      <span class="player-name">${formatName(p.full_name)}</span>
+      <span class="player-meta">${p.position || ""}</span>
+      <span class="inactive-dot" title="${active ? "Active" : "Inactive"}"></span>
+    </div>`;
+  }).join("");
+}
+
+function formatName(raw) {
+  if (!raw) return "";
+  const parts = raw.split(",");
+  if (parts.length === 2) return `${parts[1].trim()} ${parts[0].trim()}`;
+  return raw;
+}
+
+function initials(raw) {
+  const name = formatName(raw);
+  return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+}
+
+// ── PLAYER EDITOR ─────────────────────────────────────────────────────────
+function selectPlayer(pid) {
+  selectedPid = pid;
+  renderPlayerList();
+  renderEditor();
+}
+
+function renderEditor() {
+  const p  = players.find(x => x.id === selectedPid);
+  if (!p) return;
+  const sc = scoutingMap[p.id] || {};
+  const active = sc.active !== false;
+
+  const card = document.getElementById("editor-card");
+  card.innerHTML = `
+    <div class="editor-header">
+      <div class="player-avatar">${initials(p.full_name)}</div>
+      <div>
+        <div class="player-title">${formatName(p.full_name)}</div>
+        <div class="player-subtitle">${selectedTeam.name} · #${p.jersey_number || "—"} · ${p.position || "—"}</div>
+      </div>
+      <label class="active-toggle" title="Toggle active/inactive">
+        <span style="color:var(--muted)">${active ? "Active" : "Inactive"}</span>
+        <div class="toggle-switch ${active ? "on" : ""}" id="active-toggle" onclick="toggleActive()"></div>
+      </label>
+    </div>
+
+    <div class="editor-body">
+
+      <!-- PHOTO -->
+      <div class="form-section">
+        <div class="section-label">Photo</div>
+        <div class="photo-row">
+          ${sc.image_url
+            ? `<img class="photo-preview" src="${sc.image_url}" id="photo-preview" onerror="this.style.display='none'">`
+            : `<div class="photo-preview-empty" id="photo-preview">🏀</div>`}
+          <div class="form-group" style="flex:1">
+            <label>Image URL</label>
+            <input type="text" id="f-image_url" value="${sc.image_url || ""}"
+              placeholder="https://raw.githubusercontent.com/..."
+              oninput="updatePhotoPreview(this.value)">
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">
+              Paste a GitHub raw URL or any direct image link
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHYSICAL -->
+      <div class="form-section">
+        <div class="section-label">Physical</div>
+        <div class="form-row three">
+          <div class="form-group">
+            <label>Position</label>
+            <select id="f-position" onchange="autoSave()">
+              <option value="">—</option>
+              ${["GUARD","WING","FORWARD","CENTRE"].map(v =>
+                `<option value="${v}" ${(sc.position||"")===v?"selected":""}>${v}</option>`
+              ).join("")}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Height</label>
+            <input type="text" id="f-height" value="${sc.height || ""}" placeholder="6'4" oninput="autoSave()">
+          </div>
+          <div class="form-group">
+            <label>Handed</label>
+            <select id="f-handed" onchange="autoSave()">
+              <option value="">—</option>
+              ${["RIGHT HANDED","LEFT HANDED","BOTH"].map(v =>
+                `<option value="${v}" ${(sc.handed||"")===v?"selected":""}>${v}</option>`
+              ).join("")}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- DEPTH POSITION -->
+      <div class="form-section">
+        <div class="section-label">Depth Chart</div>
+        <div class="form-row" style="grid-template-columns:120px 1fr">
+          <div class="form-group">
+            <label>Depth Position</label>
+            <input type="number" id="f-depth_pos" value="${sc.depth_pos || ""}"
+              min="1" max="20" placeholder="1" oninput="autoSave()">
+          </div>
+          <div style="display:flex;align-items:flex-end;padding-bottom:2px">
+            <div style="font-size:12px;color:var(--muted);line-height:1.5">
+              1 = top of depth chart. Used to order players in the roster view and player slides.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCOUTING TEXT -->
+      <div class="form-section">
+        <div class="section-label">Scouting Report</div>
+        <div class="form-group">
+          <label>WHO IS HE</label>
+          <textarea id="f-who_what" placeholder="Overview of the player — style of play, tendencies, what makes them dangerous..." oninput="autoSave()">${sc.who_what || ""}</textarea>
+        </div>
+        <div class="form-group">
+          <label>WHAT TO FORCE</label>
+          <textarea id="f-forcing" placeholder="What we want to make him do — where to push him, what shot we're OK giving up..." oninput="autoSave()">${sc.forcing || ""}</textarea>
+        </div>
+        <div class="form-group">
+          <label>WHAT TO STOP</label>
+          <textarea id="f-stopping" placeholder="What we absolutely must take away — his primary weapon, key actions to deny..." oninput="autoSave()">${sc.stopping || ""}</textarea>
+        </div>
+      </div>
+
+      <!-- DEFENSIVE TENDENCIES -->
+      <div class="form-section">
+        <div class="section-label">Defensive Tendencies</div>
+        <div class="form-row three">
+          <div class="form-group">
+            <label>ISO</label>
+            <select id="f-iso" onchange="autoSave()">
+              <option value="">—</option>
+              ${["KEEP OUTSIDE","FORCE LEFT","FORCE RIGHT","ALLOW DRIVE"].map(v =>
+                `<option value="${v}" ${(sc.iso||"")===v?"selected":""}>${v}</option>`
+              ).join("")}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>CURL / SHOOT</label>
+            <select id="f-cs" onchange="autoSave()">
+              <option value="">—</option>
+              ${["CURL","SHOOT","FADE","MIX"].map(v =>
+                `<option value="${v}" ${(sc.cs||"")===v?"selected":""}>${v}</option>`
+              ).join("")}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>DRIBBLE</label>
+            <select id="f-dribble" onchange="autoSave()">
+              <option value="">—</option>
+              ${["TIGHT","LOOSE","NORMAL"].map(v =>
+                `<option value="${v}" ${(sc.dribble||"")===v?"selected":""}>${v}</option>`
+              ).join("")}
+            </select>
+          </div>
+        </div>
+        <div class="form-row three">
+          <div class="form-group">
+            <label>POST</label>
+            <select id="f-post" onchange="autoSave()">
+              <option value="">—</option>
+              ${["FRONT","3/4 FRONT","PLAY BEHIND","PUSH OUT"].map(v =>
+                `<option value="${v}" ${(sc.post||"")===v?"selected":""}>${v}</option>`
+              ).join("")}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>SCREENER</label>
+            <select id="f-screener" onchange="autoSave()">
+              <option value="">—</option>
+              ${["HEDGE","DROP","SWITCH","OVER","UNDER"].map(v =>
+                `<option value="${v}" ${(sc.screener||"")===v?"selected":""}>${v}</option>`
+              ).join("")}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>BALL HANDLER</label>
+            <select id="f-ballhandler" onchange="autoSave()">
+              <option value="">—</option>
+              ${["MIX OVER UNDER","GO OVER","GO UNDER","SWITCH"].map(v =>
+                `<option value="${v}" ${(sc.ballhandler||"")===v?"selected":""}>${v}</option>`
+              ).join("")}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- GRADES -->
+      <div class="form-section">
+        <div class="section-label">Grades</div>
+        <div class="form-row five">
+          ${["scoring","defence","rebounding","playmaking","impact"].map(field => `
+            <div class="grade-group">
+              <label>${field.toUpperCase()}</label>
+              <div class="grade-btns" id="grade-${field}">
+                ${GRADES.map(g => `
+                  <button class="grade-btn ${(sc[field]||"")=== g?"selected":""}"
+                    onclick="selectGrade('${field}','${g}',this)">${g}</button>
+                `).join("")}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+
+    </div>
+
+    <div class="editor-footer">
+      <div class="updated-info" id="updated-info">
+        ${sc.updated_at
+          ? `Last saved ${new Date(sc.updated_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} by ${sc.updated_by || "—"}`
+          : "Not yet saved"}
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" onclick="renderEditor()">Reset</button>
+        <button class="btn btn-green" onclick="savePlayer()">Save changes</button>
+      </div>
+    </div>
+  `;
+}
+
+// ── GRADE SELECTION ───────────────────────────────────────────────────────
+function selectGrade(field, grade, btn) {
+  document.querySelectorAll(`#grade-${field} .grade-btn`).forEach(b => b.classList.remove("selected"));
+  btn.classList.add("selected");
+  autoSave();
+}
+
+function getGrade(field) {
+  const selected = document.querySelector(`#grade-${field} .grade-btn.selected`);
+  return selected ? selected.textContent : "";
+}
+
+// ── PHOTO PREVIEW ─────────────────────────────────────────────────────────
+function updatePhotoPreview(url) {
+  const preview = document.getElementById("photo-preview");
+  if (!preview) return;
+  if (url) {
+    preview.outerHTML = `<img class="photo-preview" src="${url}" id="photo-preview" onerror="this.style.display='none'">`;
+  } else {
+    preview.outerHTML = `<div class="photo-preview-empty" id="photo-preview">🏀</div>`;
+  }
+  autoSave();
+}
+
+// ── TOGGLE ACTIVE ─────────────────────────────────────────────────────────
+function toggleActive() {
+  const toggle  = document.getElementById("active-toggle");
+  const isOn    = toggle.classList.toggle("on");
+  toggle.previousElementSibling.textContent = isOn ? "Active" : "Inactive";
+
+  // Update player item in list
+  const item = document.querySelector(`.player-item[data-pid="${selectedPid}"]`);
+  if (item) item.classList.toggle("active-player", isOn);
+
+  autoSave();
+}
+
+// ── AUTO SAVE (debounced) ─────────────────────────────────────────────────
+function autoSave() {
+  clearTimeout(saveTimer);
+  setStatus("saving", "Saving...");
+  saveTimer = setTimeout(savePlayer, 1200);
+}
+
+function setStatus(cls, msg) {
+  const el = document.getElementById("save-status");
+  el.className = "save-status " + cls;
+  el.textContent = msg;
+}
+
+// ── SAVE ──────────────────────────────────────────────────────────────────
+async function savePlayer() {
+  clearTimeout(saveTimer);
+  if (!selectedPid || !seasonId) return;
+
+  const p = players.find(x => x.id === selectedPid);
+  if (!p) return;
+
+  const row = {
+    player_id:   selectedPid,
+    season_id:   seasonId,
+    active:      document.getElementById("active-toggle")?.classList.contains("on") ?? true,
+    depth_pos:   parseInt(document.getElementById("f-depth_pos")?.value) || 99,
+    who_what:    document.getElementById("f-who_what")?.value    || "",
+    forcing:     document.getElementById("f-forcing")?.value     || "",
+    stopping:    document.getElementById("f-stopping")?.value    || "",
+    iso:         document.getElementById("f-iso")?.value         || "",
+    cs:          document.getElementById("f-cs")?.value          || "",
+    dribble:     document.getElementById("f-dribble")?.value     || "",
+    post:        document.getElementById("f-post")?.value        || "",
+    screener:    document.getElementById("f-screener")?.value    || "",
+    ballhandler: document.getElementById("f-ballhandler")?.value || "",
+    position:    document.getElementById("f-position")?.value    || "",
+    height:      document.getElementById("f-height")?.value      || "",
+    handed:      document.getElementById("f-handed")?.value      || "",
+    image_url:   document.getElementById("f-image_url")?.value   || "",
+    scoring:     getGrade("scoring"),
+    defence:     getGrade("defence"),
+    rebounding:  getGrade("rebounding"),
+    playmaking:  getGrade("playmaking"),
+    impact:      getGrade("impact"),
+    updated_at:  new Date().toISOString(),
+    updated_by:  "Coach",
+  };
+
+  try {
+    const saved = await sbUpsert("slb_player_scouting", row);
+    scoutingMap[selectedPid] = saved || row;
+
+    // Re-sort list and update
+    players.sort((a, b) => {
+      const pa = scoutingMap[a.id]?.depth_pos ?? 99;
+      const pb = scoutingMap[b.id]?.depth_pos ?? 99;
+      return pa !== pb ? pa - pb : a.full_name.localeCompare(b.full_name);
+    });
+    renderPlayerList();
+
+    setStatus("saved", "Saved ✓");
+    const info = document.getElementById("updated-info");
+    if (info) info.textContent = `Last saved just now by Coach`;
+
+    setTimeout(() => setStatus("", ""), 3000);
+  } catch (e) {
+    console.error("Save failed:", e);
+    setStatus("error", "Save failed");
+  }
+}
+</script>
+</body>
+</html>
