@@ -366,18 +366,19 @@ document.getElementById("depth-counts").innerHTML=`
 starters.forEach(p=>{html+=playerRowHTML(p,scoutingMap[p.id]?.depth_pos);});   html+='</div>';
   }
 if(bench.length){
-    html+=\'<div class="depth-divider"></div><div class="depth-section"><div class="depth-section-label">Bench</div>\';
-bench.forEach(p=>{html+=playerRowHTML(p,scoutingMap[p.id]?.depth_pos);});    html+=\'</div>\';
+    html+='<div class="depth-divider"></div><div class="depth-section"><div class="depth-section-label">Bench</div>';
+    bench.forEach(p=>{html+=playerRowHTML(p,scoutingMap[p.id]?.depth_pos);});
+    html+='</div>';
   }
   if(unassigned.length){
-    html+=\'<div class="depth-divider"></div><div class="depth-section"><div class="depth-section-label">Unassigned</div>\';
+    html+='<div class="depth-divider"></div><div class="depth-section"><div class="depth-section-label">Unassigned</div>';
     unassigned.forEach(p=>{html+=playerRowHTML(p,null);});
-    html+=\'</div>\';
+    html+='</div>';
   }
   if(inactive.length){
-    html+=\'<div class="depth-divider"></div><div class="depth-section"><div class="depth-section-label">Inactive</div>\';
+    html+='<div class="depth-divider"></div><div class="depth-section"><div class="depth-section-label">Inactive</div>';
     inactive.forEach(p=>{html+=playerRowHTML(p,null,true);});
-    html+=\'</div>\';
+    html+='</div>';
   }
   document.getElementById("depth-scroll").innerHTML=html||'<div class="loading-msg">No players — use Add Player to get started</div>';
 }
