@@ -851,13 +851,32 @@ async function loadData(){
   const seasonId = seasons[0]?.id;
   if(!seasonId){ console.error("Season not found:", SEASON_LABEL); return null; }
 
+  // Fetch games for this season first — gives us IDs to filter all other tables
+  const gameRows = await sbFetchAll("slb_games", `select=id,livestats_game_id,game_date,round,status,home_score,away_score,home_team_id,away_team_id&season_id=eq.${seasonId}&status=eq.final`);
+  const gameIds  = gameRows.map(g => g.id);
+  const gidIn    = `game_id=in.(${gameIds.join(",")})`;
+
+  // Build a lookup: game db id → game row
+  const gameById = {};
+  gameRows.forEach(g => { gameById[g.id] = g; });
+
+  // Fetch all team names up front for lookup
+  const allTeams = await sbFetchAll("slb_teams", "select=id,name");
+  const teamById = {};
+  allTeams.forEach(t => { teamById[t.id] = t; });
+
+  // Fetch all players up front for lookup
+  const allPlayers = await sbFetchAll("slb_players", `select=id,full_name,jersey_number&season_id=eq.${seasonId}`);
+  const playerById = {};
+  allPlayers.forEach(p => { playerById[p.id] = p; });
+
   const [tgsRows, pgsRows, luRows, pbpRows, lrRows, trRows] = await Promise.all([
-    sbFetchAll("slb_team_game_stats", `select=*,game:slb_games!inner(livestats_game_id,game_date,round,status,home_score,away_score,season_id),team:slb_teams(name)&game.season_id=eq.${seasonId}&game.status=eq.final`),
-    sbFetchAll("slb_player_game_stats", `select=*,game:slb_games!inner(livestats_game_id,game_date,season_id,status),team:slb_teams(name),player:slb_players(full_name,jersey_number)&game.season_id=eq.${seasonId}&game.status=eq.final`),
-    sbFetchAll("slb_lineup_stints", `select=*,game:slb_games!inner(livestats_game_id,season_id,status),team:slb_teams(name)&game.season_id=eq.${seasonId}&game.status=eq.final`),
-    sbFetchAll("slb_pbp_events", `select=*,game:slb_games!inner(livestats_game_id,season_id,status),team:slb_teams(name),player:slb_players(full_name)&game.season_id=eq.${seasonId}&game.status=eq.final`),
-    sbFetchAll(`slb_player_season_averages`, `season_id=eq.${seasonId}`),
-    sbFetchAll(`slb_team_season_averages`, `season_id=eq.${seasonId}`),
+    sbFetchAll("slb_team_game_stats",   `select=*&${gidIn}`),
+    sbFetchAll("slb_player_game_stats", `select=*&${gidIn}`),
+    sbFetchAll("slb_lineup_stints",     `select=*&${gidIn}`),
+    sbFetchAll("slb_pbp_events",        `select=*&${gidIn}`),
+    sbFetchAll("slb_player_season_averages", `season_id=eq.${seasonId}`),
+    sbFetchAll("slb_team_season_averages",   `season_id=eq.${seasonId}`),
   ]);
 
   // ── raw.ts — per-game team rows ──
