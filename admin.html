@@ -576,8 +576,7 @@ async function savePlayer(){
     updated_by:  "Coach",
   };
   try{
-    const saved=await sbPost("slb_player_scouting",row,true);
-    scoutingMap[selectedPid]=saved||row;
+const saved=await sbPost("slb_player_scouting",row,true,"player_id,season_id");    scoutingMap[selectedPid]=saved||row;
     sortPlayers(); renderDepthChart();
     setStatus("saved","Saved ✓");
     const info=document.getElementById("updated-info");
