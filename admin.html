@@ -358,15 +358,20 @@ function renderDepthChart(){
     starters.forEach((p,i)=>{html+=playerRowHTML(p,i+1);});
     html+='</div>';
   }
-  if(bench.length){
-    html+='<div class="depth-divider"></div><div class="depth-section"><div class="depth-section-label">Bench</div>';
+if(bench.length){
+    html+=\'<div class="depth-divider"></div><div class="depth-section"><div class="depth-section-label">Bench</div>\';
     bench.forEach((p,i)=>{html+=playerRowHTML(p,starters.length+i+1);});
-    html+='</div>';
+    html+=\'</div>\';
+  }
+  if(unassigned.length){
+    html+=\'<div class="depth-divider"></div><div class="depth-section"><div class="depth-section-label">Unassigned</div>\';
+    unassigned.forEach(p=>{html+=playerRowHTML(p,null);});
+    html+=\'</div>\';
   }
   if(inactive.length){
-    html+='<div class="depth-divider"></div><div class="depth-section"><div class="depth-section-label">Inactive</div>';
+    html+=\'<div class="depth-divider"></div><div class="depth-section"><div class="depth-section-label">Inactive</div>\';
     inactive.forEach(p=>{html+=playerRowHTML(p,null,true);});
-    html+='</div>';
+    html+=\'</div>\';
   }
   document.getElementById("depth-scroll").innerHTML=html||'<div class="loading-msg">No players — use Add Player to get started</div>';
 }
