@@ -1661,17 +1661,19 @@ async function fillNextOpponent(){
 
   // Team shot menu card — data from row 37 of opponent Data sheet
   // (Guards/Wings/Bigs scoring pts + % and Paint/FT/Midrange/3P shot zone %)
+  // ── Team Shot Menu ──────────────────────────────────────────────────────────
   (function renderTeamShotMenu(){
     const menuCard = document.getElementById("no-shot-menu-card");
     if(!menuCard) return;
     const sd = (db.teamDataSheets||{})[NEXT_OPP];
     const fmtPct = v => v != null ? Math.round(v*100)+'%' : '—';
 
-    // Build best/worst shots from PBP (volume × efficiency scoring)
-    // score = pct * (att/totalAtt) — rewards shots that are both frequent AND efficient
-    const teamPbp = (db.raw.pbp||[]).filter(r => r.Team === NEXT_OPP);
-    const shots = teamPbp.filter(r => r.Action==='2pt'||r.Action==='3pt');
+    // Case-insensitive PBP match (PBP uses Title Case, NEXT_OPP is CAPS)
+    const oppLower = NEXT_OPP.toLowerCase();
+    const teamPbp = (db.raw.pbp||[]).filter(r => (r.Team||'').toLowerCase() === oppLower);
+    const shots   = teamPbp.filter(r => r.Action==='2pt'||r.Action==='3pt');
     const totalAtt = shots.length || 1;
+
     const SHOT_LABELS = {
       jumpshot:'Mid-Range J', drivinglayup:'Driving Layup', layup:'Layup',
       pullupjumpshot:'Pull-Up J', dunk:'Dunk', floatingjumpshot:'Floater',
@@ -1682,29 +1684,26 @@ async function fillNextOpponent(){
     };
     const shotMap = {};
     shots.forEach(r => {
-      const key = (r.Action||'')+'|'+( r['Sub Type']||'unknown');
+      const key = (r.Action||'')+'|'+(r['Sub Type']||'unknown');
       if(!shotMap[key]) shotMap[key]={action:r.Action, sub:r['Sub Type']||'unknown', att:0, made:0};
       shotMap[key].att++;
       if(String(r.Success)==='1') shotMap[key].made++;
     });
+    // Score = weighted combo of efficiency above average + frequency
     const shotTypes = Object.values(shotMap)
       .filter(s => s.att >= 15)
       .map(s => {
-        const pct  = s.made/s.att;
-        const freq = s.att/totalAtt;
-        // Average expected: ~50% for 2pt, ~35% for 3pt
+        const pct    = s.made / s.att;
+        const freq   = s.att  / totalAtt;
         const avgPct = s.action==='3pt' ? 0.35 : 0.50;
-        // Score = (efficiency vs league avg) + (frequency weight)
-        const effScore  = (pct - avgPct);          // how much better than average
-        const volScore  = freq;                      // how often they take it
-        const combined  = effScore * 0.6 + volScore * 0.4;
-        const label = (s.action==='3pt'?'3PT ':'') + (SHOT_LABELS[s.sub]||s.sub);
-        return { label, att:s.att, pct:Math.round(pct*100), freq:Math.round(freq*100), combined, action:s.action };
+        const score  = (pct - avgPct) * 0.6 + freq * 0.4;
+        const label  = (s.action==='3pt' ? '3PT ' : '') + (SHOT_LABELS[s.sub]||s.sub);
+        return { label, att:s.att, pct:Math.round(pct*100), freq:Math.round(freq*100), score };
       })
-      .sort((a,b) => b.combined - a.combined);
+      .sort((a,b) => b.score - a.score);
 
     const bestShots  = shotTypes.slice(0, 3);
-    const worstShots = [...shotTypes].sort((a,b) => a.combined - b.combined).slice(0, 3);
+    const worstShots = [...shotTypes].sort((a,b) => a.score - b.score).slice(0, 3);
 
     function zoneBar(label, val, color){
       const pct = val != null ? Math.round(val*100) : 0;
@@ -1714,7 +1713,7 @@ async function fillNextOpponent(){
           <span style="font-size:13px;font-weight:700;color:${color};font-family:'Space Grotesk',sans-serif">${fmtPct(val)}</span>
         </div>
         <div style="height:6px;background:var(--card2);border-radius:3px">
-          <div style="height:6px;width:${Math.min(pct,100)}%;background:${color};border-radius:3px;transition:width .3s"></div>
+          <div style="height:6px;width:${Math.min(pct,100)}%;background:${color};border-radius:3px"></div>
         </div>
       </div>`;
     }
@@ -1730,200 +1729,186 @@ async function fillNextOpponent(){
         </div>
       </div>`;
     }
-    function shotRow(s, color, icon){
-      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-soft)">
-        <span style="font-size:11px;color:var(--fg)">${icon} ${s.label}</span>
-        <span style="font-size:10px;color:var(--muted)">${s.freq}% of shots &nbsp;
-          <span style="font-weight:700;color:${color};font-size:12px">${s.pct}%</span>
+    function shotRow(s, color){
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-soft)">
+        <span style="font-size:11px;color:var(--fg)">${s.label}</span>
+        <span style="font-size:10px;color:var(--muted)">${s.freq}% vol &nbsp;
+          <span style="font-weight:700;color:${color};font-size:13px;font-family:'Space Grotesk',sans-serif">${s.pct}%</span>
         </span>
       </div>`;
     }
 
     let html = '<div style="padding:14px">';
-
     if(sd){
       html += `<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:10px">SHOT MENU</div>
       ${zoneBar('PAINT',     sd.paint_pct, '#ff8a8a')}
       ${zoneBar('3-POINT',   sd.three_pct, 'var(--blue)')}
-      ${zoneBar('FREE THROW',sd.ft_pct,   'var(--purple)')}
+      ${zoneBar('FREE THROW',sd.ft_pct,    'var(--purple)')}
       ${zoneBar('MIDRANGE',  sd.mid_pct,   'var(--amber)')}
       <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin:14px 0 10px">SCORING BY GROUP</div>
       ${groupBar('GUARDS', sd.guards_pts, sd.guards_pct, 'var(--blue)')}
       ${groupBar('WINGS',  sd.wings_pts,  sd.wings_pct,  'var(--amber)')}
       ${groupBar('BIGS',   sd.bigs_pts,   sd.bigs_pct,   '#ff8a8a')}`;
     }
-
     if(bestShots.length){
-      html += `<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:#4caf50;text-transform:uppercase;margin:16px 0 6px">BEST SHOTS</div>`;
-      bestShots.forEach(s => { html += shotRow(s, '#4caf50', '✅'); });
+      html += `<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:#4caf50;text-transform:uppercase;margin:16px 0 4px">BEST SHOTS</div>`;
+      bestShots.forEach(s => { html += shotRow(s,'#4caf50'); });
     }
     if(worstShots.length){
-      html += `<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:#ff8a8a;text-transform:uppercase;margin:14px 0 6px">WORST SHOTS</div>`;
-      worstShots.forEach(s => { html += shotRow(s, '#ff8a8a', '⚠️'); });
+      html += `<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:#ff8a8a;text-transform:uppercase;margin:14px 0 4px">WORST SHOTS</div>`;
+      worstShots.forEach(s => { html += shotRow(s,'#ff8a8a'); });
     }
-
     html += '</div>';
     menuCard.innerHTML = html;
   })();
 
-  // ── Passing & Turnovers panel ───────────────────────────────────────────────
+  // ── Passing & Turnovers ───────────────────────────────────────────────────
   (function renderPassingPanel(){
     const passingCard = document.getElementById("no-passing-card");
     if(!passingCard) return;
 
-    // Turnover breakdown from PBP
-    const teamPbp = (db.raw.pbp||[]).filter(r => r.Team === NEXT_OPP);
+    const oppLower = NEXT_OPP.toLowerCase();
+    const teamPbp  = (db.raw.pbp||[]).filter(r => (r.Team||'').toLowerCase() === oppLower);
+    const tAgg     = db.teamAgg[NEXT_OPP];
+
+    // ── Turnovers ────────────────────────────────────────────────────────────
     const tovRows  = teamPbp.filter(r => r.Action === 'turnover');
-    const totalTov = tovRows.length;
-    const TOV_LABELS = {
-      badpass:'Bad Pass', ballhandling:'Ball Handling', offensive:'Offensive',
-      travel:'Travel', '24sec':'24-Sec', outofbounds:'Out of Bounds',
-      doubledribble:'Double Dribble', '3sec':'3-Second', '8sec':'8-Second', other:'Other'
-    };
+    const totalTov = tovRows.length || 1;
+
+    // Live ball = mistakes in flow; dead ball = violations/fouls
+    const LIVE_TYPES = new Set(['badpass','ballhandling','travel','doubledribble','outofbounds']);
+    const DEAD_TYPES = new Set(['offensive','3sec','8sec','24sec','5sec','other']);
+    let liveTov=0, deadTov=0;
     const tovByType = {};
     tovRows.forEach(r => {
       const k = r['Sub Type'] || 'other';
       tovByType[k] = (tovByType[k]||0) + 1;
+      if(LIVE_TYPES.has(k)) liveTov++;
+      else deadTov++;
     });
+    const livePct = Math.round(liveTov/totalTov*100);
+    const deadPct = Math.round(deadTov/totalTov*100);
+
+    const TOV_LABELS = {
+      badpass:'Bad Pass', ballhandling:'Ball Handling', offensive:'Off. Foul',
+      travel:'Travel', '24sec':'24-Second', outofbounds:'Out of Bounds',
+      doubledribble:'Double Dribble', '3sec':'3-Second', '8sec':'8-Second',
+      '5sec':'5-Second', other:'Other'
+    };
     const tovSorted = Object.entries(tovByType)
-      .sort((a,b)=>b[1]-a[1])
-      .map(([k,n]) => ({label: TOV_LABELS[k]||k, n, pct: Math.round(n/totalTov*100)}));
+      .sort((a,b)=>b[1]-a[1]).slice(0,7)
+      .map(([k,n]) => ({ label:TOV_LABELS[k]||k, n, pct:Math.round(n/totalTov*100), live:LIVE_TYPES.has(k) }));
 
-    // Top turnover committers from Player_Stats
-    const teamPs = (db.raw.ps||[]).filter(r => r.Team === NEXT_OPP);
-    const playerTov = {}, playerAst = {}, playerGp = {};
-    teamPs.forEach(r => {
-      const p = r.Player; if(!p) return;
-      playerTov[p] = (playerTov[p]||0) + (parseFloat(r.TOV)||0);
-      playerAst[p] = (playerAst[p]||0) + (parseFloat(r.AST)||0);
-      playerGp[p]  = (playerGp[p]||0)  + 1;
-    });
-    const playerList = Object.keys(playerGp).filter(p => playerGp[p]>=5);
-    const topTov = playerList
-      .map(p => ({name:fmtName(p), tovpg: playerTov[p]/playerGp[p], astpg: playerAst[p]/playerGp[p], gp:playerGp[p]}))
-      .sort((a,b) => b.tovpg - a.tovpg).slice(0,5);
-
-    // Assist profile: 2pt vs 3pt + top combos from DEPTH_CHARTS assistProfile
+    // ── Assists ──────────────────────────────────────────────────────────────
     const dc = (DEPTH_CHARTS[NEXT_OPP]||[]);
-    let totalAstTo2=0, totalAstTo3=0, totalAstTotal=0;
+    let astTo2=0, astTo3=0, astTotal=0;
     const comboMap = {};
     dc.forEach(p => {
-      const ap = p.assistProfile;
-      if(!ap) return;
-      totalAstTo2    += (ap.ast_2pt||0);
-      totalAstTo3    += (ap.ast_3pt||0);
-      totalAstTotal  += (ap.total_ast||0);
-      // top targets: who this player assists to
+      const ap = p.assistProfile; if(!ap) return;
+      astTo2    += (ap.ast_2pt||0);
+      astTo3    += (ap.ast_3pt||0);
+      astTotal  += (ap.total_ast||0);
       if(ap.top_targets) ap.top_targets.forEach(([target, n]) => {
         const key = fmtName(p.name||'')+'→'+target;
-        comboMap[key] = (comboMap[key]||0) + n;
+        comboMap[key] = (comboMap[key]||0)+n;
       });
     });
-    const topCombos = Object.entries(comboMap)
-      .sort((a,b)=>b[1]-a[1]).slice(0,5);
-    const ast2Pct = totalAstTotal ? Math.round(totalAstTo2/totalAstTotal*100) : null;
-    const ast3Pct = totalAstTotal ? Math.round(totalAstTo3/totalAstTotal*100) : null;
+    const ast2Pct = astTotal ? Math.round(astTo2/astTotal*100) : null;
+    const ast3Pct = astTotal ? Math.round(astTo3/astTotal*100) : null;
+    const topCombos = Object.entries(comboMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
 
-    // Top assisters (from Player_Stats aggregates)
-    const topAst = playerList
-      .map(p => ({name:fmtName(p), astpg: playerAst[p]/playerGp[p], gp:playerGp[p]}))
-      .sort((a,b) => b.astpg - a.astpg).slice(0,5);
-
-    // Team AST/TOV averages
-    const tAgg = db.teamAgg[NEXT_OPP];
-
-    function miniBar(pct, color){
-      return `<div style="flex:1;height:5px;background:var(--card2);border-radius:3px;margin-left:8px">
-        <div style="height:5px;width:${Math.min(pct,100)}%;background:${color};border-radius:3px"></div>
+    function statPill(val, label, color){
+      return `<div style="background:var(--card2);border-radius:6px;padding:10px 8px;text-align:center">
+        <div style="font-size:17px;font-weight:700;color:${color};font-family:'Space Grotesk',sans-serif">${val}</div>
+        <div style="font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px">${label}</div>
+      </div>`;
+    }
+    function barRow(label, pct, color, badge){
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        ${badge?`<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:${badge==='live'?'rgba(255,138,138,0.15)':'rgba(100,100,255,0.12)'}; color:${badge==='live'?'#ff8a8a':'var(--blue)'}; font-weight:700">${badge==='live'?'LIVE':'DEAD'}</span>`:''}
+        <span style="font-size:11px;color:var(--fg);flex:1">${label}</span>
+        <div style="width:80px;height:5px;background:var(--card2);border-radius:3px">
+          <div style="height:5px;width:${Math.min(pct,100)}%;background:${color};border-radius:3px"></div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:${color};min-width:32px;text-align:right">${pct}%</span>
+      </div>`;
+    }
+    function comboRow(combo, n, maxN){
+      const pct = Math.round(n/maxN*100);
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:10px;font-weight:600;color:var(--fg);flex:1">${combo}</span>
+        <div style="width:60px;height:5px;background:var(--card2);border-radius:3px">
+          <div style="height:5px;width:${pct}%;background:var(--amber);border-radius:3px"></div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:var(--amber);min-width:24px;text-align:right">${n}</span>
       </div>`;
     }
 
-    let html = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:0">`;
+    let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">';
 
-    // LEFT: Turnovers
-    html += `<div class="card"><div style="padding:14px">
-      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:#ff8a8a;text-transform:uppercase;margin-bottom:12px">TURNOVERS</div>`;
+    // ── LEFT: Turnovers ──────────────────────────────────────────────────────
+    html += '<div class="card"><div style="padding:14px">';
+    html += '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:#ff8a8a;text-transform:uppercase;margin-bottom:12px">TURNOVERS</div>';
+
+    // Team TOV% + total count pills
+    if(tAgg){
+      const tovPerGame = (totalTov / (tAgg.gp||1)).toFixed(1);
+      html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px">
+        ${statPill(fmtPR(tAgg.tov),'TOV%','#ff8a8a')}
+        ${statPill(tovPerGame,'TOV/G','#ff8a8a')}
+        ${statPill(fmtPR(tAgg.stl),'STL% vs','var(--blue)')}
+      </div>`;
+    }
+
+    // Live vs dead ball split
+    if(totalTov>1){
+      html += '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">LIVE vs DEAD BALL</div>';
+      html += barRow('Live Ball',  livePct, '#ff8a8a', 'live');
+      html += barRow('Dead Ball',  deadPct, 'var(--blue)', 'dead');
+      html += '<div style="margin:12px 0 8px"><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">BREAKDOWN</div>';
+      tovSorted.forEach(t => {
+        html += barRow(t.label, t.pct, t.live?'#ff8a8a':'var(--blue)', t.live?'live':'dead');
+      });
+      html += '</div>';
+    }
+    html += '</div></div>';
+
+    // ── RIGHT: Assists ───────────────────────────────────────────────────────
+    html += '<div class="card"><div style="padding:14px">';
+    html += '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--amber);text-transform:uppercase;margin-bottom:12px">ASSISTS</div>';
 
     if(tAgg){
-      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-        <div style="background:var(--card2);border-radius:6px;padding:10px;text-align:center">
-          <div style="font-size:18px;font-weight:700;color:#ff8a8a;font-family:'Space Grotesk',sans-serif">${fmt(tAgg.tov)}</div>
-          <div style="font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px">TOV%</div>
-        </div>
-        <div style="background:var(--card2);border-radius:6px;padding:10px;text-align:center">
-          <div style="font-size:18px;font-weight:700;color:var(--amber);font-family:'Space Grotesk',sans-serif">${fmt(tAgg.ast)}</div>
-          <div style="font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px">AST%</div>
-        </div>
+      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
+        ${statPill(fmtPR(tAgg.ast),'AST%','var(--amber)')}
+        ${statPill(fmtPR(tAgg.tov),'TOV%','#ff8a8a')}
       </div>`;
     }
 
-    if(tovSorted.length){
-      html += `<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">TURNOVER TYPES</div>`;
-      tovSorted.slice(0,6).forEach(t => {
-        html += `<div style="display:flex;align-items:center;margin-bottom:6px">
-          <span style="font-size:11px;color:var(--fg);min-width:120px">${t.label}</span>
-          ${miniBar(t.pct, '#ff8a8a')}
-          <span style="font-size:11px;font-weight:700;color:#ff8a8a;min-width:36px;text-align:right">${t.pct}%</span>
-        </div>`;
-      });
-    }
-
-    if(topTov.length){
-      html += `<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin:12px 0 8px">TOP OFFENDERS</div>`;
-      topTov.forEach(p => {
-        html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-          <span style="font-size:11px;color:var(--fg)">${p.name}</span>
-          <span style="font-size:11px;color:#ff8a8a;font-weight:700">${p.tovpg.toFixed(1)}/g</span>
-        </div>`;
-      });
-    }
-    html += `</div></div>`;
-
-    // RIGHT: Assists
-    html += `<div class="card"><div style="padding:14px">
-      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--amber);text-transform:uppercase;margin-bottom:12px">ASSISTS</div>`;
-
     if(ast2Pct !== null){
-      html += `<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">ASSIST DESTINATION</div>
-        <div style="margin-bottom:6px">
-          <div style="display:flex;align-items:center;margin-bottom:6px">
-            <span style="font-size:11px;color:var(--fg);min-width:80px">To 2-Pointer</span>
-            ${miniBar(ast2Pct,'var(--amber)')}
-            <span style="font-size:11px;font-weight:700;color:var(--amber);min-width:36px;text-align:right">${ast2Pct}%</span>
-          </div>
-          <div style="display:flex;align-items:center;margin-bottom:10px">
-            <span style="font-size:11px;color:var(--fg);min-width:80px">To 3-Pointer</span>
-            ${miniBar(ast3Pct,'var(--blue)')}
-            <span style="font-size:11px;font-weight:700;color:var(--blue);min-width:36px;text-align:right">${ast3Pct}%</span>
-          </div>
-        </div>`;
+      html += '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">WHERE THEY ASSIST TO</div>';
+      // Stacked bar visual
+      html += `<div style="height:18px;border-radius:4px;overflow:hidden;display:flex;margin-bottom:6px">
+        <div style="width:${ast2Pct}%;background:var(--amber);display:flex;align-items:center;justify-content:center">
+          <span style="font-size:9px;font-weight:700;color:#111">${ast2Pct}%</span>
+        </div>
+        <div style="flex:1;background:var(--blue);display:flex;align-items:center;justify-content:center">
+          <span style="font-size:9px;font-weight:700;color:#fff">${ast3Pct}%</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:14px">
+        <span style="font-size:10px;color:var(--amber)">● 2PT assisted</span>
+        <span style="font-size:10px;color:var(--blue)">● 3PT assisted</span>
+      </div>`;
     }
 
     if(topCombos.length){
-      html += `<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">TOP COMBINATIONS</div>`;
-      const maxCombo = topCombos[0][1];
-      topCombos.forEach(([combo, n]) => {
-        const pct = Math.round(n/maxCombo*100);
-        html += `<div style="display:flex;align-items:center;margin-bottom:6px">
-          <span style="font-size:10px;color:var(--fg);min-width:120px;font-weight:500">${combo}</span>
-          ${miniBar(pct,'var(--amber)')}
-          <span style="font-size:11px;font-weight:700;color:var(--amber);min-width:28px;text-align:right">${n}</span>
-        </div>`;
-      });
+      const maxN = topCombos[0][1];
+      html += '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">TOP COMBINATIONS</div>';
+      topCombos.forEach(([combo,n]) => { html += comboRow(combo, n, maxN); });
     }
 
-    if(topAst.length){
-      html += `<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin:12px 0 8px">TOP PASSERS</div>`;
-      topAst.forEach(p => {
-        html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-          <span style="font-size:11px;color:var(--fg)">${p.name}</span>
-          <span style="font-size:11px;color:var(--amber);font-weight:700">${p.astpg.toFixed(1)}/g</span>
-        </div>`;
-      });
-    }
-    html += `</div></div>`;
-
-    html += `</div>`; // end grid
+    html += '</div></div>';
+    html += '</div>'; // end grid
     passingCard.innerHTML = html;
   })();
 
