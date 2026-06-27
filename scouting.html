@@ -1049,18 +1049,30 @@ const gameRows = await sbFetchAll("slb_games", `select=id,livestats_game_id,game
   }).filter(Boolean);
 
   // ── raw.lu — lineup stints ──
-  const lu = luRows.map(r => {
+const lu = luRows.map(r => {
     const g = gameById[r.game_id];
     if(!g) return null;
+    const names = (r.player_ids || []).map(pid => playerById[pid]?.full_name || "").filter(Boolean);
     return {
-      "Game id": g.livestats_game_id,
-      "Team":    capsTeam(teamById[r.team_id]?.name || ""),
-      "Lineup":  (r.player_ids || []).map(pid => playerById[pid]?.full_name || pid).join(", "),
-      "Poss":    r.poss,
-      "OFFRTG":  r.off_rtg,
-      "DEFRTG":  r.def_rtg,
-      "NET":     r.net_rtg,
-      "Mins":    r.seconds ? r.seconds / 60 : 0,
+      "Game id":    g.livestats_game_id,
+      "Team":       capsTeam(teamById[r.team_id]?.name || ""),
+      "Lineup":     names.join(", "),
+      "P1":         names[0] || "",
+      "P2":         names[1] || "",
+      "P3":         names[2] || "",
+      "P4":         names[3] || "",
+      "P5":         names[4] || "",
+      "Poss":       r.possessions_off,
+      "OFFRTG":     r.off_rtg,
+      "DEFRTG":     r.def_rtg,
+      "NETRTG":     r.net_rtg,
+      "NET":        r.net_rtg,
+      "+/-":        r.pts_scored != null && r.pts_allowed != null ? r.pts_scored - r.pts_allowed : null,
+      "Pts Scored": r.pts_scored,
+      "Pts Allowed":r.pts_allowed,
+      "Pts Paint%": null,
+      "Pts 3PT%":   null,
+      "Mins":       r.seconds ? r.seconds / 60 : 0,
     };
   }).filter(Boolean);
 
