@@ -342,8 +342,10 @@ function sortPlayers(){
 function renderDepthChart(){
   const active=players.filter(p=>scoutingMap[p.id]?.active!==false);
   const inactive=players.filter(p=>scoutingMap[p.id]?.active===false);
-  const starters=active.filter((_,i)=>i<5);
-  const bench=active.filter((_,i)=>i>=5);
+  const assigned=active.filter(p=>scoutingMap[p.id]?.depth_pos && scoutingMap[p.id].depth_pos<99);
+  const unassigned=active.filter(p=>!scoutingMap[p.id]?.depth_pos || scoutingMap[p.id].depth_pos>=99);
+  const starters=assigned.filter((_,i)=>i<5);
+  const bench=assigned.filter((_,i)=>i>=5);
 
   document.getElementById("depth-counts").innerHTML=`
     <span class="depth-count-pill green">${active.length} active</span>
