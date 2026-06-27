@@ -628,8 +628,7 @@ async function submitAddPlayer(){
     },true);
 
     // 2. Create a scouting record immediately so they appear in depth chart
-    await sbPost("slb_player_scouting",{
-      player_id: player.id,
+await sbPost("slb_player_scouting",{  // (no change here, this is a first insert so no conflict)      player_id: player.id,
       season_id: seasonId,
       active:    true,
       depth_pos: depth,
