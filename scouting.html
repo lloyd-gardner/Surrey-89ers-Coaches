@@ -594,6 +594,81 @@ const SUPABASE_URL  = "https://xxhotbyqajzosxtczezh.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4aG90YnlxYWp6b3N4dGN6ZXpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODYzODUsImV4cCI6MjA5NTk2MjM4NX0.m37aEWrf9Yx74CcZkcIRmn95D4fVWhnd2IWDxBbHSqs";
 const SEASON_LABEL  = "2024-25";
 
+async function fetchSupabaseDepthChart(teamCaps) {
+  try {
+    // Resolve canonical team name from caps
+    const canonicalMap = {
+      "SURREY 89ERS":              "Surrey 89ers",
+      "LONDON LIONS":              "London Lions",
+      "BRISTOL FLYERS":            "Bristol Flyers",
+      "NEWCASTLE EAGLES":          "Newcastle Eagles",
+      "LEICESTER RIDERS":          "Leicester Riders",
+      "MANCHESTER BASKETBALL":     "Manchester Basketball",
+      "B. BRAUN SHEFFIELD SHARKS": "Sheffield Sharks",
+      "CHESHIRE PHOENIX":          "Cheshire Phoenix",
+      "CALEDONIA GLADIATORS":      "Caledonia Gladiators",
+    };
+    const teamName = canonicalMap[teamCaps];
+    if (!teamName) return null;
+
+    // Get team id
+    const teams = await sbFetch(`slb_teams?name=eq.${encodeURIComponent(teamName)}&select=id`);
+    if (!teams.length) return null;
+    const teamId = teams[0].id;
+
+    // Get season id
+    const seasons = await sbFetch(`slb_seasons?label=eq.2024-25&select=id`);
+    if (!seasons.length) return null;
+    const seasonId = seasons[0].id;
+
+    // Get players + scouting records
+    const players = await sbFetch(
+      `slb_players?current_team_id=eq.${teamId}&select=id,full_name,jersey_number,position`
+    );
+    if (!players.length) return null;
+
+    const pids = players.map(p => p.id).join(",");
+    const scouting = await sbFetch(
+      `slb_player_scouting?player_id=in.(${pids})&season_id=eq.${seasonId}&active=eq.true&select=*`
+    );
+
+    const scoutMap = {};
+    scouting.forEach(s => { scoutMap[s.player_id] = s; });
+
+    // Only return players with an assigned depth position
+    return players
+      .filter(p => scoutMap[p.id]?.depth_pos && scoutMap[p.id].depth_pos < 99)
+      .map(p => {
+        const sc = scoutMap[p.id];
+        const parts = (p.full_name || "").split(",");
+        const name = parts.length === 2
+          ? `${parts[1].trim()}, ${parts[0].trim()}`
+          : p.full_name;
+        return {
+          pos:        sc.depth_pos,
+          name:       p.full_name,   // renderDepthChart uses fmtName() which handles Lastname, Firstname
+          number:     p.jersey_number || "",
+          position:   sc.position || p.position || "",
+          height:     sc.height || "",
+          handed:     sc.handed || "",
+          iso:        sc.iso || "",
+          cs:         sc.cs || "",
+          dribble:    sc.dribble || "",
+          post:       sc.post || "",
+          screener:   sc.screener || "",
+          ballhandler:sc.ballhandler || "",
+          whoWhat:    sc.who_what || "",
+          forcing:    sc.forcing || "",
+          stopping:   sc.stopping || "",
+          imageUrl:   sc.image_url || "",
+        };
+      })
+      .sort((a, b) => a.pos - b.pos);
+  } catch(e) {
+    console.error("fetchSupabaseDepthChart error:", e);
+    return null;
+  }
+}
 async function sbFetch(path) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     headers: {
