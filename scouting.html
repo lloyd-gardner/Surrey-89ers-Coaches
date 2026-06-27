@@ -1729,12 +1729,17 @@ async function fillNextOpponent(){
         </div>
       </div>`;
     }
-    function shotRow(s, color){
-      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-soft)">
-        <span style="font-size:11px;color:var(--fg)">${s.label}</span>
-        <span style="font-size:10px;color:var(--muted)">${s.freq}% vol &nbsp;
-          <span style="font-weight:700;color:${color};font-size:13px;font-family:'Space Grotesk',sans-serif">${s.pct}%</span>
-        </span>
+    function shotPill(s, good){
+      const color  = good ? '#4caf50' : '#ff8a8a';
+      const bg     = good ? 'rgba(76,175,80,0.08)'  : 'rgba(255,138,138,0.08)';
+      const border = good ? 'rgba(76,175,80,0.25)'  : 'rgba(255,138,138,0.25)';
+      const volTag = s.freq >= 20 ? 'HIGH VOL' : s.freq >= 10 ? 'MED VOL' : 'LOW VOL';
+      return `<div style="background:${bg};border:1px solid ${border};border-radius:8px;padding:8px 10px;margin-bottom:6px">
+        <div style="font-size:12px;font-weight:800;text-transform:uppercase;color:var(--fg);margin-bottom:4px;line-height:1.1">${s.label}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="background:rgba(250,249,246,0.07);border-radius:3px;padding:2px 6px;font-size:8px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--muted)">${volTag} · ${s.freq}%</span>
+          <span style="font-size:16px;font-weight:800;color:${color};font-family:'Space Grotesk',sans-serif">${s.pct}%</span>
+        </div>
       </div>`;
     }
 
@@ -1750,13 +1755,17 @@ async function fillNextOpponent(){
       ${groupBar('WINGS',  sd.wings_pts,  sd.wings_pct,  'var(--amber)')}
       ${groupBar('BIGS',   sd.bigs_pts,   sd.bigs_pct,   '#ff8a8a')}`;
     }
-    if(bestShots.length){
-      html += `<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:#4caf50;text-transform:uppercase;margin:16px 0 4px">BEST SHOTS</div>`;
-      bestShots.forEach(s => { html += shotRow(s,'#4caf50'); });
-    }
-    if(worstShots.length){
-      html += `<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:#ff8a8a;text-transform:uppercase;margin:14px 0 4px">WORST SHOTS</div>`;
-      worstShots.forEach(s => { html += shotRow(s,'#ff8a8a'); });
+    if(bestShots.length || worstShots.length){
+      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px">
+        <div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:#4caf50;text-transform:uppercase;margin-bottom:6px">BEST SHOTS</div>
+          ${bestShots.map(s => shotPill(s, true)).join('')}
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:#ff8a8a;text-transform:uppercase;margin-bottom:6px">WORST SHOTS</div>
+          ${worstShots.map(s => shotPill(s, false)).join('')}
+        </div>
+      </div>`;
     }
     html += '</div>';
     menuCard.innerHTML = html;
@@ -1834,13 +1843,14 @@ async function fillNextOpponent(){
       </div>`;
     }
     function comboRow(combo, n, maxN){
-      const pct = Math.round(n/maxN*100);
-      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <span style="font-size:10px;font-weight:600;color:var(--fg);flex:1">${combo}</span>
-        <div style="width:60px;height:5px;background:var(--card2);border-radius:3px">
-          <div style="height:5px;width:${pct}%;background:var(--amber);border-radius:3px"></div>
-        </div>
-        <span style="font-size:11px;font-weight:700;color:var(--amber);min-width:24px;text-align:right">${n}</span>
+      const parts    = combo.split('→');
+      const passer   = parts[0] || combo;
+      const receiver = parts[1] || '';
+      return `<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--card2);border:1px solid rgba(250,249,246,0.06);border-radius:8px;margin-bottom:5px">
+        <span style="font-size:10px;font-weight:700;color:var(--fg);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${passer}</span>
+        <span style="font-size:10px;color:var(--amber);flex-shrink:0">→</span>
+        <span style="font-size:10px;font-weight:700;color:var(--fg);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${receiver}</span>
+        <span style="font-size:11px;font-weight:800;color:var(--amber);background:rgba(245,158,11,0.12);border-radius:4px;padding:2px 7px;flex-shrink:0">${n}</span>
       </div>`;
     }
 
