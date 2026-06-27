@@ -1070,8 +1070,8 @@ const lu = luRows.map(r => {
       "+/-":        r.pts_scored != null && r.pts_allowed != null ? r.pts_scored - r.pts_allowed : null,
       "Pts Scored": r.pts_scored,
       "Pts Allowed":r.pts_allowed,
-      "Pts Paint%": null,
-      "Pts 3PT%":   null,
+"Pts Paint%":    r.pts_paint_pct,
+      "Pts 3PT%":      r.pts_3pt_pct,
       "Mins":       r.seconds ? r.seconds / 60 : 0,
     };
   }).filter(Boolean);
