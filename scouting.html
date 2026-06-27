@@ -478,11 +478,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
         <div class="section-header"><div class="section-label">Key Stats vs League</div></div>
         <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:24px" id="no-key-stats"></div>
 
-        <!-- Shot Chart -->
-        <div class="section-header" style="margin-top:0"><div class="section-label">Team Shot Chart</div><span style="font-size:11px;color:var(--muted)">All attempts this season · 🟢 Make · 🔴 Miss</span></div>
-        <div class="card" style="margin-bottom:24px">
-          <div class="card-body" style="padding:10px">
-            <canvas id="no-shot-chart" width="600" height="420" style="width:100%;max-width:600px;display:block;margin:0 auto;border-radius:6px"></canvas>
+        <!-- Shot Chart + Shot Menu -->
+        <div class="section-header" style="margin-top:0"><div class="section-label">Team Shot Chart &amp; Creation</div><span style="font-size:11px;color:var(--muted)">All attempts this season · 🟢 Make · 🔴 Miss</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px">
+          <div class="card">
+            <div class="card-body" style="padding:10px">
+              <canvas id="no-shot-chart" width="600" height="420" style="width:100%;display:block;border-radius:6px"></canvas>
+            </div>
+          </div>
+          <div class="card" id="no-shot-menu-card">
+            <div class="card-body" style="padding:14px"><div class="loading-state"><div class="loading-spinner"></div></div></div>
           </div>
         </div>
 
@@ -684,6 +689,7 @@ async function loadFixtures() {
         location: (location || "").trim() || (isHome ? "Surrey Sports Park" : "Away"),
         competition: parseCompetition(rawNotes),
         notes: notesLabel,
+        rawNotes: rawNotes.toUpperCase(),
         rawDate: gameDate,
       });
       if (upcomingGames.length >= 3) break;
@@ -751,6 +757,44 @@ if(sessionStorage.getItem("89ers_auth")==="1"){
 // ═══════════════════════════════════════════
 let DB=null;
 
+// Map from CAPS team name to their Data sheet in scout_data.xlsx
+const TEAM_DATA_SHEET = {
+  "LONDON LIONS":              "Lions Data",
+  "SURREY 89ERS":              "Niners Data",
+  "CHESHIRE PHOENIX":          "Cheshire Data",
+  "BRISTOL FLYERS":            "Flyers Data",
+  "NEWCASTLE EAGLES":          "Eagles Data",
+  "LEICESTER RIDERS":          "Riders Data",
+  "CALEDONIA GLADIATORS":      "Gladiators Data",
+  "B. BRAUN SHEFFIELD SHARKS": "Sharks Data",
+  "MANCHESTER BASKETBALL":     "Manchester Data",
+};
+
+// Parse row 37 of a team's Data sheet for shot menu + scoring breakdown.
+// Row 35 = section headers, Row 36 = col headers, Row 37 = values (0-based index 36).
+// Col indices (0-based): Guards pts=15, Guards%=16, Wings pts=17, Wings%=18,
+//   Bigs pts=19, Bigs%=20, PAINT=23, FT=24, MIDRANGE=25, 3P=26
+function parseTeamDataSheet(wb, sheetName) {
+  const ws = wb.Sheets[sheetName];
+  if (!ws) return null;
+  const raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+  const dataRow = raw[36]; // row 37 is 0-based index 36
+  if (!dataRow) return null;
+  const pct = v => v != null ? parseFloat(v) : null;
+  return {
+    guards_pts: dataRow[15],
+    guards_pct: pct(dataRow[16]),
+    wings_pts:  dataRow[17],
+    wings_pct:  pct(dataRow[18]),
+    bigs_pts:   dataRow[19],
+    bigs_pct:   pct(dataRow[20]),
+    paint_pct:  pct(dataRow[23]),
+    ft_pct:     pct(dataRow[24]),
+    mid_pct:    pct(dataRow[25]),
+    three_pct:  pct(dataRow[26]),
+  };
+}
+
 async function loadData(){
   if(DB) return DB;
   const res = await fetch(DATA_URL);
@@ -762,13 +806,21 @@ async function loadData(){
   const lu  = XLSX.utils.sheet_to_json(wb.Sheets["Line Up Data"]);
   const lr  = XLSX.utils.sheet_to_json(wb.Sheets["League Ratings"]);
   const tr  = XLSX.utils.sheet_to_json(wb.Sheets["Team Ratings"]);
-
   const pbp = XLSX.utils.sheet_to_json(wb.Sheets["PBP Events"]);
+
+  // Pre-parse all available team Data sheets (row 37: shot menu + scoring breakdown)
+  const teamDataSheets = {};
+  Object.entries(TEAM_DATA_SHEET).forEach(([team, sheetName]) => {
+    const parsed = parseTeamDataSheet(wb, sheetName);
+    if (parsed) teamDataSheets[team] = parsed;
+  });
+
   DB = {
     raw: { ts, ps, lu, lr, tr, pbp },
     teamAgg:   buildTeamAgg(ts),
     playerAgg: buildPlayerAgg(ps),
-    lr, tr
+    lr, tr,
+    teamDataSheets,
   };
   return DB;
 }
@@ -1323,7 +1375,9 @@ async function fillNextOpponent(){
   if(notesEl) notesEl.textContent = fixture.notes || fixture.competition || "";
   const venueLabel = fixture.venue === "Home" ? `🏠 Home · ${fixture.location||"Surrey Sports Park"}` : `✈️ Away · ${fixture.location||""}`;
   document.getElementById("no-meta").textContent=`${fixture.date} · ${venueLabel}`;
-  document.getElementById("no-title").textContent=`vs ${teamShort(NEXT_OPP)}`;
+  // Show just the round code (RS2 etc) as the page title
+  const rsCode = fixture.rawNotes ? fixture.rawNotes.toUpperCase() : (fixture.competition||"");
+  document.getElementById("no-title").textContent = rsCode || `vs ${teamShort(NEXT_OPP)}`;
   document.getElementById("no-sub").textContent=`${fixture.competition} · ${fixture.date}`;
   // Team logo
   const logoEl = document.getElementById("no-team-logo");
@@ -1490,20 +1544,21 @@ async function fillNextOpponent(){
   if(!allLus.length){
     lineupContainer.innerHTML = "<div class='loading-state'>No lineup data with 20+ possessions</div>";
   } else {
-    lineupContainer.innerHTML = lineupGroups.map(group=>{
+    const lineupItems = lineupGroups.map(group=>{
       const item = group.items[0];
       if(!item) return "";
       const key = [item.P1,item.P2,item.P3,item.P4,item.P5].sort().join("|");
       const isDuplicate = seen.has(key);
       if(!isDuplicate) seen.add(key);
-      return `<div style="margin-bottom:10px">
+      return `<div>
         <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:8px">
           ${group.label}
           ${isDuplicate?'<span style="font-size:9px;color:var(--muted)">(same lineup)</span>':''}
         </div>
         ${lineupHTML(item, 0, group.color)}
       </div>`;
-    }).join("");
+    }).filter(Boolean);
+    lineupContainer.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${lineupItems.join("")}</div>`;
   }
 
   // Key stats
@@ -1598,6 +1653,55 @@ async function fillNextOpponent(){
 
   // Shot chart
   renderShotChart(db, NEXT_OPP, "no-shot-chart");
+
+  // Team shot menu card — data from row 37 of opponent Data sheet
+  // (Guards/Wings/Bigs scoring pts + % and Paint/FT/Midrange/3P shot zone %)
+  (function renderTeamShotMenu(){
+    const menuCard = document.getElementById("no-shot-menu-card");
+    if(!menuCard) return;
+    const sd = (db.teamDataSheets||{})[NEXT_OPP];
+    if(!sd){
+      menuCard.innerHTML = '<div style="padding:14px;color:var(--muted);font-size:12px">No shot menu data available for this opponent</div>';
+      return;
+    }
+    const fmtPct = v => v != null ? Math.round(v*100)+'%' : '—';
+    function zoneBar(label, val, color){
+      const pct = val != null ? Math.round(val*100) : 0;
+      return `<div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-size:11px;font-weight:600;color:var(--fg);letter-spacing:0.3px">${label}</span>
+          <span style="font-size:13px;font-weight:700;color:${color};font-family:'Space Grotesk',sans-serif">${fmtPct(val)}</span>
+        </div>
+        <div style="height:6px;background:var(--card2);border-radius:3px">
+          <div style="height:6px;width:${Math.min(pct,100)}%;background:${color};border-radius:3px;transition:width .3s"></div>
+        </div>
+      </div>`;
+    }
+    function groupBar(label, pts, pct, color){
+      const w = pct != null ? Math.round(pct*100) : 0;
+      return `<div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-size:11px;font-weight:600;color:var(--fg)">${label}</span>
+          <span style="font-size:11px;color:var(--muted)">${pts!=null?Math.round(pts)+' pts':''} <span style="font-size:13px;font-weight:700;color:${color};font-family:'Space Grotesk',sans-serif">${fmtPct(pct)}</span></span>
+        </div>
+        <div style="height:6px;background:var(--card2);border-radius:3px">
+          <div style="height:6px;width:${Math.min(w,100)}%;background:${color};border-radius:3px"></div>
+        </div>
+      </div>`;
+    }
+    let html = `<div style="padding:14px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:10px">SHOT MENU</div>
+      ${zoneBar('PAINT',    sd.paint_pct, '#ff8a8a')}
+      ${zoneBar('3-POINT',  sd.three_pct, 'var(--blue)')}
+      ${zoneBar('FREE THROW',sd.ft_pct,   'var(--purple)')}
+      ${zoneBar('MIDRANGE', sd.mid_pct,   'var(--amber)')}
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin:14px 0 10px">SCORING BY GROUP</div>
+      ${groupBar('GUARDS', sd.guards_pts, sd.guards_pct, 'var(--blue)')}
+      ${groupBar('WINGS',  sd.wings_pts,  sd.wings_pct,  'var(--amber)')}
+      ${groupBar('BIGS',   sd.bigs_pts,   sd.bigs_pct,   '#ff8a8a')}
+    </div>`;
+    menuCard.innerHTML = html;
+  })();
 
   const h2h=db.raw.ts.filter(r=>r.Team==="SURREY 89ERS"&&(r.Opp||"")=== NEXT_OPP)
     .sort((a,b)=>new Date(b.Date)-new Date(a.Date));
