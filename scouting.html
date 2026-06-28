@@ -1653,14 +1653,15 @@ function renderShotChart(db, teamName, canvasId){
       if(y>65) return 'wing3_right';
       return 'arc3_top';
     } else {
-      if(d<8) return 'restricted';
-      if(x<19&&y>35&&y<65) return 'paint';
+if(x<19&&y>35&&y<65){
+        return x<10 ? 'paint_low' : 'paint_high';
+      }
       if(y<50) return 'mid_left';
       return 'mid_right';
     }
   }
 
-  const zKeys=['restricted','paint','mid_left','mid_right',
+const zKeys=['paint_low','paint_high','mid_left','mid_right',
     'corner3_left','corner3_right','wing3_left','wing3_right','arc3_top'];
   const zones={};
   zKeys.forEach(z=>zones[z]={att:0,made:0});
@@ -1669,7 +1670,7 @@ function renderShotChart(db, teamName, canvasId){
     if(zones[z]){zones[z].att++; if(r.Success===1||r.Success===true) zones[z].made++;}
   });
 
-  const LAVG={restricted:60,paint:43,mid_left:37,mid_right:36,
+ const LAVG={paint_low:60,paint_high:40,mid_left:37,mid_right:36,
     corner3_left:36,corner3_right:34,wing3_left:36,wing3_right:32,arc3_top:33};
   function zcol(k,pct,a){
     const d=pct-(LAVG[k]||38);
@@ -1741,7 +1742,7 @@ function renderShotChart(db, teamName, canvasId){
     ctx.lineTo(paintL,paintB);
   });
 
-  // Right midrange
+ // Right midrange
   fill(zf('mid_right',0.4),()=>{
     ctx.moveTo(paintR,0);
     ctx.lineTo(W-CRN,0);
@@ -1750,19 +1751,16 @@ function renderShotChart(db, teamName, canvasId){
     ctx.lineTo(paintR,paintB);
   });
 
-  // Paint
-  ctx.fillStyle=zf('paint',0.45);
-  ctx.fillRect(paintL,0,paintR-paintL,paintB);
+  // Low paint
+  ctx.fillStyle=zf('paint_low',0.45);
+  ctx.fillRect(paintL, 0, paintR-paintL, py(10));
+
+  // High paint
+  ctx.fillStyle=zf('paint_high',0.45);
+  ctx.fillRect(paintL, py(10), paintR-paintL, paintB-py(10));
 
   // Restricted area
   fill(zf('restricted',0.55),()=>{
-    const rr=px(8);
-    for(let i=0;i<=48;i++){
-      const t=Math.PI*(i/48);
-      i===0?ctx.moveTo(BKX+rr*Math.cos(t),BKY+rr*Math.sin(t))
-           :ctx.lineTo(BKX+rr*Math.cos(t),BKY+rr*Math.sin(t));
-    }
-  });
 
   ctx.restore();
 
@@ -1851,7 +1849,8 @@ function renderShotChart(db, teamName, canvasId){
   label('arc3_top',      BKX,          py(38),  false);
   label('mid_left',      px(22),       py(11),  false);
   label('mid_right',     px(78),       py(11),  false);
-  label('paint',         BKX,          py(13),  false);
+label('paint_low',     BKX,          py(5),   false);
+  label('paint_high',    BKX,          py(14),  false);
   label('restricted',    BKX,          BKY+px(8)+10, true);
 
   // ── COLOUR KEY ───────────────────────────────────────────────────────────────
