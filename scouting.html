@@ -1605,9 +1605,9 @@ function renderShotChart(db, teamName, canvasId){
   const R  = 30.76;
   const STR_Y_L = 0;
   const STR_Y_R = 100;
-  const ARC_Y_L = 20.3;
-  const ARC_Y_R = 79.7;
-  const BREAK_X = 15;
+const ARC_Y_L = 15;
+  const ARC_Y_R = 85;
+  const BREAK_X = 25;
 
   // Canvas positions
   const arx = R/100 * W;
@@ -1800,17 +1800,6 @@ ctx.lineTo(strRx,breakY)
     const t=Math.PI*(i/48);
     i===0?ctx.moveTo(bx+ftRx*Math.cos(t),by_c+ftRy*Math.sin(t))
          :ctx.lineTo(bx+ftRx*Math.cos(t),by_c+ftRy*Math.sin(t));
-  }
-  ctx.stroke();
-
-  // Restricted area
-  ctx.beginPath();
-  ctx.strokeStyle='rgba(250,249,246,0.2)';
-  const raRx=8/100*W, raRy=8/DEPTH*H;
-  for(let i=0;i<=48;i++){
-    const t=Math.PI*(i/48);
-    i===0?ctx.moveTo(bx+raRx*Math.cos(t),by_c+raRy*Math.sin(t))
-         :ctx.lineTo(bx+raRx*Math.cos(t),by_c+raRy*Math.sin(t));
   }
   ctx.stroke();
 
