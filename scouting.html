@@ -2549,7 +2549,7 @@ var allPbp   = (DB&&DB.raw&&DB.raw.pbp)||[];
     if(!shots.length) return [];
     return types.map(function(t){
   var ms   = shots.filter(function(s){ var st=(s['Sub Type']||'').toLowerCase(); return t.keys.indexOf(st)>=0; });
-      var made = ms.filter(function(s){ return s.Success==1||s.Success==='1'; }).length;
+var made = ms.filter(function(s){ return s.Success==1||s.Success==='1'||s.Success===true; }).length;
       return {label:t.label, n:ms.length,
               pct:Math.round(ms.length/shots.length*100),
               madeRate:ms.length?Math.round(made/ms.length*100):0};
