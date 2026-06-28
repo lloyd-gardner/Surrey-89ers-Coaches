@@ -2073,20 +2073,41 @@ const oppLower = NEXT_OPP.toLowerCase();
       </div>`;
     }
 
-    let html = '<div style="padding:14px">';
-    if(sd){
-      html += `<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:10px">SHOT MENU</div>
-      ${zoneBar('PAINT',     sd.paint_pct, '#ff8a8a')}
-      ${zoneBar('3-POINT',   sd.three_pct, 'var(--blue)')}
-      ${zoneBar('FREE THROW',sd.ft_pct,    'var(--purple)')}
-      ${zoneBar('MIDRANGE',  sd.mid_pct,   'var(--amber)')}
-      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin:14px 0 10px">SCORING BY GROUP</div>
-      ${groupBar('GUARDS', sd.guards_pts, sd.guards_pct, 'var(--blue)')}
-      ${groupBar('WINGS',  sd.wings_pts,  sd.wings_pct,  'var(--amber)')}
-      ${groupBar('BIGS',   sd.bigs_pts,   sd.bigs_pct,   '#ff8a8a')}`;
+    // Split into 2pt and 3pt groups, sorted by frequency
+    const shots2 = shotTypes.filter(s => !s.label.startsWith('3PT')).sort((a,b) => b.freq - a.freq);
+    const shots3 = shotTypes.filter(s =>  s.label.startsWith('3PT')).sort((a,b) => b.freq - a.freq);
+
+    function creationRow(s){
+      const avgPct = s.label.startsWith('3PT') ? 35 : 50;
+      const col = s.pct >= avgPct ? '#4caf50' : '#ff8a8a';
+      const barW = Math.min(100, s.freq * 2);
+      return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+        <div style="font-size:10px;color:var(--fg);width:100px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.label.replace('3PT ','')}</div>
+        <div style="flex:1;height:5px;background:rgba(250,249,246,0.08);border-radius:2px">
+          <div style="height:5px;width:${barW}%;background:rgba(250,249,246,0.25);border-radius:2px"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);width:28px;text-align:right">${s.freq}%</div>
+        <div style="font-size:11px;font-weight:700;color:${col};width:32px;text-align:right">${s.pct}%</div>
+      </div>`;
     }
+
+    let html = '<div style="padding:14px">';
+
+    // 2PT breakdown
+    if(shots2.length){
+      html += `<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:#ff8a8a;text-transform:uppercase;margin-bottom:8px">2PT CREATION</div>`;
+      html += shots2.map(creationRow).join('');
+    }
+
+    // 3PT breakdown
+    if(shots3.length){
+      html += `<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--blue);text-transform:uppercase;margin:12px 0 8px">3PT CREATION</div>`;
+      html += shots3.map(creationRow).join('');
+    }
+
+    // Best / Worst pills
     if(bestShots.length || worstShots.length){
-      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px">
+      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
         <div>
           <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:#4caf50;text-transform:uppercase;margin-bottom:6px">BEST SHOTS</div>
           ${bestShots.map(s => shotPill(s, true)).join('')}
@@ -2097,9 +2118,9 @@ const oppLower = NEXT_OPP.toLowerCase();
         </div>
       </div>`;
     }
+
     html += '</div>';
     menuCard.innerHTML = html;
-  })();
 
   // ── Passing & Turnovers ───────────────────────────────────────────────────
   (function renderPassingPanel(){
