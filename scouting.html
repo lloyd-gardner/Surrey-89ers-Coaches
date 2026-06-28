@@ -1689,8 +1689,8 @@ function drawCourt(ctx, W, H){
 }
 
 async function fillNextOpponent(){
-  const db = DB || await loadData();
-  const t=db.teamAgg[NEXT_OPP];
+if(DB && !DB.raw?.shots) DB = null;
+  const db = DB || await loadData();  const t=db.teamAgg[NEXT_OPP];
   const fixture = FIXTURES[ACTIVE_FIXTURE];
   if(!t){ document.getElementById("no-content").innerHTML="<div class='loading-state'>Team not found — check FIXTURES config</div>"; return; }
 
