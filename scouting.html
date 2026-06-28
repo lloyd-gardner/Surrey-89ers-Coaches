@@ -1590,60 +1590,80 @@ function renderShotChart(db, teamName, canvasId){
     return;
   }
 
-  // Court coordinate system:
+  // ── Coordinate system ──────────────────────────────────────────────────────
   // Raw: X=0-100 (baseline→halfcourt), Y=0-100 (sideline→sideline)
-  // Basket at raw X≈7, Y≈50. Normalise far-end shots: X>50 → 100-X, 100-Y
-  // Canvas: baseline=top(y=0), halfcourt=bottom(y=H)
-  //   court-Y (sideline axis) → canvas-X:  cx = (courtY/100)*W
-  //   court-X (depth axis)    → canvas-Y:  cy = (courtX/38)*H
-  // IMPORTANT: court is NOT square on canvas — need ellipse not circle for arc
+  // Basket at X≈7, Y≈50. Normalise far-end shots: X>50 → 100-X, 100-Y
+  // Canvas: baseline=top(y=0), halfcourt=bottom
+  // court-Y → canvas-X:  cx(courtY) = courtY/100 * W
+  // court-X → canvas-Y:  cy(courtX) = courtX/DEPTH * H
 
-  const DEPTH = 38;
-  function cx(courtY){ return (courtY / 100) * W; }
-  function cy(courtX){ return (courtX / DEPTH) * H; }
+  const DEPTH = 38; // court units to show (enough to see top of arc)
+  const CX = y => y/100 * W;
+  const CY = x => x/DEPTH * H;
 
-  // Basket canvas position
-  const bx = cx(50), by = cy(7);
+  // Key court measurements (from real shot data analysis)
+  const BX = 7,  BY = 50;   // basket court position
+  const R  = 30.76;          // 3PT arc radius in court units
+  const STR_Y_L = 5;         // left corner straight line Y position
+  const STR_Y_R = 95;        // right corner straight line Y position
+  // Arc reaches: Y_min = BY - R = 19.2, Y_max = BY + R = 80.8
+  const ARC_Y_L = BY - R;    // ≈19.2 — where arc meets left corner transition
+  const ARC_Y_R = BY + R;    // ≈80.8 — where arc meets right corner transition
+  // Arc angle at the transition points (straight line meets arc)
+  // At Y=ARC_Y_L (leftmost arc point), angle = PI (pointing left)
+  // At Y=ARC_Y_R (rightmost arc point), angle = 0 (pointing right)
+  // Arc goes from PI (left) through PI/2 (bottom) to 0 (right)
+  const ARC_START = Math.PI;  // left end of arc
+  const ARC_END   = 0;        // right end of arc
 
-  // 3PT arc: radius 27 court units, but different scale on each axis
-  const arx = cx(27);        // arc radius in canvas-X (Y-axis of court)
-  const ary = cy(27);        // arc radius in canvas-Y (X-axis of court)
+  // Canvas positions
+  const bx = CX(BY), by_c = CY(BX);  // basket on canvas
+  // Arc radius in canvas coords (different X/Y scales = ellipse)
+  const arx = R/100 * W;   // arc radius in canvas-X direction
+  const ary = R/DEPTH * H; // arc radius in canvas-Y direction
 
-  // Restricted area: radius 8 court units
-  const rrx = cx(8), rry = cy(8);
+  // Key Y positions on canvas
+  const strLx = CX(STR_Y_L);    // left straight line canvas-X
+  const strRx = CX(STR_Y_R);    // right straight line canvas-X
+  const arcLx  = CX(ARC_Y_L);   // left end of arc canvas-X (= bx - arx)
+  const arcRx  = CX(ARC_Y_R);   // right end of arc canvas-X (= bx + arx)
+  const paintL = CX(35), paintR = CX(65), paintB = CY(19);
 
-  // FT circle: radius 7.5 court units
-  const frx = cx(7.5), fry = cy(7.5);
+  // Arc bottom (deepest point, at PI/2) canvas position
+  const arcBottomY = by_c + ary;
 
-  // Key paint dimensions
-  const paintL = cx(35), paintR = cx(65), paintB = cy(19);
+  // Sample ellipse arc from angle t1 to t2 (increasing)
+  function arcPoints(t1, t2, steps){
+    const pts = [];
+    const n = steps || 48;
+    for(let i=0;i<=n;i++){
+      const t = t1 + (t2-t1)*(i/n);
+      pts.push([bx + arx*Math.cos(t), by_c + ary*Math.sin(t)]);
+    }
+    return pts;
+  }
 
-  // Corner 3 lines: depth=14, width at Y=14 and Y=86
-const cLx = cx(14), cRx = cx(86);
-  const _cLy = cy(14);
-  const tL = Math.atan2((_cLy - by) / ary, (cLx - bx) / arx);
-  const tR = Math.atan2((_cLy - by) / ary, (cRx - bx) / arx);
-  const cLy = by + ary * Math.sin(tL);
-
-  const BX=7, BY=50;
+  // ── Zone classification ────────────────────────────────────────────────────
   function normShot(r){
     let x=r.x, y=r.y;
     if(x>50){x=100-x; y=100-y;}
     return {x,y};
   }
   function getZone(r){
-    const {x,y}=normShot(r);
-    const d=Math.sqrt((x-BX)**2+(y-BY)**2);
+    const {x,y} = normShot(r);
+    const dist = Math.sqrt((x-BX)**2+(y-BY)**2);
     if(r.Action==='3pt'){
-      if(y<20) return 'corner3_left';
-      if(y>80) return 'corner3_right';
-      if(y<40) return 'wing3_left';
-      if(y>60) return 'wing3_right';
+      // Corner 3: Y inside straight line zone
+      if(y < ARC_Y_L) return 'corner3_left';
+      if(y > ARC_Y_R) return 'corner3_right';
+      // Above break: arc zone
+      if(y < BY) return 'wing3_left';
+      if(y > BY) return 'wing3_right';
       return 'arc3_top';
     } else {
-      if(d<8) return 'restricted';
-      if(x<19&&y>35&&y<65) return 'paint';
-      if(y<50) return 'mid_left';
+      if(dist < 8) return 'restricted';
+      if(x < 19 && y > 35 && y < 65) return 'paint';
+      if(y < BY) return 'mid_left';
       return 'mid_right';
     }
   }
@@ -1669,187 +1689,175 @@ const cLx = cx(14), cRx = cx(86);
   function zpct(k){ const z=zones[k]; return z&&z.att?Math.round(z.made/z.att*100):0; }
   function zf(k,a){ return zcol(k,zpct(k),a); }
 
-  // ── ZONE FILLS ─────────────────────────────────────────────────────────────
-  ctx.save();
-
-  // Helper: ellipse path using Path2D
-  // Path2D.ellipse not available in all browsers — use manual bezier approximation
-  function ellipsePath(ex,ey,rx,ry,startAngle,endAngle,anticlockwise){
-    // Use canvas transform to convert circle to ellipse
-    ctx.save();
-    ctx.translate(ex,ey);
-    ctx.scale(rx,ry);
-    const p=new Path2D();
-    p.arc(0,0,1,startAngle,endAngle,anticlockwise);
-    ctx.restore();
-    return p;
-  }
-
-  // Since Path2D with transform doesn't work cleanly for fills,
-  // we'll build paths by sampling the ellipse boundary
-
-  function ellipsePoints(ex,ey,rx,ry,t1,t2,steps,ccw){
-    const pts=[];
-    const n=steps||48;
-    if(ccw){
-      // Go from t1 decreasing to t2 (anticlockwise)
-      let start=t1, end=t2;
-      if(end>=start) end=end-2*Math.PI; // wrap if needed
-      const inc=(start-end)/n;
-      for(let i=0;i<=n;i++) {
-        const t=start-i*inc;
-        pts.push([ex+rx*Math.cos(t),ey+ry*Math.sin(t)]);
-      }
-    } else {
-      // Go from t1 increasing to t2 (clockwise in canvas coords)
-      let start=t1, end=t2;
-      if(end<=start) end=end+2*Math.PI; // wrap if needed
-      const inc=(end-start)/n;
-      for(let i=0;i<=n;i++) {
-        const t=start+i*inc;
-        pts.push([ex+rx*Math.cos(t),ey+ry*Math.sin(t)]);
-      }
-    }
-    return pts;
-  }
-
-function drawEllipseArc(ex,ey,rx,ry,t1,t2,ccw){
-    const pts=ellipsePoints(ex,ey,rx,ry,t1,t2,48,ccw);
-    pts.forEach(([x,y])=> ctx.lineTo(x,y));
-  }
-
-  function fillWithEllipseArc(color,buildPath){
-    ctx.fillStyle=color;
+  function fill(color, buildPath){
+    ctx.fillStyle = color;
     ctx.beginPath();
     buildPath();
     ctx.closePath();
     ctx.fill();
   }
 
-const _PI=Math.PI;
- // 1. Corner 3 left
-  ctx.fillStyle=zf('corner3_left',0.4);
-  ctx.fillRect(0,0,cLx,cLy);
+  // ── ZONE FILLS ─────────────────────────────────────────────────────────────
+  ctx.save();
+
+  // 1. Corner 3 left: baseline to arc start, between sideline and Y=ARC_Y_L
+  fill(zf('corner3_left',0.4),()=>{
+    ctx.moveTo(0,0);
+    ctx.lineTo(arcLx,0);
+    ctx.lineTo(arcLx,CY(BX));   // up to basket height (arc leftmost point)
+    ctx.lineTo(strLx,CY(BX));   // across to straight line
+    ctx.lineTo(strLx,0);         // back to baseline
+  });
 
   // 2. Corner 3 right
-  ctx.fillStyle=zf('corner3_right',0.4);
-  ctx.fillRect(cRx,0,W-cRx,cLy);
+  fill(zf('corner3_right',0.4),()=>{
+    ctx.moveTo(W,0);
+    ctx.lineTo(arcRx,0);
+    ctx.lineTo(arcRx,CY(BX));
+    ctx.lineTo(strRx,CY(BX));
+    ctx.lineTo(strRx,0);
+  });
 
-  // 3. Left midrange: between left sideline, paint left edge, and arc
-fillWithEllipseArc(zf('mid_left',0.4),()=>{
-    ctx.moveTo(0,0);
-    ctx.lineTo(paintL,0);
-ctx.lineTo(paintL,by);
-    // Short arc from PI (leftmost) to tL (where arc meets corner line)
-    // tL=2.95, PI=3.14 — go from tL to PI increasing (short sweep)
-    for(let i=48;i>=0;i--){
-      const t=tL + (_PI-tL)*(i/48);
-      ctx.lineTo(bx+arx*Math.cos(t), by+ary*Math.sin(t));
-    }
-    ctx.lineTo(0,cLy);
+  // 3. Left midrange: between paint and arc, left side
+  fill(zf('mid_left',0.4),()=>{
+    ctx.moveTo(paintL,0);
+    ctx.lineTo(arcLx,0);
+    ctx.lineTo(arcLx,by_c);     // down to basket height
+    // Follow arc from PI (left) toward PI/2 — just the top-left quarter
+    arcPoints(Math.PI, Math.PI*0.75, 24).forEach(([x,y])=>ctx.lineTo(x,y));
+    ctx.lineTo(paintL,paintB);
   });
 
   // 4. Right midrange
-fillWithEllipseArc(zf('mid_right',0.4),()=>{
-    ctx.moveTo(W,0);
-    ctx.lineTo(paintR,0);
+  fill(zf('mid_right',0.4),()=>{
+    ctx.moveTo(paintR,0);
+    ctx.lineTo(arcRx,0);
+    ctx.lineTo(arcRx,by_c);
+    arcPoints(0, Math.PI*0.25, 24).reverse().forEach(([x,y])=>ctx.lineTo(x,y));
     ctx.lineTo(paintR,paintB);
-    // Sample arc from 0 to tR going anticlockwise (increasing angle since tR > 0)
-    for(let i=0;i<=48;i++){
-      const t=tR*(i/48);
-      ctx.lineTo(bx+arx*Math.cos(t), by+ary*Math.sin(t));
-    }
-    ctx.lineTo(W,cLy);
   });
 
-  // 5. Left wing 3: outside arc left, below corner line
-  fillWithEllipseArc(zf('wing3_left',0.4),()=>{
-    ctx.moveTo(0,cLy);
-    ctx.lineTo(cLx,cLy);
-    // Arc from tL clockwise down to bottom (_PI/2)
-    drawEllipseArc(bx,by,arx,ary,tL,_PI/2,false);
+  // 5. Left wing 3: outside arc, left of centre
+  fill(zf('wing3_left',0.4),()=>{
+    ctx.moveTo(arcLx,0);
+    ctx.lineTo(strLx,0);
+    ctx.lineTo(strLx,CY(BX));
     ctx.lineTo(0,H);
+    // Arc from left to bottom
+    arcPoints(Math.PI, Math.PI/2, 24).reverse().forEach(([x,y])=>ctx.lineTo(x,y));
+    ctx.lineTo(arcLx,by_c);
   });
 
-  // 6. Right wing 3: outside arc right, below corner line
-  fillWithEllipseArc(zf('wing3_right',0.4),()=>{
-    ctx.moveTo(cRx,cLy);
-    ctx.lineTo(W,cLy);
+  // 6. Right wing 3
+  fill(zf('wing3_right',0.4),()=>{
+    ctx.moveTo(arcRx,0);
+    ctx.lineTo(strRx,0);
+    ctx.lineTo(strRx,CY(BX));
     ctx.lineTo(W,H);
-    // Arc from bottom (_PI/2) anticlockwise to tR
-drawEllipseArc(bx,by,arx,ary,_PI/2,tR,true);
+    arcPoints(0, Math.PI/2, 24).reverse().forEach(([x,y])=>ctx.lineTo(x,y));
+    ctx.lineTo(arcRx,by_c);
   });
-  // 7. Top of arc 3
-  fillWithEllipseArc(zf('arc3_top',0.4),()=>{
-    // From bottom of ellipse, go right to right wing, down to H, across, up to left wing
-    drawEllipseArc(bx,by,arx,ary,_PI/2,tR,true);
+
+  // 7. Top of arc (below arc centre)
+  fill(zf('arc3_top',0.4),()=>{
+    // From bottom of arc, sweep left to right, then down to baseline
+    const pts = arcPoints(Math.PI/2, 0, 24);  // right half of bottom
+    const pts2 = arcPoints(Math.PI, Math.PI/2, 24); // left half of bottom
+    [...pts2, ...pts].forEach(([x,y],i)=> i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));
+    ctx.lineTo(arcRx,by_c);
     ctx.lineTo(W,H);
     ctx.lineTo(0,H);
-    drawEllipseArc(bx,by,arx,ary,tL,_PI/2,false);
+    ctx.lineTo(arcLx,by_c);
   });
 
-  // 8. Paint (on top)
-  ctx.fillStyle=zf('paint',0.45);
+  // 8. Paint
+  ctx.fillStyle = zf('paint',0.45);
   ctx.fillRect(paintL,0,paintR-paintL,paintB);
 
-  // 9. Restricted area (on top)
-  fillWithEllipseArc(zf('restricted',0.55),()=>{
-drawEllipseArc(bx,by,rrx,rry,0,_PI,false);  });
+  // 9. Restricted area
+  fill(zf('restricted',0.55),()=>{
+    const raRx = 8/100*W, raRy = 8/DEPTH*H;
+    for(let i=0;i<=48;i++){
+      const t = Math.PI*(i/48);
+      i===0 ? ctx.moveTo(bx+raRx*Math.cos(t),by_c+raRy*Math.sin(t))
+             : ctx.lineTo(bx+raRx*Math.cos(t),by_c+raRy*Math.sin(t));
+    }
+  });
 
   ctx.restore();
 
   // ── COURT LINES ─────────────────────────────────────────────────────────────
   ctx.save();
-  ctx.strokeStyle='rgba(250,249,246,0.25)'; ctx.lineWidth=1.5;
+  ctx.lineWidth = 1.5;
 
   // Baseline
+  ctx.strokeStyle='rgba(250,249,246,0.3)';
   ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(W,0); ctx.stroke();
 
   // Sidelines
-  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,H); ctx.moveTo(W,0); ctx.lineTo(W,H); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0,0); ctx.lineTo(0,H);
+  ctx.moveTo(W,0); ctx.lineTo(W,H);
+  ctx.stroke();
 
-  // Paint box
+  // Paint
+  ctx.strokeStyle='rgba(250,249,246,0.25)';
   ctx.strokeRect(paintL,0,paintR-paintL,paintB);
 
   // FT line
   ctx.beginPath(); ctx.moveTo(paintL,paintB); ctx.lineTo(paintR,paintB); ctx.stroke();
 
-  // FT circle (lower half — opens toward halfcourt)
+  // FT circle
   ctx.beginPath();
   ctx.strokeStyle='rgba(250,249,246,0.15)';
-  for(let t=0;t<=_PI;t+=0.05) t===0?ctx.moveTo(bx+frx*Math.cos(t),by+fry*Math.sin(t)):ctx.lineTo(bx+frx*Math.cos(t),by+fry*Math.sin(t));
+  const ftRx=7.5/100*W, ftRy=7.5/DEPTH*H;
+  for(let i=0;i<=48;i++){
+    const t=Math.PI*(i/48);
+    i===0?ctx.moveTo(bx+ftRx*Math.cos(t),by_c+ftRy*Math.sin(t))
+         :ctx.lineTo(bx+ftRx*Math.cos(t),by_c+ftRy*Math.sin(t));
+  }
   ctx.stroke();
 
-  // Restricted area arc
+  // Restricted area
   ctx.beginPath();
   ctx.strokeStyle='rgba(250,249,246,0.2)';
-  for(let t=0;t<=_PI;t+=0.05) t===0?ctx.moveTo(bx+rrx*Math.cos(t),by+rry*Math.sin(t)):ctx.lineTo(bx+rrx*Math.cos(t),by+rry*Math.sin(t));
+  const raRx=8/100*W, raRy=8/DEPTH*H;
+  for(let i=0;i<=48;i++){
+    const t=Math.PI*(i/48);
+    i===0?ctx.moveTo(bx+raRx*Math.cos(t),by_c+raRy*Math.sin(t))
+         :ctx.lineTo(bx+raRx*Math.cos(t),by_c+raRy*Math.sin(t));
+  }
   ctx.stroke();
 
   // Backboard
   ctx.beginPath();
-  ctx.moveTo(cx(43),cy(4)); ctx.lineTo(cx(57),cy(4));
+  ctx.moveTo(CX(43),CY(4)); ctx.lineTo(CX(57),CY(4));
   ctx.strokeStyle='rgba(250,249,246,0.55)'; ctx.lineWidth=2; ctx.stroke();
 
   // Basket
   ctx.beginPath();
-  ctx.arc(bx,by,cx(1.5)-cx(0),0,_PI*2);
+  ctx.arc(bx, by_c, 1.5/100*W, 0, Math.PI*2);
   ctx.strokeStyle='rgba(250,249,246,0.8)'; ctx.lineWidth=1.5; ctx.stroke();
 
-  // Corner 3 lines
-  ctx.strokeStyle='rgba(96,200,250,0.35)'; ctx.lineWidth=1.2;
+  // 3PT line: straight parts + arc
+  ctx.strokeStyle='rgba(96,200,250,0.5)'; ctx.lineWidth=1.8;
+
+  // Left straight line (baseline to arc)
   ctx.beginPath();
-  ctx.moveTo(cLx,0); ctx.lineTo(cLx,cLy);
-  ctx.moveTo(cRx,0); ctx.lineTo(cRx,cLy);
+  ctx.moveTo(strLx,0);
+  ctx.lineTo(arcLx,by_c);
   ctx.stroke();
 
-  // 3PT ellipse arc
+  // Right straight line
   ctx.beginPath();
-  ctx.strokeStyle='rgba(96,200,250,0.5)'; ctx.lineWidth=1.8;
-  for(let t=tL;t<=tR+0.001;t+=0.02){
-    const px=bx+arx*Math.cos(t), py=by+ary*Math.sin(t);
-    t===tL?ctx.moveTo(px,py):ctx.lineTo(px,py);
-  }
+  ctx.moveTo(strRx,0);
+  ctx.lineTo(arcRx,by_c);
+  ctx.stroke();
+
+  // Arc (ellipse from left to right passing through bottom)
+  ctx.beginPath();
+  const arcPts = arcPoints(Math.PI, 0, 96);
+  arcPts.forEach(([x,y],i)=> i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));
   ctx.stroke();
 
   ctx.restore();
@@ -1870,15 +1878,15 @@ drawEllipseArc(bx,by,rrx,rry,0,_PI,false);  });
     ctx.restore();
   }
 
-  label('corner3_left',  cx(7),  cy(7),   true);
-  label('corner3_right', cx(93), cy(7),   true);
-  label('wing3_left',    cx(18), cy(28),  false);
-  label('wing3_right',   cx(82), cy(28),  false);
-  label('arc3_top',      bx,     cy(36),  false);
-  label('mid_left',      cx(20), cy(11),  false);
-  label('mid_right',     cx(80), cy(11),  false);
-  label('paint',         bx,     cy(13),  false);
-  label('restricted',    bx,     by+rry+12, true);
+  label('corner3_left',  CX(10),  CY(5),   true);
+  label('corner3_right', CX(90),  CY(5),   true);
+  label('wing3_left',    CX(12),  CY(26),  false);
+  label('wing3_right',   CX(88),  CY(26),  false);
+  label('arc3_top',      bx,      CY(35),  false);
+  label('mid_left',      CX(22),  CY(10),  false);
+  label('mid_right',     CX(78),  CY(10),  false);
+  label('paint',         bx,      CY(13),  false);
+  label('restricted',    bx,      by_c+raRy+12, true);
 
   // ── COLOUR KEY ───────────────────────────────────────────────────────────────
   const key=[
