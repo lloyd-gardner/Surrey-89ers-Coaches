@@ -1629,7 +1629,7 @@ function renderShotChart(db, teamName, canvasId){
   // Solve: arx*cos(t) = cLx - bx,  ary*sin(t) = cLy - by
   const tL = Math.atan2((cLy - by) / ary, (cLx - bx) / arx);
   const tR = Math.atan2((cLy - by) / ary, (cRx - bx) / arx);
-  // Arc goes from tL to tR sweeping through PI/2 (bottom of ellipse)
+  // Arc goes from tL to tR sweeping through _PI/2 (bottom of ellipse)
 
   const BX=7, BY=50;
   function normShot(r){
@@ -1717,7 +1717,7 @@ function renderShotChart(db, teamName, canvasId){
     ctx.fill();
   }
 
-  const PI=Math.PI;
+const _PI=Math._PI;
 
   // 1. Corner 3 left (top-left rect)
   ctx.fillStyle=zf('corner3_left',0.4);
@@ -1733,7 +1733,7 @@ function renderShotChart(db, teamName, canvasId){
     ctx.lineTo(paintL,0);
     ctx.lineTo(paintL,paintB);
     // Follow ellipse from left (PI) down to tL angle
-    drawEllipseArc(bx,by,arx,ary,PI,tL,false);
+    drawEllipseArc(bx,by,arx,ary,_PI,tL,false);
     ctx.lineTo(cLx,cLy);
     ctx.lineTo(0,cLy);
   });
@@ -1753,8 +1753,8 @@ function renderShotChart(db, teamName, canvasId){
   fillWithEllipseArc(zf('wing3_left',0.4),()=>{
     ctx.moveTo(0,cLy);
     ctx.lineTo(cLx,cLy);
-    // Follow ellipse from tL down to PI/2 (bottom)
-    drawEllipseArc(bx,by,arx,ary,tL,PI/2,false);
+    // Follow ellipse from tL down to _PI/2 (bottom)
+    drawEllipseArc(bx,by,arx,ary,tL,_PI/2,false);
     ctx.lineTo(0,H);
   });
 
@@ -1763,17 +1763,17 @@ function renderShotChart(db, teamName, canvasId){
     ctx.moveTo(cRx,cLy);
     ctx.lineTo(W,cLy);
     ctx.lineTo(W,H);
-    // Follow ellipse from PI/2 back to tR (going ccw/left)
-    drawEllipseArc(bx,by,arx,ary,PI/2,tR,true);
+    // Follow ellipse from _PI/2 back to tR (going ccw/left)
+    drawEllipseArc(bx,by,arx,ary,_PI/2,tR,true);
   });
 
   // 7. Top of arc 3: below ellipse, between wings
   fillWithEllipseArc(zf('arc3_top',0.4),()=>{
     // From bottom of ellipse, go right to right wing, down to H, across, up to left wing
-    drawEllipseArc(bx,by,arx,ary,PI/2,tR,true);
+    drawEllipseArc(bx,by,arx,ary,_PI/2,tR,true);
     ctx.lineTo(W,H);
     ctx.lineTo(0,H);
-    drawEllipseArc(bx,by,arx,ary,tL,PI/2,false);
+    drawEllipseArc(bx,by,arx,ary,tL,_PI/2,false);
   });
 
   // 8. Paint (on top)
@@ -1782,7 +1782,7 @@ function renderShotChart(db, teamName, canvasId){
 
   // 9. Restricted area (on top)
   fillWithEllipseArc(zf('restricted',0.55),()=>{
-    drawEllipseArc(bx,by,rrx,rry,0,PI,false);
+    drawEllipseArc(bx,by,rrx,rry,0,__PI,false);
   });
 
   ctx.restore();
@@ -1806,13 +1806,13 @@ function renderShotChart(db, teamName, canvasId){
   // FT circle (lower half — opens toward halfcourt)
   ctx.beginPath();
   ctx.strokeStyle='rgba(250,249,246,0.15)';
-  for(let t=0;t<=PI;t+=0.05) t===0?ctx.moveTo(bx+frx*Math.cos(t),by+fry*Math.sin(t)):ctx.lineTo(bx+frx*Math.cos(t),by+fry*Math.sin(t));
+  for(let t=0;t<=_PI;t+=0.05) t===0?ctx.moveTo(bx+frx*Math.cos(t),by+fry*Math.sin(t)):ctx.lineTo(bx+frx*Math.cos(t),by+fry*Math.sin(t));
   ctx.stroke();
 
   // Restricted area arc
   ctx.beginPath();
   ctx.strokeStyle='rgba(250,249,246,0.2)';
-  for(let t=0;t<=PI;t+=0.05) t===0?ctx.moveTo(bx+rrx*Math.cos(t),by+rry*Math.sin(t)):ctx.lineTo(bx+rrx*Math.cos(t),by+rry*Math.sin(t));
+  for(let t=0;t<=_PI;t+=0.05) t===0?ctx.moveTo(bx+rrx*Math.cos(t),by+rry*Math.sin(t)):ctx.lineTo(bx+rrx*Math.cos(t),by+rry*Math.sin(t));
   ctx.stroke();
 
   // Backboard
@@ -1822,7 +1822,7 @@ function renderShotChart(db, teamName, canvasId){
 
   // Basket
   ctx.beginPath();
-  ctx.arc(bx,by,cx(1.5)-cx(0),0,PI*2);
+  ctx.arc(bx,by,cx(1.5)-cx(0),0,_PI*2);
   ctx.strokeStyle='rgba(250,249,246,0.8)'; ctx.lineWidth=1.5; ctx.stroke();
 
   // Corner 3 lines
