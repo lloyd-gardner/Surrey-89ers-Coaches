@@ -1616,8 +1616,9 @@ function renderShotChart(db, teamName, canvasId){
   const ARX  = 228;            // 3PT arc horizontal radius in canvas px
   const ARY  = 214;            // 3PT arc vertical radius in canvas px (makes arc reach ~277px bottom)
   const CRN  = 72;             // corner line canvas-X (left) = px(12)
-  const BRK  = BKY + (ARY * Math.sin(Math.acos((CRN - BKX) / ARX)));  // break point Y
-
+  const BRK  = 125;  // canvas Y of break point, confirmed from console 
+ 
+  // break point Y
   const paintL = px(35), paintR = px(65), paintB = py(19);
 
   // Arc angles at break points
@@ -1850,7 +1851,7 @@ const zKeys=['paint_low','paint_high','mid_left','mid_right',
   label('mid_left',      px(22),       py(11),  false);
   label('mid_right',     px(78),       py(11),  false);
 label('paint_low',  BKX, py(5),   false);
-  label('paint_high', BKX, py(16),  false);
+  label('paint_high', BKX, py(16), false);
   label('restricted',    BKX,          BKY+px(8)+10, true);
 
   // ── COLOUR KEY ───────────────────────────────────────────────────────────────
