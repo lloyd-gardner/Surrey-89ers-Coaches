@@ -1719,53 +1719,54 @@ function renderShotChart(db, teamName, canvasId){
 
 const _PI=Math._PI;
 
-  // 1. Corner 3 left (top-left rect)
+ // 1. Corner 3 left
   ctx.fillStyle=zf('corner3_left',0.4);
   ctx.fillRect(0,0,cLx,cLy);
 
-  // 2. Corner 3 right (top-right rect)
+  // 2. Corner 3 right
   ctx.fillStyle=zf('corner3_right',0.4);
   ctx.fillRect(cRx,0,W-cRx,cLy);
 
-  // 3. Left midrange: left of paint, inside ellipse
+  // 3. Left midrange: between left sideline, paint left edge, and arc
   fillWithEllipseArc(zf('mid_left',0.4),()=>{
-    ctx.moveTo(0,0);
+    ctx.moveTo(cLx,cLy);
+    // Arc from tL going anticlockwise (ccw=true) back to PI (leftmost point)
+    drawEllipseArc(bx,by,arx,ary,tL,_PI,true);
+    // Now at leftmost point of arc (bx-arx, by) = (~138, 77)
+    ctx.lineTo(paintL,by);
     ctx.lineTo(paintL,0);
-    ctx.lineTo(paintL,paintB);
-    // Follow ellipse from left (PI) down to tL angle
-    drawEllipseArc(bx,by,arx,ary,_PI,tL,false);
-    ctx.lineTo(cLx,cLy);
+    ctx.lineTo(0,0);
     ctx.lineTo(0,cLy);
   });
 
-  // 4. Right midrange: right of paint, inside ellipse
+  // 4. Right midrange
   fillWithEllipseArc(zf('mid_right',0.4),()=>{
-    ctx.moveTo(W,0);
+    ctx.moveTo(cRx,cLy);
+    // Arc from tR going clockwise (ccw=false) back to 0 (rightmost point)
+    drawEllipseArc(bx,by,arx,ary,tR,0,false);
+    // Now at rightmost point (bx+arx, by)
+    ctx.lineTo(paintR,by);
     ctx.lineTo(paintR,0);
-    ctx.lineTo(paintR,paintB);
-    // Follow ellipse from tR angle back to 0 (right)
-    drawEllipseArc(bx,by,arx,ary,tR,0,true);
-    ctx.lineTo(cRx,cLy);
+    ctx.lineTo(W,0);
     ctx.lineTo(W,cLy);
   });
 
-  // 5. Left wing 3: outside ellipse, left, below corner line
+  // 5. Left wing 3: outside arc left, below corner line
   fillWithEllipseArc(zf('wing3_left',0.4),()=>{
     ctx.moveTo(0,cLy);
     ctx.lineTo(cLx,cLy);
-    // Follow ellipse from tL down to _PI/2 (bottom)
+    // Arc from tL clockwise down to bottom (_PI/2)
     drawEllipseArc(bx,by,arx,ary,tL,_PI/2,false);
     ctx.lineTo(0,H);
   });
 
-  // 6. Right wing 3: outside ellipse, right, below corner line
+  // 6. Right wing 3: outside arc right, below corner line
   fillWithEllipseArc(zf('wing3_right',0.4),()=>{
     ctx.moveTo(cRx,cLy);
     ctx.lineTo(W,cLy);
     ctx.lineTo(W,H);
-    // Follow ellipse from _PI/2 back to tR (going ccw/left)
-    drawEllipseArc(bx,by,arx,ary,_PI/2,tR,true);
-  });
+    // Arc from bottom (_PI/2) anticlockwise to tR
+    drawEllipseArc
 
   // 7. Top of arc 3: below ellipse, between wings
   fillWithEllipseArc(zf('arc3_top',0.4),()=>{
