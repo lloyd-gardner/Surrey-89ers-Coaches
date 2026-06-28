@@ -1597,32 +1597,38 @@ function renderShotChart(db, teamName, canvasId){
   // court-Y → canvas-X:  cx(courtY) = courtY/100 * W
   // court-X → canvas-Y:  cy(courtX) = courtX/DEPTH * H
 
-  const DEPTH = 47; // court units to show (enough to see top of arc)
+const DEPTH = 47;
   const CX = y => y/100 * W;
   const CY = x => x/DEPTH * H;
-// Key court measurements (from real shot data analysis)
   const BX = 7,  BY = 50;
-  const R  = 30.76;
-  const STR_Y_L = 0;
-  const STR_Y_R = 100;
-const ARC_Y_L = 15;
-  const ARC_Y_R = 85;
-  const BREAK_X = 25;
 
-  // Canvas positions
-  const arx = R/100 * W;
-  const ary = R/DEPTH * H;
+  // 3PT line geometry — derived from real shot data and canvas measurements
+  // Straight line at canvas X=72 (court Y=12), break at canvas Y=125 (court X=14)
+  // Arc connects (72,125) left to (528,125) right
+  const CORNER_CX = 72;   // canvas X of straight line (left)
+  const BREAK_CY  = 125;  // canvas Y of break point
   const bx = CX(BY), by_c = CY(BX);
-  const arcLx  = CX(ARC_Y_L);
-  const arcRx  = CX(ARC_Y_R);
-  const breakY  = CY(BREAK_X);
+  const arx = W/2 - CORNER_CX;          // horizontal ellipse radius in pixels (228px)
+  const ary = BREAK_CY - by_c;          // vertical ellipse radius in pixels (62px)
+  const arcLx = CORNER_CX;
+  const arcRx = W - CORNER_CX;
+  const breakY = BREAK_CY;
+  const paintL = CX(35), paintR = CX(65), paintB = CY(19);
+  const arcBottomY = by_c + ary;
+  const breakAngleL = Math.atan2((breakY - by_c) / ary, (arcLx - bx) / arx);
+  const breakAngleR = Math.atan2((breakY - by_c) / ary, (arcRx - bx) / arx);
+
+  // Zone boundaries in court units
+  const ARC_Y_L = 12;   // left corner zone inner boundary
+  const ARC_Y_R = 88;   // right corner zone inner boundary
+  const BREAK_X = 14;   // break point depth
+
+  // Canvas position
+  const bx = CX(BY), by_c = CY(BX);
   const strLx = CX(STR_Y_L);
   const strRx = CX(STR_Y_R);
   const paintL = CX(35), paintR = CX(65), paintB = CY(19);
   const arcBottomY = by_c + ary;
-
-  const breakAngleL = Math.atan2((breakY - by_c) / ary, (arcLx - bx) / arx);
-  const breakAngleR = Math.atan2((breakY - by_c) / ary, (arcRx - bx) / arx);
 
   function arcPoints(t1, t2, steps){
     const pts = [];
