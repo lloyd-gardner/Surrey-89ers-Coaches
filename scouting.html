@@ -1740,9 +1740,10 @@ fillWithEllipseArc(zf('mid_left',0.4),()=>{
     ctx.moveTo(0,0);
     ctx.lineTo(paintL,0);
     ctx.lineTo(paintL,paintB);
-    const endT = tL + 2*_PI;
-    for(let i=0;i<=48;i++){
-      const t=_PI + (endT-_PI)*(i/48);
+    // Short arc from PI (leftmost) to tL (where arc meets corner line)
+    // tL=2.95, PI=3.14 — go from tL to PI increasing (short sweep)
+    for(let i=48;i>=0;i--){
+      const t=tL + (_PI-tL)*(i/48);
       ctx.lineTo(bx+arx*Math.cos(t), by+ary*Math.sin(t));
     }
     ctx.lineTo(0,cLy);
