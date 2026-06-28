@@ -2000,8 +2000,7 @@ if(DB && !DB.raw?.shots) DB = null;
     // Case-insensitive PBP match (PBP uses Title Case, NEXT_OPP is CAPS)
 const oppLower = NEXT_OPP.toLowerCase();
     const teamShots = (db.raw.shots||[]).filter(r => (r.Team||'').toLowerCase() === oppLower);
-    const shots     = teamShots;
-    const totalAtt  = shots.length || 1;
+const shots = teamShots.filter(r => r.Action === '2pt' || r.Action === '3pt');    const totalAtt  = shots.length || 1;
 
     const SHOT_LABELS = {
       'jump shot':'Mid-Range J', 'driving layup':'Driving Layup', 'layup':'Layup',
