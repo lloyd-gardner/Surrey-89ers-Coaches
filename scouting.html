@@ -1668,7 +1668,8 @@ async function renderNextOpponent(){
   // Corner 3 line X positions: court Y=14 and Y=86
   const corner3Lx=cx(14), corner3Rx=cx(86);
   // 3PT arc radius: 27 court Y units → canvas pixels
-  const r3=cx(27);
+  const r3x=cx(27);  // arc radius in canvas-X direction (court Y units)
+  const r3y=cy(27);  // arc radius in canvas-Y direction (court X units)
 
   // 3PT arc on canvas: centre=(bx,by), radius=r3
   // Arc goes from where it meets left corner line to right corner line
@@ -1681,7 +1682,7 @@ async function renderNextOpponent(){
   const dyR = corner3Y  - by; // positive
   const arcAngleR = Math.atan2(dyR, dxR); // angle to right corner end
   // Arc drawn anticlockwise from right corner to left corner (going through bottom)
-  // i.e. ctx.arc(bx,by,r3, arcAngleL, arcAngleR, false) draws the arc between them going DOWN
+  // i.e. ctx.ellipse(bx,by,r3x,r3y,0, arcAngleL, arcAngleR, false) draws the arc between them going DOWN
 
   // ── FILL ZONES ────────────────────────────────────────────────────────────
   ctx.save();
@@ -1698,7 +1699,7 @@ async function renderNextOpponent(){
   { const p=new Path2D();
     p.moveTo(0,0); p.lineTo(corner3Lx,0);
     p.lineTo(corner3Lx,corner3Y);
-    p.arc(bx,by,r3,arcAngleL,Math.PI/2,false); // arc from left corner to bottom
+    p.ellipse(bx,by,r3x,r3y,0,arcAngleL,Math.PI/2,false); // arc from left corner to bottom
     p.lineTo(0,H); p.closePath();
     ctx.fillStyle=zfill('wing3_left',0.35); ctx.fill(p); }
 
@@ -1706,18 +1707,18 @@ async function renderNextOpponent(){
   { const p=new Path2D();
     p.moveTo(W,0); p.lineTo(corner3Rx,0);
     p.lineTo(corner3Rx,corner3Y);
-    p.arc(bx,by,r3,arcAngleR,Math.PI/2,true); // arc from right corner to bottom (clockwise)
+    p.ellipse(bx,by,r3x,r3y,0,arcAngleR,Math.PI/2,true); // arc from right corner to bottom (clockwise)
     p.lineTo(W,H); p.closePath();
     ctx.fillStyle=zfill('wing3_right',0.35); ctx.fill(p); }
 
   // 5. Top of arc 3: below arc centre
   { const p=new Path2D();
-    p.arc(bx,by,r3,Math.PI/2,Math.PI/2,false); // full circle trick - just draw the region
+    p.ellipse(bx,by,r3x,r3y,0,Math.PI/2,Math.PI/2,false); // full circle trick - just draw the region
     // Region below arc between the two wings
     p.moveTo(bx,by+r3); // bottom of arc
-    p.arc(bx,by,r3,Math.PI/2,arcAngleR,true); // arc right
+    p.ellipse(bx,by,r3x,r3y,0,Math.PI/2,arcAngleR,true); // arc right
     p.lineTo(W,H); p.lineTo(0,H);
-    p.arc(bx,by,r3,arcAngleL,Math.PI/2,false); // arc left
+    p.ellipse(bx,by,r3x,r3y,0,arcAngleL,Math.PI/2,false); // arc left
     p.closePath();
     ctx.fillStyle=zfill('arc3_top',0.35); ctx.fill(p); }
 
@@ -1725,7 +1726,7 @@ async function renderNextOpponent(){
   { const p=new Path2D();
     p.moveTo(0,0); p.lineTo(paintL,0);
     p.lineTo(paintL,paintB);
-    p.arc(bx,by,r3,Math.PI,arcAngleL,false); // arc from left (PI) to left corner angle
+    p.ellipse(bx,by,r3x,r3y,0,Math.PI,arcAngleL,false); // arc from left (PI) to left corner angle
     p.lineTo(corner3Lx,corner3Y);
     p.lineTo(0,corner3Y);
     p.closePath();
@@ -1735,7 +1736,7 @@ async function renderNextOpponent(){
   { const p=new Path2D();
     p.moveTo(W,0); p.lineTo(paintR,0);
     p.lineTo(paintR,paintB);
-    p.arc(bx,by,r3,arcAngleR,0,true); // arc from right corner angle to right (0)
+    p.ellipse(bx,by,r3x,r3y,0,arcAngleR,0,true); // arc from right corner angle to right (0)
     p.lineTo(corner3Rx,corner3Y);
     p.lineTo(W,corner3Y);
     p.closePath();
@@ -1799,7 +1800,7 @@ async function renderNextOpponent(){
 
   // 3PT arc
   ctx.beginPath();
-  ctx.arc(bx,by,r3,arcAngleL,arcAngleR,false);
+  ctx.ellipse(bx,by,r3x,r3y,0,arcAngleL,arcAngleR,false);
   ctx.strokeStyle='rgba(96,200,250,0.45)'; ctx.lineWidth=1.8; ctx.stroke();
 
   ctx.restore();
