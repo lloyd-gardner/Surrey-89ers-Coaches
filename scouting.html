@@ -1629,8 +1629,6 @@ const cLx = cx(14), cRx = cx(86);
   // Ellipse point: (bx + arx*cos(t), by + ary*sin(t))
   // Left corner end: canvas position (cLx, cLy)
   // Solve: arx*cos(t) = cLx - bx,  ary*sin(t) = cLy - by
-  const tL = Math.atan2((cLy - by) / ary, (cLx - bx) / arx);
-  const tR = Math.atan2((cLy - by) / ary, (cRx - bx) / arx);
   // Arc goes from tL to tR sweeping through _PI/2 (bottom of ellipse)
 
   const BX=7, BY=50;
