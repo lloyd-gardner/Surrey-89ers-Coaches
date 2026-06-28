@@ -1794,8 +1794,6 @@ async function renderNextOpponent(){
   ctx.stroke();
 
   // 3PT arc
-  const angL=Math.acos(Math.min(1,Math.max(-1,(basketX-cornerLx)/r3)));
-  const angR=Math.acos(Math.min(1,Math.max(-1,(cornerRx-basketX)/r3)));
   ctx.beginPath();
   ctx.arc(basketX,basketY,r3,Math.PI-angL,angR,false);
   ctx.strokeStyle='rgba(96,200,250,0.4)'; ctx.lineWidth=1.5; ctx.stroke();
