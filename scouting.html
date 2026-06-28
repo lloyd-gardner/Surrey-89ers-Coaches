@@ -1616,10 +1616,12 @@ const BREAK_X = 15;        // depth where straight line meets arc
   // Arc goes from PI (left) through PI/2 (bottom) to 0 (right)
 const ARC_START = Math.PI;
   const ARC_END   = 0;
-  const breakAngleL = Math.atan2((CY(BREAK_X) - by_c) / ary, (CX(ARC_Y_L) - bx) / arx);
-  const breakAngleR = Math.atan2((CY(BREAK_X) - by_c) / ary, (CX(ARC_Y_R) - bx) / arx);
+
   // Canvas positions
   const bx = CX(BY), by_c = CY(BX);  // basket on canvas
+  const bx = CX(BY), by_c = CY(BX);
+  const breakAngleL = Math.atan2((CY(BREAK_X) - by_c) / ary, (CX(ARC_Y_L) - bx) / arx);
+  const breakAngleR = Math.atan2((CY(BREAK_X) - by_c) / ary, (CX(ARC_Y_R) - bx) / arx);
   // Arc radius in canvas coords (different X/Y scales = ellipse)
   const arx = R/100 * W;   // arc radius in canvas-X direction
   const ary = R/DEPTH * H; // arc radius in canvas-Y direction
