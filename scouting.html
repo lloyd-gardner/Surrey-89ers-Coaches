@@ -1874,8 +1874,7 @@ ctx.moveTo(strRx,0);
   label('mid_left',      CX(22),  CY(10),  false);
   label('mid_right',     CX(78),  CY(10),  false);
   label('paint',         bx,      CY(13),  false);
-  label('restricted',    bx,      by_c+raRy+12, true);
-
+label('restricted',    bx,      by_c+(8/DEPTH*H)+12, true);
   // ── COLOUR KEY ───────────────────────────────────────────────────────────────
   const key=[
     {col:'rgba(34,197,94,0.9)',   lbl:'Hot (5%+ above avg)'},
