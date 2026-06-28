@@ -2530,7 +2530,7 @@ function slideCard(p, idx){
     if(!shots.length) return [];
     return types.map(function(t){
       var ms   = shots.filter(function(s){
-        var st = (s['Sub Type']||'').toLowerCase().replace(/[\s\-]/g,'');
+var st = (s['Sub Type']||'').toLowerCase();
         return t.keys.indexOf(st)>=0;
       });
       var made = ms.filter(function(s){ return s.Success==1||s.Success==='1'; }).length;
@@ -2540,19 +2540,20 @@ function slideCard(p, idx){
     }).filter(function(t){ return t.n>0; }).sort(function(a,b){ return b.pct-a.pct; });
   }
 
-  var types3 = pbpTypes(shots3,[
-    {label:'Catch & Shoot', keys:['jumpshot']},
-    {label:'Pull-Up',       keys:['pullupjumpshot']},
-    {label:'Step-Back',     keys:['stepbackjumpshot']},
-    {label:'Fadeaway',      keys:['fadeaway','turnaroundjumpshot']},
+var types3 = pbpTypes(shots3,[
+    {label:'Catch & Shoot', keys:['jump shot']},
+    {label:'Pull-Up',       keys:['pull-up']},
+    {label:'Step-Back',     keys:['step-back']},
+    {label:'Fadeaway',      keys:['fadeaway','turnaround']},
   ]);
   var types2 = pbpTypes(shots2,[
-    {label:'Layup/Drive', keys:['layup','drivinglayup','reverselayup']},
-    {label:'Dunk',        keys:['dunk','alleyoopdunk','alleyoop','tipindunk','tipinlayup']},
-    {label:'Floater',     keys:['floatingjumpshot']},
-    {label:'Mid-Range',   keys:['jumpshot']},
-    {label:'Pull-Up Mid', keys:['pullupjumpshot','stepbackjumpshot']},
-    {label:'Hook/Post',   keys:['hookshot','turnaroundjumpshot','fadeaway']},
+    {label:'Layup/Drive', keys:['layup','driving layup','reverse layup']},
+    {label:'Dunk',        keys:['dunk','alley-oop dunk','alley-oop','tip-in dunk','tip-in layup']},
+    {label:'Floater',     keys:['floater']},
+    {label:'Mid-Range',   keys:['jump shot']},
+    {label:'Pull-Up Mid', keys:['pull-up','step-back']},
+    {label:'Hook/Post',   keys:['hook shot','turnaround','fadeaway']},
+    {label:'Eurostep',    keys:['eurostep']},
   ]);
 
   var liveTov  = tovRows.filter(function(r){ return ['badpass','ballhandling'].indexOf(r['Sub Type']||'')>=0; }).length;
