@@ -2145,8 +2145,8 @@ const name = s.label.replace('3PT ','').replace('Mid-Range J', 'Catch & Shoot').
     const totalTov = tovRows.length || 1;
 
     // Live ball = mistakes in flow; dead ball = violations/fouls
-    const LIVE_TYPES = new Set(['badpass','ballhandling','travel','doubledribble','outofbounds']);
-    const DEAD_TYPES = new Set(['offensive','3sec','8sec','24sec','5sec','other']);
+const LIVE_TYPES = new Set(['badpass','ballhandling']);
+    const DEAD_TYPES = new Set(['travel','doubledribble','outofbounds','offensive','3sec','8sec','24sec','5sec','other']);
     let liveTov=0, deadTov=0;
     const tovByType = {};
     tovRows.forEach(r => {
