@@ -1597,7 +1597,7 @@ function renderShotChart(db, teamName, canvasId){
   // court-Y → canvas-X:  cx(courtY) = courtY/100 * W
   // court-X → canvas-Y:  cy(courtX) = courtX/DEPTH * H
 
-  const DEPTH = 38; // court units to show (enough to see top of arc)
+  const DEPTH = 47; // court units to show (enough to see top of arc)
   const CX = y => y/100 * W;
   const CY = x => x/DEPTH * H;
 
@@ -1700,22 +1700,20 @@ function renderShotChart(db, teamName, canvasId){
   // ── ZONE FILLS ─────────────────────────────────────────────────────────────
   ctx.save();
 
-  // 1. Corner 3 left: baseline to arc start, between sideline and Y=ARC_Y_L
+// 1. Corner 3 left: rectangle between sideline and arc start, baseline to arc height
   fill(zf('corner3_left',0.4),()=>{
-    ctx.moveTo(0,0);
+    ctx.moveTo(strLx,0);
     ctx.lineTo(arcLx,0);
-    ctx.lineTo(arcLx,CY(BX));   // up to basket height (arc leftmost point)
-    ctx.lineTo(strLx,CY(BX));   // across to straight line
-    ctx.lineTo(strLx,0);         // back to baseline
+    ctx.lineTo(arcLx,by_c);
+    ctx.lineTo(strLx,by_c);
   });
 
   // 2. Corner 3 right
   fill(zf('corner3_right',0.4),()=>{
-    ctx.moveTo(W,0);
-    ctx.lineTo(arcRx,0);
-    ctx.lineTo(arcRx,CY(BX));
-    ctx.lineTo(strRx,CY(BX));
+    ctx.moveTo(arcRx,0);
     ctx.lineTo(strRx,0);
+    ctx.lineTo(strRx,by_c);
+    ctx.lineTo(arcRx,by_c);
   });
 
   // 3. Left midrange: between paint and arc, left side
@@ -1842,15 +1840,17 @@ function renderShotChart(db, teamName, canvasId){
   // 3PT line: straight parts + arc
   ctx.strokeStyle='rgba(96,200,250,0.5)'; ctx.lineWidth=1.8;
 
-  // Left straight line (baseline to arc)
+// Left straight line (baseline to arc leftmost point — vertical line)
   ctx.beginPath();
   ctx.moveTo(strLx,0);
+  ctx.lineTo(strLx,by_c);
   ctx.lineTo(arcLx,by_c);
   ctx.stroke();
 
   // Right straight line
   ctx.beginPath();
   ctx.moveTo(strRx,0);
+  ctx.lineTo(strRx,by_c);
   ctx.lineTo(arcRx,by_c);
   ctx.stroke();
 
