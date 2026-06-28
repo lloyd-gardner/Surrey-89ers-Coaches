@@ -1604,8 +1604,10 @@ function renderShotChart(db, teamName, canvasId){
   // Key court measurements (from real shot data analysis)
   const BX = 7,  BY = 50;   // basket court position
   const R  = 30.76;          // 3PT arc radius in court units
-const STR_Y_L = 0;         // left corner straight line Y position (sideline)
-  const STR_Y_R = 100;       // right corner straight line Y position (sideline)
+const STR_Y_L = 0;
+  const STR_Y_R = 100;
+  const ARC_Y_L = 12;        // left straight line inner boundary
+  const ARC_Y_R = 88;        // right straight line inner boundary
   // Arc reaches: Y_min = BY - R = 19.2, Y_max = BY + R = 80.8
   const ARC_Y_L = BY - R;    // ≈19.2 — where arc meets left corner transition
   const ARC_Y_R = BY + R;    // ≈80.8 — where arc meets right corner transition
