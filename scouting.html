@@ -938,11 +938,12 @@ const gameRows = await sbFetchAll("slb_games", `select=id,livestats_game_id,game
   const playerById = {};
   allPlayers.forEach(p => { playerById[p.id] = p; });
 
-  const [tgsRows, pgsRows, luRows, pbpRows, lrRows, trRows] = await Promise.all([
+const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Promise.all([
     sbFetchAll("slb_team_game_stats",        `select=*&${gidIn}`),
     sbFetchAll("slb_player_game_stats",      `select=*&${gidIn}`),
     sbFetchAll("slb_lineup_stints",          `select=*&${gidIn}`),
     sbFetchAll("slb_pbp_events",             `select=*&${gidIn}`),
+    sbFetchAll("slb_shot_events",            `select=*&${gidIn}`),
     sbFetchAll("slb_player_season_averages", `season_id=eq.${seasonId}`),
     sbFetchAll("slb_team_season_averages",   `season_id=eq.${seasonId}`),
   ]);
@@ -1081,16 +1082,17 @@ const gameRows = await sbFetchAll("slb_games", `select=id,livestats_game_id,game
   const pbp = pbpRows.map(r => {
     const g = gameById[r.game_id];
     if(!g) return null;
-    return {
-      "Game id": g.livestats_game_id,
-      "Team":    capsTeam(teamById[r.team_id]?.name || ""),
-      "Type":    r.event_type,
-      "SubType": r.sub_type,
-      "Player":  playerById[r.player_id]?.full_name || "",
-      "Quarter": r.period,
-      "Time":    r.clock,
-      "Score H": r.home_score,
-      "Score A": r.away_score,
+  return {
+      "Game id":  g.livestats_game_id,
+      "Team":     capsTeam(teamById[r.team_id]?.name || ""),
+      "Action":   r.action_type,
+      "Sub Type": r.sub_type,
+      "Success":  r.success,
+      "Player":   playerById[r.player_id]?.full_name || "",
+      "Quarter":  r.period,
+      "Time":     r.clock,
+      "Score H":  r.home_score,
+      "Score A":  r.away_score,
     };
   }).filter(Boolean);
 
@@ -1118,9 +1120,25 @@ const gameRows = await sbFetchAll("slb_games", `select=id,livestats_game_id,game
     "TEAM":  capsTeam(r.team_name),
     "Grade": null,
   }));
+// ── raw.shots — shot events (for slide card creation analysis) ──
+  const shots = shotRows.map(r => {
+    const g = gameById[r.game_id];
+    if(!g) return null;
+    return {
+      "Game id":  g.livestats_game_id,
+      "Team":     capsTeam(teamById[r.team_id]?.name || ""),
+      "Player":   playerById[r.player_id]?.full_name || "",
+      "Action":   r.pts_value === 3 ? "3pt" : r.pts_value === 1 ? "freethrow" : "2pt",
+      "Sub Type": r.sub_type,
+      "Success":  r.made ? 1 : 0,
+      "Zone":     r.zone,
+      "Quarter":  r.quarter,
+    };
+  }).filter(Boolean);
 
   DB = {
-    raw: { ts, ps, lu, pbp },
+    raw: { ts, ps, lu, pbp, shots },
+
     teamAgg:        buildTeamAgg(ts, ts),
     playerAgg:      buildPlayerAgg(ps),
     lr,
@@ -2521,10 +2539,11 @@ function slideCard(p, idx){
 
   // ── PBP shot types ──────────────────────────────────────────────────────────
   function matchPbp(a, b){ return matchPlayerName(a, b); }
-  var allPbp  = (DB&&DB.raw&&DB.raw.pbp)||[];
-  var shots3  = allPbp.filter(function(r){ return r.Action==='3pt'      && matchPbp(r.Player,p.name||''); });
-  var shots2  = allPbp.filter(function(r){ return r.Action==='2pt'      && matchPbp(r.Player,p.name||''); });
-  var tovRows = allPbp.filter(function(r){ return r.Action==='turnover' && matchPbp(r.Player,p.name||''); });
+var allPbp   = (DB&&DB.raw&&DB.raw.pbp)||[];
+  var allShots = (DB&&DB.raw&&DB.raw.shots)||[];
+  var shots3   = allShots.filter(function(r){ return r.Action==='3pt' && matchPbp(r.Player,p.name||''); });
+  var shots2   = allShots.filter(function(r){ return r.Action==='2pt' && matchPbp(r.Player,p.name||''); });
+  var tovRows  = allPbp.filter(function(r){ return r.Action==='turnover' && matchPbp(r.Player,p.name||''); });
 
  function pbpTypes(shots, types){
     if(!shots.length) return [];
