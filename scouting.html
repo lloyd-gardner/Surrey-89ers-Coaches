@@ -1648,54 +1648,105 @@ function renderShotChart(db, teamName, canvasId){
 }
 
 function drawCourt(ctx, W, H){
-  ctx.strokeStyle="rgba(250,249,246,0.15)";
-  ctx.lineWidth=1.5;
+  // All dimensions derived from actual shot coordinate data
+  // Normalised coords: basket at x=7, y=50 (0-100 scale, x=baseline→halfcourt)
+  // Canvas mapping: court-x → canvas-y (top=baseline), court-y → canvas-x (left=sideline)
+  // Scale factors:
+  const scaleX = H / 47;  // court x-units to canvas pixels (halfcourt = 47 units)
+  const scaleY = W / 100; // court y-units to canvas pixels
 
-  // Half-court outline
-  ctx.strokeRect(0,0,W,H);
+  function cx(courtX){ return courtX * scaleX; }  // court-x → canvas-y
+  function cy(courtY){ return courtY * scaleY; }  // court-y → canvas-x
 
-  // Paint / key (roughly 16ft wide, 19ft deep in BBL)
-  const paintW=W*0.36, paintH=H*0.58;
-  const paintX=(W-paintW)/2;
-  ctx.strokeRect(paintX,0,paintW,paintH);
+  // Basket position on canvas
+  const bx = cx(7);   // canvas y of basket
+  const by = cy(50);  // canvas x of basket
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(250,249,246,0.2)";
+  ctx.lineWidth = 1.5;
+
+  // Baseline
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(W,0); ctx.stroke();
+
+  // Sidelines
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,H);
+  ctx.moveTo(W,0); ctx.lineTo(W,H); ctx.stroke();
+
+  // Paint / key — y=35 to y=65, x=0 to x=19
+  const paintTop    = 0;
+  const paintBottom = cx(19);
+  const paintLeft   = cy(35);
+  const paintRight  = cy(65);
+  ctx.strokeRect(paintLeft, paintTop, paintRight-paintLeft, paintBottom-paintTop);
 
   // Free throw line
-  ctx.beginPath();ctx.moveTo(paintX,paintH);ctx.lineTo(paintX+paintW,paintH);ctx.stroke();
-
-  // Free throw circle
   ctx.beginPath();
-  ctx.arc(W/2,paintH,paintW/2,0,Math.PI*2);
+  ctx.moveTo(paintLeft, cx(19));
+  ctx.lineTo(paintRight, cx(19));
+  ctx.stroke();
+
+  // FT circle (radius ~7.5 units in Y direction)
+  ctx.beginPath();
+  ctx.arc(by, cx(19), cy(7.5)-cy(0), 0, Math.PI);
+  ctx.strokeStyle = "rgba(250,249,246,0.15)";
+  ctx.stroke();
+
+  // Restricted area arc (radius ~2.5 units)
+  ctx.beginPath();
+  ctx.arc(by, bx, cy(2.5)-cy(0), 0, Math.PI);
+  ctx.strokeStyle = "rgba(250,249,246,0.12)";
   ctx.stroke();
 
   // Basket
   ctx.beginPath();
-  ctx.arc(W/2,H*0.06,W*0.025,0,Math.PI*2);
-  ctx.strokeStyle="rgba(250,249,246,0.5)";
+  ctx.arc(by, bx, cy(1.5)-cy(0), 0, Math.PI*2);
+  ctx.strokeStyle = "rgba(250,249,246,0.6)";
+  ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  // Restricted area (4ft arc)
+  // Backboard
   ctx.beginPath();
-  ctx.arc(W/2,H*0.06,W*0.07,0,Math.PI);
-  ctx.strokeStyle="rgba(250,249,246,0.15)";
+  ctx.moveTo(cy(43), cx(4));
+  ctx.lineTo(cy(57), cx(4));
+  ctx.strokeStyle = "rgba(250,249,246,0.4)";
+  ctx.lineWidth = 2;
   ctx.stroke();
 
-  // 3PT arc — approximate BBL/FIBA dimensions
-  const threeRadius = W*0.43;
-  const threeY = H*0.06;
+  // 3PT arc — radius 27 units from basket, centre at basket
+  // Corner 3 lines at x=14
+  const arcR = Math.sqrt(Math.pow(cy(27),2)); // 27 units in court coords
+  const threeArcR = 27 * scaleY; // use Y scale for radius
+  const cornerX = cx(14); // canvas-y of corner 3 line
+
+  // Corner 3 vertical lines (at x=14, y=0-14 and y=86-100)
   ctx.beginPath();
-  ctx.arc(W/2,threeY,threeRadius,0,Math.PI);
-  ctx.strokeStyle="rgba(96,200,250,0.25)";
-  ctx.lineWidth=2;
+  ctx.moveTo(cy(14), 0);
+  ctx.lineTo(cy(14), cornerX);
+  ctx.moveTo(cy(86), 0);
+  ctx.lineTo(cy(86), cornerX);
+  ctx.strokeStyle = "rgba(96,200,250,0.25)";
+  ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  // Corner 3 lines
-  const cornerX = W*0.05;
-  const arcIntersectY = Math.sqrt(threeRadius*threeRadius-(W/2-cornerX)*(W/2-cornerX))+threeY;
-  ctx.beginPath();ctx.moveTo(cornerX,0);ctx.lineTo(cornerX,arcIntersectY);
-  ctx.moveTo(W-cornerX,0);ctx.lineTo(W-cornerX,arcIntersectY);
-  ctx.strokeStyle="rgba(96,200,250,0.2)";
-  ctx.lineWidth=1.5;
+  // 3PT arc from corner to corner
+  // Arc centre is basket position: canvas (by, bx)
+  // The arc connects the top of the corner lines
+  // Angle calculation: corner is at cy(14) from centre cy(50)
+  // Horizontal distance = cy(50)-cy(14) = cy(36)
+  // Arc radius in canvas = threeArcR
+  // But we need to use the actual distance
+  const r3 = 27 * scaleY;
+  const cornerOffsetX = by - cy(14); // horizontal distance from basket centre to corner line
+  const cornerAngle = Math.acos(cornerOffsetX / r3);
+
+  ctx.beginPath();
+  ctx.arc(by, bx, r3, Math.PI - cornerAngle, cornerAngle, false);
+  ctx.strokeStyle = "rgba(96,200,250,0.3)";
+  ctx.lineWidth = 1.8;
   ctx.stroke();
+
+  ctx.restore();
 }
 
 async function fillNextOpponent(){
