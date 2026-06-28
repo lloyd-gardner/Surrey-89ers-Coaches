@@ -2003,7 +2003,7 @@ const oppLower = NEXT_OPP.toLowerCase();
 const shots = teamShots.filter(r => r.Action === '2pt' || r.Action === '3pt');    const totalAtt  = shots.length || 1;
 
     const SHOT_LABELS = {
-      'jump shot':'Mid-Range J', 'driving layup':'Driving Layup', 'layup':'Layup',
+      'jump shot':'Catch & Shoot', 'driving layup':'Driving Layup', 'layup':'Layup',
       'pull-up':'Pull-Up J', 'dunk':'Dunk', 'floater':'Floater',
       'step-back':'Step-Back', 'turnaround':'Turnaround',
       'hook shot':'Hook Shot', 'fadeaway':'Fadeaway', 'alley-oop dunk':'Alley-Oop',
@@ -2081,7 +2081,8 @@ const shots = teamShots.filter(r => r.Action === '2pt' || r.Action === '3pt');  
       const avgPct = is3 ? 35 : 50;
       const col = s.pct >= avgPct ? '#4caf50' : '#ff8a8a';
       const barW = Math.min(100, s.freq * 2);
-const name = s.label.replace('3PT ','').replace('Jump Shot', 'Catch & Shoot');      return `<div style="margin-bottom:7px">
+const name = s.label.replace('3PT ','').replace('Mid-Range J', 'Catch & Shoot').replace('Jump Shot', 'Catch & Shoot');     
+     return `<div style="margin-bottom:7px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
           <div style="font-size:10px;font-weight:600;color:var(--fg)">${name}</div>
           <div style="display:flex;gap:10px;align-items:center">
