@@ -483,7 +483,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px">
           <div class="card">
             <div class="card-body" style="padding:10px">
-              <canvas id="no-shot-chart" width="600" height="420" style="width:100%;display:block;border-radius:6px"></canvas>
+              <canvas id="no-shot-chart" width="600" height="460" style="width:100%;display:block;border-radius:6px"></canvas>
             </div>
           </div>
           <div class="card" id="no-shot-menu-card">
@@ -1590,7 +1590,7 @@ async function renderNextOpponent(){
 
   const BX=7, BY=50;
   function ccx(courtY){ return (courtY/100)*W; }
-  function ccy(courtX){ return (courtX/47)*H;  }
+  function ccy(courtX){ return (courtX/38)*H;  }
   function dist(x,y){ return Math.sqrt((x-BX)**2+(y-BY)**2); }
 
   function getZone(r){
