@@ -2132,8 +2132,9 @@ const name = s.label.replace('3PT ','').replace('Jump Shot', 'Catch & Shoot');  
   })();
 
   // ── Passing & Turnovers ───────────────────────────────────────────────────
-  (function renderPassingPanel(){
-
+(function renderPassingPanel(){
+    const passingCard = document.getElementById("no-passing-card");
+    if(!passingCard) return;
     const oppLower = NEXT_OPP.toLowerCase();
     const teamPbp  = (db.raw.pbp||[]).filter(r => (r.Team||'').toLowerCase() === oppLower);
     const tAgg     = db.teamAgg[NEXT_OPP];
