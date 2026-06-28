@@ -1563,77 +1563,85 @@ async function renderNextOpponent(){
   fillNextOpponent();
 }
 
-
 function renderShotChart(db, teamName, canvasId){
   const canvas = document.getElementById(canvasId);
   if(!canvas) return;
   const ctx = canvas.getContext("2d");
   const W = canvas.width, H = canvas.height;
 
-  // Get shots from PBP for this team
-  // PBP team names are Title Case: "London Lions" not "LONDON LIONS"
-  const titleTeam = SHORT[teamName] ? SHORT[teamName] + (SHORT[teamName]==="London"?" Lions":
-    SHORT[teamName]==="Cheshire"?" Phoenix":SHORT[teamName]==="Manchester"?" Basketball":
-    SHORT[teamName]==="Sheffield"?" Sharks — wait":SHORT[teamName]) : teamName;
-
-  // Match using teamShort mapping in reverse
-  const titleCaseMap = {
-    "LONDON LIONS":"London Lions","CHESHIRE PHOENIX":"Cheshire Phoenix",
-    "MANCHESTER BASKETBALL":"Manchester Basketball",
-    "B. BRAUN SHEFFIELD SHARKS":"B. Braun Sheffield Sharks",
-    "NEWCASTLE EAGLES":"Newcastle Eagles","SURREY 89ERS":"Surrey 89ers",
-    "BRISTOL FLYERS":"Bristol Flyers","LEICESTER RIDERS":"Leicester Riders",
-    "CALEDONIA GLADIATORS":"Caledonia Gladiators",
-  };
-  const tcTeam = titleCaseMap[teamName] || teamName;
-
-  const shots = (db.raw.pbp||[]).filter(r=>
-    r.Team === tcTeam &&
-    (r.Action==="2pt"||r.Action==="3pt") &&
-    r["Shot X"]!=null && r["Shot X"]!=="" &&
-    r["Shot Y"]!=null && r["Shot Y"]!==""
+  // Get shots from slb_shot_events (has x/y coords)
+  const oppLower = teamName.toLowerCase();
+  const shots = (db.raw.shots||[]).filter(r =>
+    (r.Team||'').toLowerCase() === oppLower &&
+    (r.Action==='2pt'||r.Action==='3pt') &&
+    r.x != null && r.y != null
   );
 
+  // Draw background + court
+  ctx.fillStyle = "#0a1a0f";
+  ctx.fillRect(0, 0, W, H);
+  drawCourt(ctx, W, H);
+
   if(!shots.length){
-    // No coordinate data in this file (old format) — show placeholder
-    ctx.fillStyle="#0f1f16";
-    ctx.fillRect(0,0,W,H);
-    drawCourt(ctx,W,H);
-    ctx.fillStyle="rgba(250,249,246,0.3)";
-    ctx.font="14px Inter";
-    ctx.textAlign="center";
-    ctx.fillText("Shot chart available after pipeline update", W/2, H/2);
-    ctx.fillText("(requires Shot X/Y columns in PBP data)", W/2, H/2+22);
+    ctx.fillStyle = "rgba(250,249,246,0.3)";
+    ctx.font = "14px Inter";
+    ctx.textAlign = "center";
+    ctx.fillText("No shot data available", W/2, H/2);
     return;
   }
 
-  // Draw background
-  ctx.fillStyle="#0f1f16";
-  ctx.fillRect(0,0,W,H);
-  drawCourt(ctx,W,H);
+  // Court mapping:
+  // Raw coords: X=0-100 (baseline→halfcourt), Y=0-100 (sideline→sideline)
+  // Baskets at X≈7 (left end) and X≈93 (right end)
+  // Normalise all shots to left basket: if X>50 flip to 100-X, 100-Y
+  // Canvas: baseline at top (y=0), halfcourt at bottom (y=H)
+  // Basket at canvas (W/2, H*0.06) — court Y maps to canvas X, court X maps to canvas Y
 
-  // Plot shots
-  // Coordinates are 0-100 scale — need to map to canvas
-  // Court is half-court: X = 0-100 sideline to sideline, Y = 0-100 baseline to half
-  // We show a half-court from the correct end
-  shots.forEach(r=>{
-    const x = parseFloat(r["Shot X"]);
-    const y = parseFloat(r["Shot Y"]);
-    if(isNaN(x)||isNaN(y)) return;
-    // Normalise to court orientation
-    // If y > 50 it's the far end — flip
-    const normX = x/100 * W;
-    const normY = y/100 * H;
-    const made = r.Success===1||r.Success==="1";
+  function toCanvas(rawX, rawY){
+    let nx = rawX, ny = rawY;
+    if(nx > 50){ nx = 100 - nx; ny = 100 - ny; }
+    // nx: 0=basket end, ~47=halfcourt → canvas y: 0=top(baseline), H=bottom
+    const cy = (nx / 47) * H;
+    // ny: 0-100 sideline to sideline → canvas x: 0=left, W=right
+    const cx = (ny / 100) * W;
+    return [cx, cy];
+  }
+
+  // Draw dots
+  shots.forEach(r => {
+    const [cx, cy] = toCanvas(r.x, r.y);
+    const made = r.Success === 1 || r.Success === true;
+    const is3 = r.Action === '3pt';
     ctx.beginPath();
-    ctx.arc(normX, normY, 4, 0, Math.PI*2);
-    ctx.fillStyle = made ? "rgba(74,222,128,0.75)" : "rgba(224,85,85,0.55)";
-    ctx.fill();
+    ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
     if(made){
-      ctx.strokeStyle="rgba(74,222,128,0.4)";
-      ctx.lineWidth=1;
+      ctx.fillStyle = is3 ? "rgba(59,139,212,0.8)" : "rgba(74,222,128,0.75)";
+      ctx.fill();
+      ctx.strokeStyle = is3 ? "rgba(59,139,212,0.4)" : "rgba(74,222,128,0.35)";
+      ctx.lineWidth = 1;
       ctx.stroke();
+    } else {
+      ctx.fillStyle = "rgba(224,85,85,0.45)";
+      ctx.fill();
     }
+  });
+
+  // Legend
+  const leg = [
+    {color:"rgba(74,222,128,0.8)",  label:"2PT Made"},
+    {color:"rgba(59,139,212,0.8)",  label:"3PT Made"},
+    {color:"rgba(224,85,85,0.55)",  label:"Miss"},
+  ];
+  ctx.font = "bold 10px Inter";
+  let lx = 8;
+  leg.forEach(l => {
+    ctx.beginPath();
+    ctx.arc(lx + 5, H - 10, 4, 0, Math.PI*2);
+    ctx.fillStyle = l.color;
+    ctx.fill();
+    ctx.fillStyle = "rgba(250,249,246,0.6)";
+    ctx.fillText(l.label, lx + 13, H - 6);
+    lx += ctx.measureText(l.label).width + 28;
   });
 }
 
