@@ -987,7 +987,7 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       "NET RTG":     r.net_rtg ? r.net_rtg / 100 : null,
       "eFG%":        r.efg_pct,
       "3PT Taken%":  r.fga ? r.fg3a / r.fga : null,
-      "TOV%":        r.poss ? (r.tov / r.poss) * 100 : null,
+      "TOV%":        r.fga && r.fta ? ((r.tov||0) / ((r.fga||0) - (r.oreb||0) + (r.tov||0) + 0.44*(r.fta||0))) * 100 : null,      
       "OREB%":       (r.oreb != null && r.dreb != null) ? r.oreb / (r.oreb + r.dreb) * 100 : null,
       "DREB%":       (r.oreb != null && r.dreb != null) ? r.dreb / (r.oreb + r.dreb) * 100 : null,
       "AST%":        r.fgm ? (r.ast / r.fgm) * 100 : null,
