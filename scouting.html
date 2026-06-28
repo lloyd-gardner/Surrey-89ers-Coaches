@@ -1687,13 +1687,28 @@ const cLx = cx(14), cRx = cx(86);
 
   // Since Path2D with transform doesn't work cleanly for fills,
   // we'll build paths by sampling the ellipse boundary
+
   function ellipsePoints(ex,ey,rx,ry,t1,t2,steps,ccw){
     const pts=[];
-    const inc=(t2-t1)/(steps||32);
+    const n=steps||48;
     if(ccw){
-      for(let t=t1;t>=t2-0.001;t-=Math.abs(inc)) pts.push([ex+rx*Math.cos(t),ey+ry*Math.sin(t)]);
+      // Go from t1 decreasing to t2 (anticlockwise)
+      let start=t1, end=t2;
+      if(end>=start) end=end-2*Math.PI; // wrap if needed
+      const inc=(start-end)/n;
+      for(let i=0;i<=n;i++) {
+        const t=start-i*inc;
+        pts.push([ex+rx*Math.cos(t),ey+ry*Math.sin(t)]);
+      }
     } else {
-      for(let t=t1;t<=t2+0.001;t+=Math.abs(inc)) pts.push([ex+rx*Math.cos(t),ey+ry*Math.sin(t)]);
+      // Go from t1 increasing to t2 (clockwise in canvas coords)
+      let start=t1, end=t2;
+      if(end<=start) end=end+2*Math.PI; // wrap if needed
+      const inc=(end-start)/n;
+      for(let i=0;i<=n;i++) {
+        const t=start+i*inc;
+        pts.push([ex+rx*Math.cos(t),ey+ry*Math.sin(t)]);
+      }
     }
     return pts;
   }
