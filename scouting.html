@@ -1677,187 +1677,174 @@ function renderShotChart(db, teamName, canvasId){
   }
 
   // ── Zone fills ──────────────────────────────────────────────────────────────
-  // LAYOUT:
-  //  • BRK = one horizontal line spanning full canvas width
-  //    — above BRK: low paint, mid left/right, corner 3s (near baseline)
-  //    — below BRK: high paint, mid centre, wing 3s, arc 3 (away from basket)
-  //  • paintL / paintR = vertical lane lines spanning full canvas height
-  //    — 3 vertical columns: left | centre | right
-  //  • 3PT arc = outer boundary of 3PT zones only
+  // Grid: BRK horizontal (full width) × paintL/paintR + CRN verticals (full height)
+  // Arc is the outer boundary — enforced via clipping paths per region
+  //
+  // ABOVE BRK (row 1, near baseline):  corner3 | mid | paint_low | mid | corner3
+  // BELOW BRK (row 2, away):           wing3   | [arc clips interior] | wing3
+  //   Inside arc below BRK:            mid_left_low | paint_high | mid_right_low
+  //                                    mid_centre | arc3_top
 
-  // Arc angles where arc crosses lane-line extensions (at paintB depth)
-  const tML=Math.atan2((paintB-BKY)/ARY,(paintL-BKX)/ARX);
-  const tMR=Math.atan2((paintB-BKY)/ARY,(paintR-BKX)/ARX);
+  // Arc angles at key intersections
+  const tML=Math.atan2((paintB-BKY)/ARY,(paintL-BKX)/ARX); // arc ∩ left lane line
+  const tMR=Math.atan2((paintB-BKY)/ARY,(paintR-BKX)/ARX); // arc ∩ right lane line
 
-  ctx.save();
+  // Helper: clip to a rectangle then fill a colour
+  function fillRect2(color,x,y,w,h){
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
+    ctx.fillStyle=color; ctx.fillRect(x,y,w,h);
+    ctx.restore();
+  }
 
-  // ── ROW 1 (baseline → BRK): low paint + mid left/right + corner 3s ──────────
+  // Helper: clip to an arbitrary path, then fill
+  function fillClipped(color, clipFn, fillFn){
+    ctx.save();
+    ctx.beginPath(); clipFn(); ctx.clip();
+    ctx.fillStyle=color; ctx.beginPath(); fillFn(); ctx.fill();
+    ctx.restore();
+  }
 
-  // Low paint: centre column, baseline → BRK
-  ctx.fillStyle=zoneColor('paint_low',0.55);
-  ctx.fillRect(paintL, 0, paintR-paintL, BRK);
+  // ── ROW 1: full-width rectangles from baseline (y=0) to BRK ─────────────────
+  // Simple rects — no arc involved in row 1
+  ctx.fillStyle=zoneColor('corner3_left',0.5);  ctx.fillRect(0,     0, CRN,         BRK);
+  ctx.fillStyle=zoneColor('mid_left',0.5);       ctx.fillRect(CRN,   0, paintL-CRN,  BRK);
+  ctx.fillStyle=zoneColor('paint_low',0.6);      ctx.fillRect(paintL,0, paintR-paintL,BRK);
+  ctx.fillStyle=zoneColor('mid_right',0.5);      ctx.fillRect(paintR,0, (W-CRN)-paintR,BRK);
+  ctx.fillStyle=zoneColor('corner3_right',0.5);  ctx.fillRect(W-CRN, 0, CRN,         BRK);
 
-  // Mid left: left column, baseline → BRK (inside 3PT line)
-  ctx.fillStyle=zoneColor('mid_left',0.55);
-  ctx.fillRect(CRN, 0, paintL-CRN, BRK);
-
-  // Mid right: right column, baseline → BRK (inside 3PT line)
-  ctx.fillStyle=zoneColor('mid_right',0.55);
-  ctx.fillRect(paintR, 0, (W-CRN)-paintR, BRK);
-
-  // Corner 3 left: leftmost strip, baseline → BRK
-  ctx.fillStyle=zoneColor('corner3_left',0.45);
-  ctx.fillRect(0, 0, CRN, BRK);
-
-  // Corner 3 right: rightmost strip, baseline → BRK
-  ctx.fillStyle=zoneColor('corner3_right',0.45);
-  ctx.fillRect(W-CRN, 0, CRN, BRK);
-
-  // ── ROW 2 (BRK → bottom): high paint + mid centre + wing 3s + arc 3 ─────────
-
-  // High paint: centre column, BRK → FT line
-  ctx.fillStyle=zoneColor('paint_high',0.55);
+  // ── ROW 2 CENTRE COLUMN: BRK downward, clipped to inside-arc area ────────────
+  // paint_high: BRK → paintB, lane width (pure rect, always inside arc)
+  ctx.fillStyle=zoneColor('paint_high',0.6);
   ctx.fillRect(paintL, BRK, paintR-paintL, paintB-BRK);
 
-  // Mid centre: centre column, FT line → arc underside
-  fillPath(zoneColor('mid_centre',0.45),()=>{
-    ctx.moveTo(paintL, paintB);
-    lineTo(arc(tML, tMR, 32));
-    ctx.lineTo(paintR, paintB);
-  });
+  // mid_centre: paintB → arc underside, lane width, clipped by arc
+  fillClipped(
+    zoneColor('mid_centre',0.5),
+    ()=>{ // clip = lane-width column
+      ctx.moveTo(paintL,paintB); ctx.lineTo(paintR,paintB);
+      ctx.lineTo(paintR,H); ctx.lineTo(paintL,H);
+    },
+    ()=>{ // fill = arc-bounded wedge
+      ctx.moveTo(paintL,paintB);
+      arc(tML,tMR,32).forEach(([x,y])=>ctx.lineTo(x,y));
+      ctx.lineTo(paintR,paintB);
+    }
+  );
 
-  // Arc 3 top (centre): centre column, below arc → canvas bottom
-  ctx.fillStyle=zoneColor('arc3_top',0.45);
-  ctx.fillRect(paintL, BKY+ARY, paintR-paintL, H-(BKY+ARY));
+  // arc3_top: below arc nadir, lane width, to canvas bottom
+  const arcNadirY=BKY+ARY; // lowest point of arc (at angle π/2)
+  ctx.fillStyle=zoneColor('arc3_top',0.5);
+  ctx.fillRect(paintL, arcNadirY, paintR-paintL, H-arcNadirY);
 
-  // Wing 3 left: left column, BRK → canvas bottom (outside 3PT arc)
-  // Two sub-shapes: rect from BRK→BKY (above where arc meets sideline) +
-  // the arc-bounded chunk
-  fillPath(zoneColor('wing3_left',0.45),()=>{
-    ctx.moveTo(0, BRK);
-    ctx.lineTo(CRN, BRK);
-    ctx.lineTo(CRN, H);
-    ctx.lineTo(0, H);
-  });
-  // Left-centre wing column (between CRN and paintL, below BRK, outside arc)
-  fillPath(zoneColor('wing3_left',0.45),()=>{
-    ctx.moveTo(CRN, BRK);
-    ctx.lineTo(paintL, BRK);
-    ctx.lineTo(paintL, H);
-    ctx.lineTo(CRN, H);
-  });
+  // ── ROW 2 OUTER COLUMNS: wing3, clipped to OUTSIDE the arc ──────────────────
+  // Strategy: fill full rect below BRK for each outer column,
+  // then use arc path as clip to exclude the arc interior
 
-  // Wing 3 right
-  fillPath(zoneColor('wing3_right',0.45),()=>{
-    ctx.moveTo(W-CRN, BRK);
-    ctx.lineTo(W, BRK);
-    ctx.lineTo(W, H);
-    ctx.lineTo(W-CRN, H);
-  });
-  fillPath(zoneColor('wing3_right',0.45),()=>{
-    ctx.moveTo(paintR, BRK);
-    ctx.lineTo(W-CRN, BRK);
-    ctx.lineTo(W-CRN, H);
-    ctx.lineTo(paintR, H);
-  });
-
-  // Now punch out the 3PT arc interior from the wing fills by overdrawing
-  // the inside-arc area (mid_left, mid_centre, arc3_top regions) — already done above
-  // and overdraw the arc-exterior portions of wing fills with background
-  // Clip wing3 to only show OUTSIDE the arc:
-  // Draw background colour over the arc interior within wing columns
+  // LEFT outer column (x: 0 → paintL), below BRK
+  // Clip to: full rect MINUS inside-arc region
+  // "Outside arc" clip = everything in [0,paintL] × [BRK,H] that is outside the ellipse
+  // Easiest: fill the whole rect, then cut the inside-arc portion back to background
+  ctx.fillStyle=zoneColor('wing3_left',0.5);
+  ctx.fillRect(0, BRK, paintL, H-BRK);
+  // Cut interior: the arc region within [0,paintL], from BRK downward
+  // Left arc segment goes from angle π (leftmost) to tML (where arc meets paintL)
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, BRK, paintL, H-BRK);
+  ctx.clip();
   ctx.fillStyle='#0d1f13';
-  // Left wing arc interior: path inside arc, left column, below BRK
-  fillPath('#0d1f13',()=>{
-    ctx.moveTo(CRN, BRK);
-    lineTo(arc(tL, tML, 48));
-    ctx.lineTo(paintL, BRK);
-  });
-  // Right wing arc interior
-  fillPath('#0d1f13',()=>{
-    ctx.moveTo(paintR, BRK);
-    lineTo(arc(tMR, tR, 48));
-    ctx.lineTo(W-CRN, BRK);
-  });
-  // Also clip the sideline portions above BKY (where corner arc meets sideline)
-  fillPath('#0d1f13',()=>{
-    lineTo(arc(tL, Math.PI, 32).reverse());
-    ctx.lineTo(0, BKY);
-    ctx.lineTo(0, BRK);
-    ctx.lineTo(CRN, BRK);
-  });
-  fillPath('#0d1f13',()=>{
-    lineTo(arc(0, tR, 32));
-    ctx.lineTo(W-CRN, BRK);
-    ctx.lineTo(W, BRK);
-    ctx.lineTo(W, BKY);
-  });
+  ctx.beginPath();
+  // Arc interior left: from tL (where arc meets CRN at BRK) sweep to tML (paintL)
+  // but we need the full arc-enclosed area within this column
+  // Use: arc from tL→tML forms the right/bottom boundary; top is BRK; left is CRN
+  ctx.moveTo(CRN, BRK);
+  arc(tL, tML, 48).forEach(([x,y])=>ctx.lineTo(x,y));
+  ctx.lineTo(paintL, BRK);
+  ctx.closePath();
+  ctx.fill();
+  // Also cut the above-BKY arc stub that hangs into the sideline region
+  ctx.beginPath();
+  ctx.moveTo(0, BKY);
+  arc(Math.PI, tL, 32).forEach(([x,y])=>ctx.lineTo(x,y));
+  ctx.lineTo(CRN, BRK);
+  ctx.lineTo(0, BRK);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 
+  // RIGHT outer column (x: paintR → W), below BRK
+  ctx.fillStyle=zoneColor('wing3_right',0.5);
+  ctx.fillRect(paintR, BRK, W-paintR, H-BRK);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(paintR, BRK, W-paintR, H-BRK);
+  ctx.clip();
+  ctx.fillStyle='#0d1f13';
+  ctx.beginPath();
+  ctx.moveTo(paintR, BRK);
+  arc(tMR, tR, 48).forEach(([x,y])=>ctx.lineTo(x,y));
+  ctx.lineTo(W-CRN, BRK);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(W-CRN, BRK);
+  ctx.lineTo(W-CRN, BKY);
+  arc(tR, 0, 32).forEach(([x,y])=>ctx.lineTo(x,y));
+  ctx.lineTo(W, BRK);
+  ctx.closePath();
+  ctx.fill();
   ctx.restore();
 
   // ── Court lines ─────────────────────────────────────────────────────────────
-  ctx.save();
-  const LINE   ='rgba(250,249,246,0.38)';
-  const LINEDIM='rgba(250,249,246,0.18)';
+  const LINE   ='rgba(250,249,246,0.45)';
+  const LINEDIM='rgba(250,249,246,0.20)';
 
-  // Baseline & sidelines
-  ctx.strokeStyle=LINE; ctx.lineWidth=1.5;
+  ctx.save();
+  ctx.lineWidth=1.3;
+
+  // Outer border
+  ctx.strokeStyle=LINE;
   ctx.strokeRect(0,0,W,H);
 
-  // THE KEY HORIZONTAL: BRK spans full width — separates corners from wings,
-  // low paint from high paint, mid near from mid far
-  ctx.beginPath();
-  ctx.moveTo(0, BRK); ctx.lineTo(W, BRK);
-  ctx.strokeStyle=LINE; ctx.lineWidth=1.2; ctx.stroke();
+  // THE FULL-WIDTH HORIZONTAL at BRK — corner/wing divider + paint row divider
+  ctx.beginPath(); ctx.moveTo(0,BRK); ctx.lineTo(W,BRK);
+  ctx.strokeStyle=LINE; ctx.stroke();
 
-  // Lane lines — full height (vertical column dividers)
-  ctx.strokeStyle=LINE; ctx.lineWidth=1.2;
+  // Vertical lane lines — full height
   ctx.beginPath(); ctx.moveTo(paintL,0); ctx.lineTo(paintL,H); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(paintR,0); ctx.lineTo(paintR,H); ctx.stroke();
 
-  // Corner/wing outer line — full height
+  // Vertical corner/wing dividers — full height
   ctx.beginPath(); ctx.moveTo(CRN,0); ctx.lineTo(CRN,H); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(W-CRN,0); ctx.lineTo(W-CRN,H); ctx.stroke();
 
-  // FT line (top of mid_centre zone)
-  ctx.beginPath();
-  ctx.moveTo(paintL,paintB); ctx.lineTo(paintR,paintB);
-  ctx.strokeStyle=LINE; ctx.lineWidth=1.2; ctx.stroke();
+  // FT line (paint_high / mid_centre boundary)
+  ctx.beginPath(); ctx.moveTo(paintL,paintB); ctx.lineTo(paintR,paintB); ctx.stroke();
 
-  // Low/high paint split inside the paint box (already covered by BRK line,
-  // but draw it slightly brighter for clarity inside the paint)
+  // FT circle (decorative)
   ctx.beginPath();
-  ctx.moveTo(paintL,BRK); ctx.lineTo(paintR,BRK);
-  ctx.strokeStyle='rgba(250,249,246,0.55)'; ctx.lineWidth=1.5; ctx.stroke();
-
-  // FT semicircle (decorative)
-  ctx.beginPath();
-  const ftR=paintL-cX(35-15);
+  const ftR=paintL-cX(20);
   for(let i=0;i<=32;i++){
     const t=Math.PI*(i/32);
-    const fx=BKX+ftR*Math.cos(t), fy=paintB+ftR*Math.sin(t);
-    i===0?ctx.moveTo(fx,fy):ctx.lineTo(fx,fy);
+    i===0?ctx.moveTo(BKX+ftR*Math.cos(t),paintB+ftR*Math.sin(t))
+         :ctx.lineTo(BKX+ftR*Math.cos(t),paintB+ftR*Math.sin(t));
   }
-  ctx.strokeStyle=LINEDIM; ctx.lineWidth=1; ctx.stroke();
+  ctx.strokeStyle=LINEDIM; ctx.stroke();
 
   // Backboard
-  ctx.beginPath();
-  ctx.moveTo(cX(44),cY(4.5)); ctx.lineTo(cX(56),cY(4.5));
-  ctx.strokeStyle='rgba(250,249,246,0.75)'; ctx.lineWidth=2.5; ctx.stroke();
+  ctx.strokeStyle='rgba(250,249,246,0.75)'; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(cX(44),cY(4.5)); ctx.lineTo(cX(56),cY(4.5)); ctx.stroke();
 
   // Basket
-  ctx.beginPath();
-  ctx.arc(BKX,BKY,cX(1.5),0,Math.PI*2);
-  ctx.strokeStyle='rgba(250,249,246,0.9)'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.strokeStyle='rgba(250,249,246,0.9)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.arc(BKX,BKY,cX(1.5),0,Math.PI*2); ctx.stroke();
 
-  // 3PT arc
+  // 3PT arc (decorative overlay — does not define zone boundaries)
+  ctx.strokeStyle=LINE; ctx.lineWidth=1.5;
   ctx.beginPath();
   arc(tL,tR,96).forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));
-  ctx.strokeStyle=LINE; ctx.lineWidth=1.4; ctx.stroke();
-
-  // 3PT corner straight lines (baseline → BRK only, arc takes over below)
-  ctx.beginPath(); ctx.moveTo(CRN,0); ctx.lineTo(CRN,BRK); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(W-CRN,0); ctx.lineTo(W-CRN,BRK); ctx.stroke();
+  ctx.stroke();
 
   ctx.restore();
 
@@ -1867,15 +1854,12 @@ function renderShotChart(db, teamName, canvasId){
     const pct = z.att ? Math.round(z.made/z.att*100) : null;
     const attPG = (z.att/gp).toFixed(1);
     const madePG= (z.made/gp).toFixed(1);
-
     ctx.save();
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.shadowColor='rgba(0,0,0,0.95)'; ctx.shadowBlur=8;
-
     if(pct!==null){
-      const col=zoneColor(k,1).replace(/[\d.]+\)$/,'1)');
       ctx.font='bold 15px Inter,sans-serif';
-      ctx.fillStyle=col;
+      ctx.fillStyle=zoneColor(k,1).replace(/[\d.]+\)$/,'1)');
       ctx.fillText(pct+'%', lx, ly-9);
     } else {
       ctx.font='bold 13px Inter,sans-serif';
@@ -1889,52 +1873,24 @@ function renderShotChart(db, teamName, canvasId){
     ctx.restore();
   }
 
-  // Vertical column centres
-  const colL = (CRN+paintL)/2;
-  const colC = BKX;
-  const colR = (paintR+(W-CRN))/2;
+  const colL=(CRN+paintL)/2, colC=BKX, colR=(paintR+(W-CRN))/2;
 
-  // Row 1 (baseline → BRK): low paint, mid left/right, corner 3s
-  label('paint_low',     colC,         BRK/2);
-  label('mid_left',      colL,         BRK/2);
-  label('mid_right',     colR,         BRK/2);
-  label('corner3_left',  CRN/2,        BRK/2);
-  label('corner3_right', W-CRN/2,      BRK/2);
+  // Row 1 (baseline → BRK)
+  label('corner3_left',  CRN/2,    BRK/2);
+  label('mid_left',      colL,     BRK/2);
+  label('paint_low',     colC,     BRK/2);
+  label('mid_right',     colR,     BRK/2);
+  label('corner3_right', W-CRN/2,  BRK/2);
 
-  // Row 2 (BRK → FT line): high paint
-  label('paint_high',    colC,         BRK+(paintB-BRK)/2);
+  // Row 2 centre column
+  label('paint_high',    colC,  BRK+(paintB-BRK)/2);
+  label('mid_centre',    colC,  paintB+(arcNadirY-paintB)/2);
+  label('arc3_top',      colC,  arcNadirY+(H-arcNadirY)*0.45);
 
-  // Mid centre: FT line → arc bottom
-  {
-    const arcBottomY = BKY+ARY;
-    label('mid_centre',  colC,         paintB+(arcBottomY-paintB)/2);
-  }
-
-  // Arc 3: centre column, bottom of arc → canvas bottom
-  label('arc3_top',      colC,         (BKY+ARY)+(H-(BKY+ARY))*0.45);
-
-  // Wing 3: full left/right outside arc, below BRK
-  label('wing3_left',    CRN/2,        BRK+(H-BRK)*0.5);
-  label('wing3_right',   W-CRN/2,      BRK+(H-BRK)*0.5);
-
-  // ── Colour key ──────────────────────────────────────────────────────────────
-  const KEY=[
-    {col:'rgba(34,197,94,0.9)',  lbl:'Hot (5%+ above avg)'},
-    {col:'rgba(134,239,172,0.9)',lbl:'Above avg'},
-    {col:'rgba(245,158,11,0.9)',  lbl:'Near avg'},
-    {col:'rgba(220,60,60,0.9)',   lbl:'Cold (5%+ below avg)'},
-  ];
-  ctx.save();
-  ctx.font='10px Inter'; ctx.textBaseline='middle';
-  ctx.shadowColor='rgba(0,0,0,0.8)'; ctx.shadowBlur=4;
-  let kx=8;
-  KEY.forEach(k=>{
-    ctx.fillStyle=k.col; ctx.fillRect(kx,H-15,10,10);
-    ctx.fillStyle='rgba(250,249,246,0.65)';
-    ctx.fillText(k.lbl, kx+14, H-10);
-    kx+=ctx.measureText(k.lbl).width+34;
-  });
-  ctx.restore();
+  // Wings (row 2 outer columns) — place labels in the outer sideline strip
+  // where the zone is definitely coloured (not clipped out by arc)
+  label('wing3_left',  CRN/2,   BRK+(H-BRK)*0.55);
+  label('wing3_right', W-CRN/2, BRK+(H-BRK)*0.55);
 }
 
 function drawCourt(){}
