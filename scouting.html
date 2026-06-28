@@ -1704,9 +1704,9 @@ function renderShotChart(db, teamName, canvasId){
     return pts;
   }
 
-  function drawEllipseArc(ex,ey,rx,ry,t1,t2,ccw){
-    const pts=ellipsePoints(ex,ey,rx,ry,t1,t2,48,ccw);
-    pts.forEach(([x,y],i)=> i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));
+function drawEllipseArc(ex,ey,rx,ry,t1,t2,steps,ccw){
+    const pts=ellipsePoints(ex,ey,rx,ry,t1,t2,steps,ccw);
+    pts.forEach(([x,y])=> ctx.lineTo(x,y));
   }
 
   function fillWithEllipseArc(color,buildPath){
