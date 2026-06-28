@@ -1634,7 +1634,7 @@ function renderShotChart(db, teamName, canvasId){
   }
 
   // ── Zone classification ─────────────────────────────────────────────────────
-  // 9 zones (no restricted): paint_low, paint_high, mid_left, mid_right,
+  // 10 zones: paint_low, paint_high, mid_left, mid_right, mid_centre,
   //   corner3_left, corner3_right, wing3_left, wing3_right, arc3_top
   function getZone(r){
     let x=r.x, y=r.y;
@@ -1647,11 +1647,13 @@ function renderShotChart(db, teamName, canvasId){
       return 'arc3_top';
     } else {
       if(x<19&&y>35&&y<65) return x<14?'paint_low':'paint_high';
+      // mid_centre: above FT line, between paint edges, inside arc
+      if(x>=19&&x<28&&y>35&&y<65) return 'mid_centre';
       return y<50?'mid_left':'mid_right';
     }
   }
 
-  const zKeys=['paint_low','paint_high','mid_left','mid_right',
+  const zKeys=['paint_low','paint_high','mid_left','mid_right','mid_centre',
     'corner3_left','corner3_right','wing3_left','wing3_right','arc3_top'];
   const zones={};
   zKeys.forEach(z=>zones[z]={att:0,made:0});
@@ -1661,7 +1663,7 @@ function renderShotChart(db, teamName, canvasId){
   });
 
   // League-average FG% per zone (BBL reference)
-  const LAVG={paint_low:62,paint_high:46,mid_left:37,mid_right:37,
+  const LAVG={paint_low:62,paint_high:46,mid_left:37,mid_right:37,mid_centre:40,
     corner3_left:36,corner3_right:36,wing3_left:35,wing3_right:35,arc3_top:33};
 
   function zoneColor(k,alpha){
@@ -1675,35 +1677,52 @@ function renderShotChart(db, teamName, canvasId){
   }
 
   // ── Zone fills ──────────────────────────────────────────────────────────────
+  // KEY PRINCIPLE: lane lines (paintL, paintR) extend straight down through
+  // all zones, dividing the court into 3 vertical columns.
+  // The 3PT arc only acts as the outer boundary of the 3PT zones.
+  // Arc angles where it crosses the lane line extensions:
+  const tML=Math.atan2((paintB-BKY)/ARY,(paintL-BKX)/ARX);
+  const tMR=Math.atan2((paintB-BKY)/ARY,(paintR-BKX)/ARX);
+
   ctx.save();
 
-  // Low paint (baseline → BRK)
+  // ── PAINT (inside lane, above FT line) ──────────────────────────────────────
+  // Low paint: baseline → BRK
   ctx.fillStyle=zoneColor('paint_low',0.55);
   ctx.fillRect(paintL,0,paintR-paintL,BRK);
 
-  // High paint (BRK → FT line)
+  // High paint: BRK → FT line
   ctx.fillStyle=zoneColor('paint_high',0.55);
   ctx.fillRect(paintL,BRK,paintR-paintL,paintB-BRK);
 
-  // Left midrange: between paint left edge and corner line, above FT line depth
-  fillPath(zoneColor('mid_left',0.45),()=>{
-    ctx.moveTo(paintL,0);
-    ctx.lineTo(CRN,0);
-    ctx.lineTo(CRN,BRK);
-    lineTo(arc(tL,Math.PI*0.59,32).reverse());
-    ctx.lineTo(paintL,paintB);
+  // ── MID CENTRE: lane width, FT line → arc ───────────────────────────────────
+  fillPath(zoneColor('mid_centre',0.45),()=>{
+    ctx.moveTo(paintL,paintB);
+    lineTo(arc(tML,tMR,32));   // arc from left lane → right lane (bottom of arc)
+    ctx.lineTo(paintR,paintB);
   });
 
-  // Right midrange
+  // ── MID LEFT: left of lane, inside 3PT arc, above FT depth ─────────────────
+  // Bounded: right=paintL, left=CRN line, top=baseline, bottom=arc
+  fillPath(zoneColor('mid_left',0.45),()=>{
+    ctx.moveTo(CRN,0);
+    ctx.lineTo(paintL,0);
+    ctx.lineTo(paintL,paintB);
+    lineTo(arc(tML,tL,32).reverse());
+    ctx.lineTo(CRN,BRK);
+  });
+
+  // ── MID RIGHT: right of lane, inside 3PT arc, above FT depth ───────────────
   fillPath(zoneColor('mid_right',0.45),()=>{
     ctx.moveTo(paintR,0);
     ctx.lineTo(W-CRN,0);
     ctx.lineTo(W-CRN,BRK);
-    lineTo(arc(Math.PI*0.41,tR,32));
+    lineTo(arc(tR,tMR,32).reverse());
     ctx.lineTo(paintR,paintB);
   });
 
-  // Corner 3 left
+  // ── 3PT ZONES — divided by lane line extensions ─────────────────────────────
+  // Corner left: sideline → CRN, baseline → BRK then arc
   fillPath(zoneColor('corner3_left',0.45),()=>{
     ctx.moveTo(0,0);
     ctx.lineTo(CRN,0);
@@ -1712,7 +1731,7 @@ function renderShotChart(db, teamName, canvasId){
     ctx.lineTo(0,BKY);
   });
 
-  // Corner 3 right
+  // Corner right
   fillPath(zoneColor('corner3_right',0.45),()=>{
     ctx.moveTo(W,0);
     ctx.lineTo(W-CRN,0);
@@ -1721,7 +1740,7 @@ function renderShotChart(db, teamName, canvasId){
     ctx.lineTo(W,BKY);
   });
 
-  // Left wing 3
+  // Wing left: outside arc, left column (x < paintL), below corner BRK → bottom
   fillPath(zoneColor('wing3_left',0.45),()=>{
     ctx.moveTo(0,BKY);
     lineTo(arc(Math.PI,tL,32));
@@ -1730,7 +1749,7 @@ function renderShotChart(db, teamName, canvasId){
     ctx.lineTo(0,H);
   });
 
-  // Right wing 3
+  // Wing right
   fillPath(zoneColor('wing3_right',0.45),()=>{
     ctx.moveTo(W,BKY);
     lineTo(arc(0,tR,32).reverse());
@@ -1739,11 +1758,29 @@ function renderShotChart(db, teamName, canvasId){
     ctx.lineTo(W,H);
   });
 
-  // Top-of-key arc 3
+  // Arc top (centre 3): lane-width column below the arc, between lane extensions
+  // Bounded left=paintL, right=paintR, top=arc, bottom=canvas bottom
   fillPath(zoneColor('arc3_top',0.45),()=>{
-    lineTo(arc(tL,tR,64));
-    ctx.lineTo(W-CRN,H);
+    ctx.moveTo(paintL,H);
+    ctx.lineTo(paintL,paintB);
+    lineTo(arc(tML,tMR,32));   // arc top boundary
+    ctx.lineTo(paintR,H);
+  });
+
+  // Wing centre (the two angled zones between lane and corner line, below arc)
+  // These sit between the lane extension and the corner-3 line, below the arc
+  // They share the same colour as wing3 left/right for now — just visual fill
+  fillPath(zoneColor('wing3_left',0.45),()=>{
+    ctx.moveTo(CRN,BRK);
+    lineTo(arc(tL,tML,32));
+    ctx.lineTo(paintL,H);
     ctx.lineTo(CRN,H);
+  });
+  fillPath(zoneColor('wing3_right',0.45),()=>{
+    ctx.moveTo(W-CRN,BRK);
+    lineTo(arc(tMR,tR,32));
+    ctx.lineTo(W-CRN,H);
+    ctx.lineTo(paintR,H);
   });
 
   ctx.restore();
@@ -1757,18 +1794,23 @@ function renderShotChart(db, teamName, canvasId){
   ctx.strokeStyle=LINE; ctx.lineWidth=1.5;
   ctx.strokeRect(0,0,W,H);
 
-  // Paint box
+  // Paint box (sides + top of FT line)
   ctx.strokeStyle=LINE; ctx.lineWidth=1.2;
   ctx.strokeRect(paintL,0,paintR-paintL,paintB);
 
-  // Paint split line (low/high divider at BRK)
+  // Low/high paint divider
   ctx.beginPath();
   ctx.moveTo(paintL,BRK); ctx.lineTo(paintR,BRK);
   ctx.strokeStyle=LINEDIM; ctx.lineWidth=1; ctx.stroke();
 
-  // FT semicircle (upper half only, inside paint)
+  // Lane lines extended all the way to bottom of canvas — KEY DIVIDERS
+  ctx.strokeStyle=LINE; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(paintL,paintB); ctx.lineTo(paintL,H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(paintR,paintB); ctx.lineTo(paintR,H); ctx.stroke();
+
+  // FT semicircle (decorative, inside paint area)
   ctx.beginPath();
-  const ftR=cX(15)-paintL; // ~15% of width = radius in px
+  const ftR=paintL-cX(35-15); // radius = 15 court units in canvas px
   for(let i=0;i<=32;i++){
     const t=Math.PI*(i/32);
     const fx=BKX+ftR*Math.cos(t), fy=paintB+ftR*Math.sin(t);
@@ -1786,22 +1828,15 @@ function renderShotChart(db, teamName, canvasId){
   ctx.arc(BKX,BKY,cX(1.5),0,Math.PI*2);
   ctx.strokeStyle='rgba(250,249,246,0.85)'; ctx.lineWidth=1.5; ctx.stroke();
 
-  // 3PT corner straight lines
-  ctx.strokeStyle='rgba(250,249,246,0.45)'; ctx.lineWidth=1.4;
-  ctx.beginPath(); ctx.moveTo(CRN,0); ctx.lineTo(CRN,BRK); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(W-CRN,0); ctx.lineTo(W-CRN,BRK); ctx.stroke();
+  // 3PT corner straight lines (CRN to BRK only — above arc)
+  ctx.strokeStyle=LINE; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(CRN,0); ctx.lineTo(CRN,H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W-CRN,0); ctx.lineTo(W-CRN,H); ctx.stroke();
 
   // 3PT arc
   ctx.beginPath();
   arc(tL,tR,96).forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));
-  ctx.strokeStyle='rgba(250,249,246,0.45)'; ctx.lineWidth=1.4; ctx.stroke();
-
-  // Zone divider: midrange left/right split at centreline inside arc
-  // vertical line from paint top to FT line, at centre (BKX), inside arc only
-  ctx.beginPath();
-  ctx.moveTo(BKX,0); ctx.lineTo(BKX,paintB);
-  ctx.strokeStyle=LINEDIM; ctx.lineWidth=1; ctx.setLineDash([4,4]); ctx.stroke();
-  ctx.setLineDash([]);
+  ctx.strokeStyle=LINE; ctx.lineWidth=1.4; ctx.stroke();
 
   ctx.restore();
 
@@ -1809,7 +1844,6 @@ function renderShotChart(db, teamName, canvasId){
   function label(k, lx, ly){
     const z=zones[k]; if(!z) return;
     const pct = z.att ? Math.round(z.made/z.att*100) : null;
-    // per-game averages
     const attPG = (z.att/gp).toFixed(1);
     const madePG= (z.made/gp).toFixed(1);
 
@@ -1818,7 +1852,6 @@ function renderShotChart(db, teamName, canvasId){
     ctx.shadowColor='rgba(0,0,0,0.95)'; ctx.shadowBlur=8;
 
     if(pct!==null){
-      // FG%  — large, colour-coded
       const col=zoneColor(k,1).replace(/[\d.]+\)$/,'1)');
       ctx.font='bold 15px Inter,sans-serif';
       ctx.fillStyle=col;
@@ -1828,38 +1861,44 @@ function renderShotChart(db, teamName, canvasId){
       ctx.fillStyle='rgba(250,249,246,0.3)';
       ctx.fillText('—', lx, ly-9);
     }
-
-    // per-game line: "2.1 / 3.8"
     ctx.font='11px Inter,sans-serif';
     ctx.fillStyle='rgba(250,249,246,0.75)';
     ctx.shadowBlur=4;
     ctx.fillText(madePG+' / '+attPG, lx, ly+8);
-
     ctx.restore();
   }
 
-  // Zone label positions
-  // Paint zones: centred in their rect halves
-  const paintCX = BKX;
-  label('paint_low',   paintCX,  BRK/2);                     // low paint centre
-  label('paint_high',  paintCX,  BRK+(paintB-BRK)/2);        // high paint centre
+  // Vertical centres of the 3 columns
+  const colL  = (CRN+paintL)/2;        // left column centre-X
+  const colC  = BKX;                    // centre column centre-X
+  const colR  = (paintR+(W-CRN))/2;    // right column centre-X
 
-  // Midrange: shallow zone left/right of paint, near baseline
-  label('mid_left',   (paintL+CRN)/2,        (paintB)/2);
-  label('mid_right',  (paintR+(W-CRN))/2,    (paintB)/2);
+  // Paint (top of canvas)
+  label('paint_low',  colC,  BRK/2);
+  label('paint_high', colC,  BRK+(paintB-BRK)/2);
 
-  // Corner 3: tight strip along sideline near baseline
-  const cornerMidY = BRK/2;
-  label('corner3_left',  CRN/2,       cornerMidY);
-  label('corner3_right', W-CRN/2,     cornerMidY);
+  // Mid centre: FT line → arc, centre column
+  {
+    const tML2=Math.atan2((paintB-BKY)/ARY,(paintL-BKX)/ARX);
+    const tMR2=Math.atan2((paintB-BKY)/ARY,(paintR-BKX)/ARX);
+    const arcBottomY = BKY+ARY*Math.sin((tML2+tMR2)/2);
+    label('mid_centre', colC, paintB+(arcBottomY-paintB)/2);
+  }
 
-  // Wing 3: big zone outside arc, below corner break
-  const wingArcMid = arc(Math.PI*1.15, Math.PI*1.15, 1)[0]; // leftmost arc point
-  label('wing3_left',  cX(10),  BRK+(H-BRK)*0.42);
-  label('wing3_right', W-cX(10), BRK+(H-BRK)*0.42);
+  // Mid left & right: between baseline and FT-line depth, flanking the paint
+  label('mid_left',  colL, paintB/2);
+  label('mid_right', colR, paintB/2);
 
-  // Arc 3: big zone below/behind arc
-  label('arc3_top', BKX, BRK+(H-BRK)*0.65);
+  // Corner 3: sideline strip near baseline
+  label('corner3_left',  CRN/2,    BRK/2);
+  label('corner3_right', W-CRN/2,  BRK/2);
+
+  // Wing 3: large zone outside arc, left and right columns
+  label('wing3_left',  cX(7),    BRK+(H-BRK)*0.45);
+  label('wing3_right', W-cX(7),  BRK+(H-BRK)*0.45);
+
+  // Arc 3: centre column, below the arc
+  label('arc3_top', colC, BRK+(H-BRK)*0.62);
 
   // ── Colour key ──────────────────────────────────────────────────────────────
   const KEY=[
