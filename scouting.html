@@ -1705,25 +1705,25 @@ async function renderNextOpponent(){
     p.rect(cornerRx,0,W-cornerRx,cornerLineY);
     fillZone(p, zoneColor('corner3_right',zonePct('corner3_right'),0.3)); }
 
-  // 7. Left wing 3
+// 7. Left wing 3
   { const p=new Path2D();
     p.moveTo(0,cornerLineY); p.lineTo(cornerLx,cornerLineY);
-    p.arc(basketX,basketY,r3,Math.PI,Math.PI*1.5,false);
-    p.closePath();
+    p.arc(basketX,basketY,r3,Math.PI,Math.PI*0.5,true);
+    p.lineTo(0,H); p.closePath();
     fillZone(p, zoneColor('wing3_left',zonePct('wing3_left'),0.3)); }
 
   // 8. Right wing 3
   { const p=new Path2D();
     p.moveTo(cornerRx,cornerLineY); p.lineTo(W,cornerLineY);
-    p.arc(basketX,basketY,r3,Math.PI*2,Math.PI*1.5,true);
+    p.lineTo(W,H);
+    p.arc(basketX,basketY,r3,Math.PI*0.5,0,true);
     p.closePath();
     fillZone(p, zoneColor('wing3_right',zonePct('wing3_right'),0.3)); }
 
-  // 9. Top of arc 3
+  // 9. Top of arc 3 (below arc, between wings)
   { const p=new Path2D();
-    p.moveTo(cornerLx,cornerLineY);
-    p.arc(basketX,basketY,r3,Math.PI,Math.PI*2,false);
-    p.lineTo(cornerRx,cornerLineY); p.closePath();
+    p.arc(basketX,basketY,r3,Math.PI,0,true);
+    p.lineTo(W,H); p.lineTo(0,H); p.closePath();
     fillZone(p, zoneColor('arc3_top',zonePct('arc3_top'),0.3)); }
 
   ctx.restore();
@@ -1787,9 +1787,9 @@ async function renderNextOpponent(){
   drawZoneLabel('mid_right',   ccx(82),          ccy(13),          false);
   drawZoneLabel('corner3_left',  ccx(7),         ccy(7),           true);
   drawZoneLabel('corner3_right', ccx(93),        ccy(7),           true);
-  drawZoneLabel('wing3_left',  ccx(23),          ccy(23),          false);
-  drawZoneLabel('wing3_right', ccx(77),          ccy(23),          false);
-  drawZoneLabel('arc3_top',    basketX,          ccy(36),          false);
+drawZoneLabel('wing3_left',  ccx(23), ccy(30), false);
+  drawZoneLabel('wing3_right', ccx(77), ccy(30), false);
+  drawZoneLabel('arc3_top',    basketX, ccy(38), false);
 
   // ── COLOUR KEY ────────────────────────────────────────────────────────────
   const keyItems=[
