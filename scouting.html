@@ -1740,7 +1740,11 @@ fillWithEllipseArc(zf('mid_left',0.4),()=>{
     ctx.moveTo(0,0);
     ctx.lineTo(paintL,0);
     ctx.lineTo(paintL,paintB);
-    drawEllipseArc(bx,by,arx,ary,_PI,tL,false);
+    // Sample arc from _PI to tL going clockwise (decreasing angle since tL < _PI)
+    for(let i=0;i<=48;i++){
+      const t=_PI - (_PI-tL)*(i/48);
+      ctx.lineTo(bx+arx*Math.cos(t), by+ary*Math.sin(t));
+    }
     ctx.lineTo(0,cLy);
   });
 
@@ -1749,7 +1753,11 @@ fillWithEllipseArc(zf('mid_right',0.4),()=>{
     ctx.moveTo(W,0);
     ctx.lineTo(paintR,0);
     ctx.lineTo(paintR,paintB);
-    drawEllipseArc(bx,by,arx,ary,0,tR,true);
+    // Sample arc from 0 to tR going anticlockwise (increasing angle since tR > 0)
+    for(let i=0;i<=48;i++){
+      const t=tR*(i/48);
+      ctx.lineTo(bx+arx*Math.cos(t), by+ary*Math.sin(t));
+    }
     ctx.lineTo(W,cLy);
   });
 
