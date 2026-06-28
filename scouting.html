@@ -1609,8 +1609,7 @@ const STR_Y_L = 0;
   const ARC_Y_L = 12;        // left straight line inner boundary
   const ARC_Y_R = 88;        // right straight line inner boundary
   // Arc reaches: Y_min = BY - R = 19.2, Y_max = BY + R = 80.8
-  const ARC_Y_L = BY - R;    // ≈19.2 — where arc meets left corner transition
-  const ARC_Y_R = BY + R;    // ≈80.8 — where arc meets right corner transition
+const BREAK_X = 15;        // depth where straight line meets arc
   // Arc angle at the transition points (straight line meets arc)
   // At Y=ARC_Y_L (leftmost arc point), angle = PI (pointing left)
   // At Y=ARC_Y_R (rightmost arc point), angle = 0 (pointing right)
@@ -1627,8 +1626,9 @@ const STR_Y_L = 0;
   // Key Y positions on canvas
   const strLx = CX(STR_Y_L);    // left straight line canvas-X
   const strRx = CX(STR_Y_R);    // right straight line canvas-X
-  const arcLx  = CX(ARC_Y_L);   // left end of arc canvas-X (= bx - arx)
-  const arcRx  = CX(ARC_Y_R);   // right end of arc canvas-X (= bx + arx)
+const arcLx  = CX(12);    // left where straight line meets arc
+  const arcRx  = CX(88);    // right where straight line meets arc
+  const breakY  = CY(15);   // canvas-Y of the break point depth
   const paintL = CX(35), paintR = CX(65), paintB = CY(19);
 
   // Arc bottom (deepest point, at PI/2) canvas position
@@ -1704,18 +1704,16 @@ const STR_Y_L = 0;
 
 // 1. Corner 3 left: rectangle between sideline and arc start, baseline to arc height
   fill(zf('corner3_left',0.4),()=>{
-    ctx.moveTo(strLx,0);
-    ctx.lineTo(arcLx,0);
-    ctx.lineTo(arcLx,by_c);
-    ctx.lineTo(strLx,by_c);
+ ctx.moveTo(strLx,0);
+  ctx.lineTo(strLx,breakY);
+  ctx.lineTo(arcLx,breakY);
   });
 
   // 2. Corner 3 right
   fill(zf('corner3_right',0.4),()=>{
-    ctx.moveTo(arcRx,0);
-    ctx.lineTo(strRx,0);
-    ctx.lineTo(strRx,by_c);
-    ctx.lineTo(arcRx,by_c);
+ctx.moveTo(strRx,0);
+  ctx.lineTo(strRx,breakY);
+  ctx.lineTo(arcRx,breakY);
   });
 
   // 3. Left midrange: between paint and arc, left side
