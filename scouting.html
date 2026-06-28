@@ -1815,18 +1815,16 @@ ctx.lineTo(strRx,breakY)
   // 3PT line: straight parts + arc
   ctx.strokeStyle='rgba(96,200,250,0.5)'; ctx.lineWidth=1.8;
 
-// Left straight line (baseline to arc leftmost point — vertical line)
+// Left 3PT straight line
   ctx.beginPath();
-ctx.moveTo(strLx,0);
-  ctx.lineTo(strLx,breakY);
-  ctx.lineTo(arcLx,breakY);
+  ctx.moveTo(arcLx, 0);
+  ctx.lineTo(arcLx, breakY);
   ctx.stroke();
 
-  // Right straight line
+  // Right 3PT straight line  
   ctx.beginPath();
-ctx.moveTo(strRx,0);
-  ctx.lineTo(strRx,breakY);
-  ctx.lineTo(arcRx,breakY);
+  ctx.moveTo(arcRx, 0);
+  ctx.lineTo(arcRx, breakY);
   ctx.stroke();
 
   // Arc (ellipse from left to right passing through bottom)
