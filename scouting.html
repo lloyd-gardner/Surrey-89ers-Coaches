@@ -1740,9 +1740,9 @@ fillWithEllipseArc(zf('mid_left',0.4),()=>{
     ctx.moveTo(0,0);
     ctx.lineTo(paintL,0);
     ctx.lineTo(paintL,paintB);
-    // Sample arc from _PI to tL going clockwise (decreasing angle since tL < _PI)
+    const endT = tL + 2*_PI;
     for(let i=0;i<=48;i++){
-      const t=_PI - (_PI-tL)*(i/48);
+      const t=_PI + (endT-_PI)*(i/48);
       ctx.lineTo(bx+arx*Math.cos(t), by+ary*Math.sin(t));
     }
     ctx.lineTo(0,cLy);
