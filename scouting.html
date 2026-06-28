@@ -1998,25 +1998,26 @@ async function fillNextOpponent(){
     const fmtPct = v => v != null ? Math.round(v*100)+'%' : '—';
 
     // Case-insensitive PBP match (PBP uses Title Case, NEXT_OPP is CAPS)
-    const oppLower = NEXT_OPP.toLowerCase();
-    const teamPbp = (db.raw.pbp||[]).filter(r => (r.Team||'').toLowerCase() === oppLower);
-    const shots   = teamPbp.filter(r => r.Action==='2pt'||r.Action==='3pt');
-    const totalAtt = shots.length || 1;
+const oppLower = NEXT_OPP.toLowerCase();
+    const teamShots = (db.raw.shots||[]).filter(r => (r.Team||'').toLowerCase() === oppLower);
+    const shots     = teamShots;
+    const totalAtt  = shots.length || 1;
 
     const SHOT_LABELS = {
-      jumpshot:'Mid-Range J', drivinglayup:'Driving Layup', layup:'Layup',
-      pullupjumpshot:'Pull-Up J', dunk:'Dunk', floatingjumpshot:'Floater',
-      stepbackjumpshot:'Step-Back', turnaroundjumpshot:'Turnaround',
-      hookshot:'Hook Shot', fadeaway:'Fadeaway', alleyoopdunk:'Alley-Oop',
-      alleyoop:'Alley-Oop', tipinlayup:'Tip-In', tipindunk:'Tip-In Dunk',
-      reverselayup:'Reverse Layup', eurostep:'Euro Step'
+      'jump shot':'Mid-Range J', 'driving layup':'Driving Layup', 'layup':'Layup',
+      'pull-up':'Pull-Up J', 'dunk':'Dunk', 'floater':'Floater',
+      'step-back':'Step-Back', 'turnaround':'Turnaround',
+      'hook shot':'Hook Shot', 'fadeaway':'Fadeaway', 'alley-oop dunk':'Alley-Oop',
+      'alley-oop':'Alley-Oop', 'tip-in layup':'Tip-In', 'tip-in dunk':'Tip-In Dunk',
+      'reverse layup':'Reverse Layup', 'eurostep':'Euro Step'
     };
     const shotMap = {};
     shots.forEach(r => {
-      const key = (r.Action||'')+'|'+(r['Sub Type']||'unknown');
-      if(!shotMap[key]) shotMap[key]={action:r.Action, sub:r['Sub Type']||'unknown', att:0, made:0};
+      const sub = (r['Sub Type']||'unknown').toLowerCase();
+      const key = (r.Action||'')+'|'+sub;
+      if(!shotMap[key]) shotMap[key]={action:r.Action, sub, att:0, made:0};
       shotMap[key].att++;
-      if(String(r.Success)==='1') shotMap[key].made++;
+      if(r.Success===1||r.Success===true||String(r.Success)==='1') shotMap[key].made++;
     });
     // Score = weighted combo of efficiency above average + frequency
     const shotTypes = Object.values(shotMap)
