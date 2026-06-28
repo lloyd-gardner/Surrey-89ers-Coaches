@@ -1569,85 +1569,76 @@ async function renderNextOpponent(){
 function renderShotChart(db, teamName, canvasId){
   const canvas = document.getElementById(canvasId);
   if(!canvas) return;
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
 
   const oppLower = teamName.toLowerCase();
-  const allShots = (db.raw.shots||[]).filter(r =>
-    (r.Team||'').toLowerCase() === oppLower &&
+  const allShots = (db.raw.shots||[]).filter(r=>
+    (r.Team||'').toLowerCase()===oppLower &&
     (r.Action==='2pt'||r.Action==='3pt') &&
-    r.x != null && r.y != null
+    r.x!=null && r.y!=null
   );
+  const gp = (db.teamAgg[teamName]||{}).gp || 1;
 
-  ctx.fillStyle = "#0a1a0f";
-  ctx.fillRect(0, 0, W, H);
+  // ── Background ──────────────────────────────────────────────────────────────
+  ctx.fillStyle='#0d1f13';
+  ctx.fillRect(0,0,W,H);
 
   if(!allShots.length){
-    ctx.fillStyle = "rgba(250,249,246,0.3)";
-    ctx.font = "14px Inter";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("No shot data available", W/2, H/2);
+    ctx.fillStyle='rgba(250,249,246,0.3)';
+    ctx.font='14px Inter'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('No shot data available',W/2,H/2);
     return;
   }
 
-  // ── Court geometry ─────────────────────────────────────────────────────────
-  // Raw coords: X=0-100 (baseline→halfcourt), Y=0-100 (sideline→sideline)
-  // Basket at X≈7, Y≈50. Normalise far-end shots: X>50 → 100-X, 100-Y
-  // Canvas: baseline=TOP (y=0), halfcourt=BOTTOM (y=H)
-  // court-Y (width) → canvas-X:  px = courtY/100 * W
-  // court-X (depth) → canvas-Y:  py = courtX/47  * H
+  // ── Court geometry ──────────────────────────────────────────────────────────
+  // X = court depth (0=baseline → 100=halfcourt), basket at X≈7
+  // Y = court width (0=left sideline → 100=right sideline), basket at Y≈50
+  // Shots from far end: normalise via X>50 → 100-X, 100-Y
+  // Canvas: baseline = top (y=0), halfcourt = bottom (y=H)
+  //   court-Y → canvas-X:  cX = Y/100 * W
+  //   court-X → canvas-Y:  cY = X/47  * H
 
-  // All positions in canvas pixels, derived from real data + console verification:
-  // Basket:      canvas (300, 63)   i.e. centred, near top
-  // 3PT arc:     ellipse centred on basket, rx=228, ry=62
-  //              — this makes arc reach Y=72px left, Y=528px right (correct width)
-  //              — arc bottom at Y = 63+214 = 277px (leaves space for top-of-key)
-  // Corner line: vertical at canvas X=72 (left) and X=528 (right)
-  //              from baseline (y=0) down to where arc starts
+  const DEPTH=47;
+  function cX(y){ return y/100*W; }   // court width  → canvas X
+  function cY(x){ return x/DEPTH*H; } // court depth  → canvas Y
 
-  const DEPTH = 47;
-  function px(courtY){ return courtY / 100 * W; }
-  function py(courtX){ return courtX / DEPTH * H; }
+  const BKX=cX(50);   // basket canvas-X (centre)
+  const BKY=cY(7);    // basket canvas-Y (near top)
 
-  // Fixed canvas positions
-  const BKX = px(50);          // basket canvas-X = 300
-  const BKY = py(7);           // basket canvas-Y = 63
-  const ARX  = 228;            // 3PT arc horizontal radius in canvas px
-  const ARY  = 214;            // 3PT arc vertical radius in canvas px (makes arc reach ~277px bottom)
-  const CRN  = 72;             // corner line canvas-X (left) = px(12)
-  const BRK  = 125;  // canvas Y of break point, confirmed from console 
- 
-  // break point Y
-  const paintL = px(35), paintR = px(65), paintB = py(19);
+  // 3PT arc: ellipse centred on basket
+  const ARX=W*0.38;   // horizontal radius (~228px at W=600)
+  const ARY=H*0.465;  // vertical radius   (~214px at H=460)
+  const CRN=cX(12);   // corner-3 line canvas-X (left); mirror = W-CRN
+  const BRK=cY(14);   // break-point canvas-Y: where corner straight meets arc
+                       // also used as paint_low / paint_high divider
 
-  // Arc angles at break points
-  const tL = Math.atan2((BRK - BKY) / ARY, (CRN - BKX) / ARX);
-  const tR = Math.atan2((BRK - BKY) / ARY, (W - CRN - BKX) / ARX);
+  const paintL=cX(35), paintR=cX(65), paintB=cY(19);
 
-  // Sample ellipse arc from angle a to b
-  function arc(a, b, n){
-    n = n || 64;
-    const pts = [];
-    for(let i=0; i<=n; i++){
-      const t = a + (b-a)*(i/n);
-      pts.push([BKX + ARX*Math.cos(t), BKY + ARY*Math.sin(t)]);
+  // Arc angles at the break points (where straight corner line meets arc)
+  const tL=Math.atan2((BRK-BKY)/ARY,(CRN-BKX)/ARX);
+  const tR=Math.atan2((BRK-BKY)/ARY,(W-CRN-BKX)/ARX);
+
+  // Sample ellipse arc from angle a→b, returns [[x,y],…]
+  function arc(a,b,n){
+    n=n||64; const pts=[];
+    for(let i=0;i<=n;i++){
+      const t=a+(b-a)*(i/n);
+      pts.push([BKX+ARX*Math.cos(t), BKY+ARY*Math.sin(t)]);
     }
     return pts;
   }
+  function lineTo(pts){ pts.forEach(([x,y])=>ctx.lineTo(x,y)); }
+  function fillPath(color,fn){
+    ctx.fillStyle=color; ctx.beginPath(); fn(); ctx.closePath(); ctx.fill();
+  }
 
-  // ── Zone classification ────────────────────────────────────────────────────
-  // Corner 3: Y < 12 or Y > 88 (court units)
-  // Wing 3:   Y 12-35 or Y 65-88
-  // Arc top:  Y 35-65
-  // Restricted: distance from basket < 8
-  // Paint:    X < 19, Y 35-65
-  // Midrange: everything else inside arc
-
+  // ── Zone classification ─────────────────────────────────────────────────────
+  // 9 zones (no restricted): paint_low, paint_high, mid_left, mid_right,
+  //   corner3_left, corner3_right, wing3_left, wing3_right, arc3_top
   function getZone(r){
     let x=r.x, y=r.y;
     if(x>50){x=100-x; y=100-y;}
-    const d = Math.sqrt((x-7)**2+(y-50)**2);
     if(r.Action==='3pt'){
       if(y<12) return 'corner3_left';
       if(y>88) return 'corner3_right';
@@ -1655,222 +1646,237 @@ function renderShotChart(db, teamName, canvasId){
       if(y>65) return 'wing3_right';
       return 'arc3_top';
     } else {
-if(x<19&&y>35&&y<65){
-return x<14 ? 'paint_low' : 'paint_high';
-      }
-      if(y<50) return 'mid_left';
-      return 'mid_right';
+      if(x<19&&y>35&&y<65) return x<14?'paint_low':'paint_high';
+      return y<50?'mid_left':'mid_right';
     }
   }
 
-const zKeys=['paint_low','paint_high','mid_left','mid_right',
+  const zKeys=['paint_low','paint_high','mid_left','mid_right',
     'corner3_left','corner3_right','wing3_left','wing3_right','arc3_top'];
   const zones={};
   zKeys.forEach(z=>zones[z]={att:0,made:0});
   allShots.forEach(r=>{
     const z=getZone(r);
-    if(zones[z]){zones[z].att++; if(r.Success===1||r.Success===true) zones[z].made++;}
+    if(zones[z]){zones[z].att++; if(r.Success===1||r.Success===true)zones[z].made++;}
   });
 
- const LAVG={paint_low:60,paint_high:40,mid_left:37,mid_right:36,
-    corner3_left:36,corner3_right:34,wing3_left:36,wing3_right:32,arc3_top:33};
-  function zcol(k,pct,a){
-    const d=pct-(LAVG[k]||38);
-    if(d>5)  return `rgba(34,197,94,${a})`;
-    if(d>0)  return `rgba(134,239,172,${a})`;
-    if(d>-5) return `rgba(245,158,11,${a})`;
-    return `rgba(239,68,68,${a})`;
-  }
-  function zpct(k){ const z=zones[k]; return z&&z.att?Math.round(z.made/z.att*100):0; }
-  function zf(k,a){ return zcol(k,zpct(k),a); }
+  // League-average FG% per zone (BBL reference)
+  const LAVG={paint_low:62,paint_high:46,mid_left:37,mid_right:37,
+    corner3_left:36,corner3_right:36,wing3_left:35,wing3_right:35,arc3_top:33};
 
-  function fill(color, fn){
-    ctx.fillStyle=color; ctx.beginPath(); fn(); ctx.closePath(); ctx.fill();
+  function zoneColor(k,alpha){
+    const z=zones[k]; if(!z||!z.att) return `rgba(60,80,65,${alpha})`;
+    const pct=z.made/z.att*100;
+    const d=pct-(LAVG[k]||37);
+    if(d>5)  return `rgba(34,197,94,${alpha})`;   // hot – green
+    if(d>0)  return `rgba(134,239,172,${alpha})`;  // above avg – light green
+    if(d>-5) return `rgba(245,158,11,${alpha})`;   // near avg – amber
+    return    `rgba(220,60,60,${alpha})`;           // cold – red
   }
-  function lineTo(pts){ pts.forEach(([x,y])=>ctx.lineTo(x,y)); }
 
-  // ── ZONE FILLS ─────────────────────────────────────────────────────────────
+  // ── Zone fills ──────────────────────────────────────────────────────────────
   ctx.save();
 
-  // Corner 3 left: thin strip along left sideline, baseline to break
-  fill(zf('corner3_left',0.4),()=>{
+  // Low paint (baseline → BRK)
+  ctx.fillStyle=zoneColor('paint_low',0.55);
+  ctx.fillRect(paintL,0,paintR-paintL,BRK);
+
+  // High paint (BRK → FT line)
+  ctx.fillStyle=zoneColor('paint_high',0.55);
+  ctx.fillRect(paintL,BRK,paintR-paintL,paintB-BRK);
+
+  // Left midrange: between paint left edge and corner line, above FT line depth
+  fillPath(zoneColor('mid_left',0.45),()=>{
+    ctx.moveTo(paintL,0);
+    ctx.lineTo(CRN,0);
+    ctx.lineTo(CRN,BRK);
+    lineTo(arc(tL,Math.PI*0.59,32).reverse());
+    ctx.lineTo(paintL,paintB);
+  });
+
+  // Right midrange
+  fillPath(zoneColor('mid_right',0.45),()=>{
+    ctx.moveTo(paintR,0);
+    ctx.lineTo(W-CRN,0);
+    ctx.lineTo(W-CRN,BRK);
+    lineTo(arc(Math.PI*0.41,tR,32));
+    ctx.lineTo(paintR,paintB);
+  });
+
+  // Corner 3 left
+  fillPath(zoneColor('corner3_left',0.45),()=>{
     ctx.moveTo(0,0);
     ctx.lineTo(CRN,0);
     ctx.lineTo(CRN,BRK);
-    lineTo(arc(tL, Math.PI, 32).reverse());
+    lineTo(arc(tL,Math.PI,32).reverse());
     ctx.lineTo(0,BKY);
   });
 
   // Corner 3 right
-  fill(zf('corner3_right',0.4),()=>{
+  fillPath(zoneColor('corner3_right',0.45),()=>{
     ctx.moveTo(W,0);
     ctx.lineTo(W-CRN,0);
     ctx.lineTo(W-CRN,BRK);
-    lineTo(arc(0, tR, 32));
+    lineTo(arc(0,tR,32));
     ctx.lineTo(W,BKY);
   });
 
-  // Left wing 3: outside arc, left side, below corner
-  fill(zf('wing3_left',0.4),()=>{
+  // Left wing 3
+  fillPath(zoneColor('wing3_left',0.45),()=>{
     ctx.moveTo(0,BKY);
-    lineTo(arc(Math.PI, tL, 32));
+    lineTo(arc(Math.PI,tL,32));
     ctx.lineTo(CRN,BRK);
     ctx.lineTo(CRN,H);
     ctx.lineTo(0,H);
   });
 
   // Right wing 3
-  fill(zf('wing3_right',0.4),()=>{
+  fillPath(zoneColor('wing3_right',0.45),()=>{
     ctx.moveTo(W,BKY);
-    lineTo(arc(0, tR, 32).reverse());
+    lineTo(arc(0,tR,32).reverse());
     ctx.lineTo(W-CRN,BRK);
     ctx.lineTo(W-CRN,H);
     ctx.lineTo(W,H);
   });
 
-  // Top of arc 3: below arc centre
-  fill(zf('arc3_top',0.4),()=>{
-    lineTo(arc(tL, tR, 64));
+  // Top-of-key arc 3
+  fillPath(zoneColor('arc3_top',0.45),()=>{
+    lineTo(arc(tL,tR,64));
     ctx.lineTo(W-CRN,H);
     ctx.lineTo(CRN,H);
   });
 
-  // Left midrange: left of paint, inside arc
-  fill(zf('mid_left',0.4),()=>{
-    ctx.moveTo(paintL,0);
-    ctx.lineTo(CRN,0);
-    ctx.lineTo(CRN,BRK);
-    lineTo(arc(tL, Math.PI*0.6, 32).reverse());
-    ctx.lineTo(paintL,paintB);
-  });
-
- // Right midrange
-  fill(zf('mid_right',0.4),()=>{
-    ctx.moveTo(paintR,0);
-    ctx.lineTo(W-CRN,0);
-    ctx.lineTo(W-CRN,BRK);
-    lineTo(arc(tR, Math.PI*0.4, 32));
-    ctx.lineTo(paintR,paintB);
-  });
-
-// Low paint (baseline to break point depth)
-  ctx.fillStyle=zf('paint_low',0.45);
-  ctx.fillRect(paintL, 0, paintR-paintL, BRK);
-  // High paint (break point to FT line)
-  ctx.fillStyle=zf('paint_high',0.45);
-  ctx.fillRect(paintL, BRK, paintR-paintL, paintB-BRK);
-
-  // Restricted area (1.22m / 4ft radius semicircle from basket)
-  fill(zf('restricted',0.55),()=>{
-    ctx.arc(BKX, BKY, px(4), 0, Math.PI);
-  });
-
   ctx.restore();
 
-  // ── COURT LINES ─────────────────────────────────────────────────────────────
+  // ── Court lines ─────────────────────────────────────────────────────────────
   ctx.save();
-  ctx.lineWidth=1.5;
+  const LINE   ='rgba(250,249,246,0.35)';
+  const LINEDIM='rgba(250,249,246,0.18)';
 
-  // Baseline
-  ctx.strokeStyle='rgba(250,249,246,0.3)';
-  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(W,0); ctx.stroke();
+  // Baseline & sidelines
+  ctx.strokeStyle=LINE; ctx.lineWidth=1.5;
+  ctx.strokeRect(0,0,W,H);
 
-  // Sidelines
-  ctx.beginPath();
-  ctx.moveTo(0,0); ctx.lineTo(0,H);
-  ctx.moveTo(W,0); ctx.lineTo(W,H);
-  ctx.stroke();
-
-  // Paint
-  ctx.strokeStyle='rgba(250,249,246,0.25)';
+  // Paint box
+  ctx.strokeStyle=LINE; ctx.lineWidth=1.2;
   ctx.strokeRect(paintL,0,paintR-paintL,paintB);
 
-  // FT line
-  ctx.beginPath(); ctx.moveTo(paintL,paintB); ctx.lineTo(paintR,paintB); ctx.stroke();
+  // Paint split line (low/high divider at BRK)
+  ctx.beginPath();
+  ctx.moveTo(paintL,BRK); ctx.lineTo(paintR,BRK);
+  ctx.strokeStyle=LINEDIM; ctx.lineWidth=1; ctx.stroke();
 
-  // FT circle
-  ctx.beginPath(); ctx.strokeStyle='rgba(250,249,246,0.15)';
-  const ftR=px(7.5);
-  const ftRy=py(7.5)*(W/H); // approximate
-  for(let i=0;i<=48;i++){
-    const t=Math.PI*(i/48);
-    i===0?ctx.moveTo(BKX+ftR*Math.cos(t),paintB+ftR*Math.sin(t))
-         :ctx.lineTo(BKX+ftR*Math.cos(t),paintB+ftR*Math.sin(t));
+  // FT semicircle (upper half only, inside paint)
+  ctx.beginPath();
+  const ftR=cX(15)-paintL; // ~15% of width = radius in px
+  for(let i=0;i<=32;i++){
+    const t=Math.PI*(i/32);
+    const fx=BKX+ftR*Math.cos(t), fy=paintB+ftR*Math.sin(t);
+    i===0?ctx.moveTo(fx,fy):ctx.lineTo(fx,fy);
   }
-  ctx.stroke();
+  ctx.strokeStyle=LINEDIM; ctx.lineWidth=1; ctx.stroke();
 
   // Backboard
   ctx.beginPath();
-  ctx.moveTo(px(43),py(4)); ctx.lineTo(px(57),py(4));
-  ctx.strokeStyle='rgba(250,249,246,0.55)'; ctx.lineWidth=2; ctx.stroke();
+  ctx.moveTo(cX(44),cY(4.5)); ctx.lineTo(cX(56),cY(4.5));
+  ctx.strokeStyle='rgba(250,249,246,0.7)'; ctx.lineWidth=2.5; ctx.stroke();
 
   // Basket
   ctx.beginPath();
-  ctx.arc(BKX,BKY,px(1.5),0,Math.PI*2);
-  ctx.strokeStyle='rgba(250,249,246,0.8)'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.arc(BKX,BKY,cX(1.5),0,Math.PI*2);
+  ctx.strokeStyle='rgba(250,249,246,0.85)'; ctx.lineWidth=1.5; ctx.stroke();
 
-  // 3PT left straight line
-  ctx.strokeStyle='rgba(96,200,250,0.5)'; ctx.lineWidth=1.8;
-  ctx.beginPath();
-  ctx.moveTo(CRN,0);
-  ctx.lineTo(CRN,BRK);
-  ctx.stroke();
-
-  // 3PT right straight line
-  ctx.beginPath();
-  ctx.moveTo(W-CRN,0);
-  ctx.lineTo(W-CRN,BRK);
-  ctx.stroke();
+  // 3PT corner straight lines
+  ctx.strokeStyle='rgba(250,249,246,0.45)'; ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.moveTo(CRN,0); ctx.lineTo(CRN,BRK); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W-CRN,0); ctx.lineTo(W-CRN,BRK); ctx.stroke();
 
   // 3PT arc
   ctx.beginPath();
-  arc(tL, tR, 96).forEach(([x,y],i)=> i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));
-  ctx.stroke();
+  arc(tL,tR,96).forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));
+  ctx.strokeStyle='rgba(250,249,246,0.45)'; ctx.lineWidth=1.4; ctx.stroke();
+
+  // Zone divider: midrange left/right split at centreline inside arc
+  // vertical line from paint top to FT line, at centre (BKX), inside arc only
+  ctx.beginPath();
+  ctx.moveTo(BKX,0); ctx.lineTo(BKX,paintB);
+  ctx.strokeStyle=LINEDIM; ctx.lineWidth=1; ctx.setLineDash([4,4]); ctx.stroke();
+  ctx.setLineDash([]);
 
   ctx.restore();
 
-  // ── ZONE LABELS ─────────────────────────────────────────────────────────────
-  function label(k,lx,ly,small){
-    const z=zones[k]; if(!z||!z.att) return;
-    const pct=Math.round(z.made/z.att*100);
+  // ── Zone labels ─────────────────────────────────────────────────────────────
+  function label(k, lx, ly){
+    const z=zones[k]; if(!z) return;
+    const pct = z.att ? Math.round(z.made/z.att*100) : null;
+    // per-game averages
+    const attPG = (z.att/gp).toFixed(1);
+    const madePG= (z.made/gp).toFixed(1);
+
     ctx.save();
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.shadowColor='rgba(0,0,0,0.9)'; ctx.shadowBlur=6;
-    ctx.font=`800 ${small?11:13}px 'Space Grotesk',Inter,sans-serif`;
-    ctx.fillStyle=zcol(k,pct,1);
-    ctx.fillText(pct+'%',lx,ly-8);
-    ctx.font=`400 ${small?9:10}px Inter,sans-serif`;
-    ctx.fillStyle='rgba(250,249,246,0.7)';
-    ctx.fillText(z.made+'/'+z.att,lx,ly+6);
+    ctx.shadowColor='rgba(0,0,0,0.95)'; ctx.shadowBlur=8;
+
+    if(pct!==null){
+      // FG%  — large, colour-coded
+      const col=zoneColor(k,1).replace(/[\d.]+\)$/,'1)');
+      ctx.font='bold 15px Inter,sans-serif';
+      ctx.fillStyle=col;
+      ctx.fillText(pct+'%', lx, ly-9);
+    } else {
+      ctx.font='bold 13px Inter,sans-serif';
+      ctx.fillStyle='rgba(250,249,246,0.3)';
+      ctx.fillText('—', lx, ly-9);
+    }
+
+    // per-game line: "2.1 / 3.8"
+    ctx.font='11px Inter,sans-serif';
+    ctx.fillStyle='rgba(250,249,246,0.75)';
+    ctx.shadowBlur=4;
+    ctx.fillText(madePG+' / '+attPG, lx, ly+8);
+
     ctx.restore();
   }
 
-  label('corner3_left',  CRN/2,        py(7),   true);
-  label('corner3_right', W-CRN/2,      py(7),   true);
-  label('wing3_left',    CRN*0.6,      py(28),  false);
-  label('wing3_right',   W-CRN*0.6,    py(28),  false);
-  label('arc3_top',      BKX,          py(38),  false);
-  label('mid_left',      px(22),       py(11),  false);
-  label('mid_right',     px(78),       py(11),  false);
-label('paint_low',  BKX, py(5),   false);
-  label('paint_high', BKX, py(16), false);
-  label('restricted',    BKX,          BKY+px(8)+10, true);
+  // Zone label positions
+  // Paint zones: centred in their rect halves
+  const paintCX = BKX;
+  label('paint_low',   paintCX,  BRK/2);                     // low paint centre
+  label('paint_high',  paintCX,  BRK+(paintB-BRK)/2);        // high paint centre
 
-  // ── COLOUR KEY ───────────────────────────────────────────────────────────────
-  const key=[
-    {col:'rgba(34,197,94,0.9)',   lbl:'Hot (5%+ above avg)'},
-    {col:'rgba(134,239,172,0.9)', lbl:'Above avg'},
+  // Midrange: shallow zone left/right of paint, near baseline
+  label('mid_left',   (paintL+CRN)/2,        (paintB)/2);
+  label('mid_right',  (paintR+(W-CRN))/2,    (paintB)/2);
+
+  // Corner 3: tight strip along sideline near baseline
+  const cornerMidY = BRK/2;
+  label('corner3_left',  CRN/2,       cornerMidY);
+  label('corner3_right', W-CRN/2,     cornerMidY);
+
+  // Wing 3: big zone outside arc, below corner break
+  const wingArcMid = arc(Math.PI*1.15, Math.PI*1.15, 1)[0]; // leftmost arc point
+  label('wing3_left',  cX(10),  BRK+(H-BRK)*0.42);
+  label('wing3_right', W-cX(10), BRK+(H-BRK)*0.42);
+
+  // Arc 3: big zone below/behind arc
+  label('arc3_top', BKX, BRK+(H-BRK)*0.65);
+
+  // ── Colour key ──────────────────────────────────────────────────────────────
+  const KEY=[
+    {col:'rgba(34,197,94,0.9)',  lbl:'Hot (5%+ above avg)'},
+    {col:'rgba(134,239,172,0.9)',lbl:'Above avg'},
     {col:'rgba(245,158,11,0.9)',  lbl:'Near avg'},
-    {col:'rgba(239,68,68,0.9)',   lbl:'Cold (5%+ below avg)'},
+    {col:'rgba(220,60,60,0.9)',   lbl:'Cold (5%+ below avg)'},
   ];
   ctx.save();
   ctx.font='10px Inter'; ctx.textBaseline='middle';
+  ctx.shadowColor='rgba(0,0,0,0.8)'; ctx.shadowBlur=4;
   let kx=8;
-  key.forEach(k=>{
-    ctx.fillStyle=k.col; ctx.fillRect(kx,H-14,10,10);
-    ctx.fillStyle='rgba(250,249,246,0.6)';
-    ctx.fillText(k.lbl,kx+13,H-9);
-    kx+=ctx.measureText(k.lbl).width+32;
+  KEY.forEach(k=>{
+    ctx.fillStyle=k.col; ctx.fillRect(kx,H-15,10,10);
+    ctx.fillStyle='rgba(250,249,246,0.65)';
+    ctx.fillText(k.lbl, kx+14, H-10);
+    kx+=ctx.measureText(k.lbl).width+34;
   });
   ctx.restore();
 }
