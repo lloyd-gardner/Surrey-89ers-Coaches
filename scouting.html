@@ -1644,11 +1644,10 @@ const ARC_Y_L = 15;
     const dist = Math.sqrt((x-BX)**2+(y-BY)**2);
     if(r.Action==='3pt'){
       // Corner 3: Y inside straight line zone
-      if(y < ARC_Y_L) return 'corner3_left';
+    if(y < ARC_Y_L) return 'corner3_left';
       if(y > ARC_Y_R) return 'corner3_right';
-      // Above break: arc zone
-      if(y < BY) return 'wing3_left';
-      if(y > BY) return 'wing3_right';
+      if(y < 35) return 'wing3_left';
+      if(y > 65) return 'wing3_right';
       return 'arc3_top';
     } else {
       if(dist < 8) return 'restricted';
