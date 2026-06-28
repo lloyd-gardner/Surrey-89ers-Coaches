@@ -1736,14 +1736,11 @@ const _PI=Math.PI;
   ctx.fillRect(cRx,0,W-cRx,cLy);
 
   // 3. Left midrange: between left sideline, paint left edge, and arc
-  fillWithEllipseArc(zf('mid_left',0.4),()=>{
-    ctx.moveTo(cLx,cLy);
-    // Arc from tL going anticlockwise (ccw=true) back to PI (leftmost point)
-    drawEllipseArc(bx,by,arx,ary,tL,_PI,true);
-    // Now at leftmost point of arc (bx-arx, by) = (~138, 77)
-    ctx.lineTo(paintL,by);
+fillWithEllipseArc(zf('mid_left',0.4),()=>{
+    ctx.moveTo(0,0);
     ctx.lineTo(paintL,0);
-    ctx.lineTo(0,0);
+    ctx.lineTo(paintL,paintB);
+    drawEllipseArc(bx,by,arx,ary,_PI,tL,false);
     ctx.lineTo(0,cLy);
   });
 
