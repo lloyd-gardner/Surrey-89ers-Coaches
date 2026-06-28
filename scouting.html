@@ -1698,8 +1698,8 @@ const cLx = cx(14), cRx = cx(86);
     return pts;
   }
 
-function drawEllipseArc(ex,ey,rx,ry,t1,t2,steps,ccw){
-    const pts=ellipsePoints(ex,ey,rx,ry,t1,t2,steps,ccw);
+function drawEllipseArc(ex,ey,rx,ry,t1,t2,ccw){
+    const pts=ellipsePoints(ex,ey,rx,ry,t1,t2,48,ccw);
     pts.forEach(([x,y])=> ctx.lineTo(x,y));
   }
 
