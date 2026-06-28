@@ -2076,17 +2076,29 @@ const shots = teamShots.filter(r => r.Action === '2pt' || r.Action === '3pt');  
     const shots2 = shotTypes.filter(s => !s.label.startsWith('3PT')).sort((a,b) => b.freq - a.freq);
     const shots3 = shotTypes.filter(s =>  s.label.startsWith('3PT')).sort((a,b) => b.freq - a.freq);
 
-    function creationRow(s){
-      const avgPct = s.label.startsWith('3PT') ? 35 : 50;
+   function creationRow(s){
+      const is3 = s.label.startsWith('3PT');
+      const avgPct = is3 ? 35 : 50;
       const col = s.pct >= avgPct ? '#4caf50' : '#ff8a8a';
       const barW = Math.min(100, s.freq * 2);
-      return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
-        <div style="font-size:10px;color:var(--fg);width:100px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.label.replace('3PT ','')}</div>
-        <div style="flex:1;height:5px;background:rgba(250,249,246,0.08);border-radius:2px">
-          <div style="height:5px;width:${barW}%;background:rgba(250,249,246,0.25);border-radius:2px"></div>
+      const name = s.label.replace('3PT ','').replace('Mid-Range J', is3 ? 'Catch & Shoot' : 'Mid-Range J');
+      return `<div style="margin-bottom:7px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+          <div style="font-size:10px;font-weight:600;color:var(--fg)">${name}</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div style="text-align:right">
+              <div style="font-size:8px;color:var(--muted);letter-spacing:0.5px">FREQ</div>
+              <div style="font-size:10px;font-weight:700;color:var(--muted)">${s.freq}%</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:8px;color:var(--muted);letter-spacing:0.5px">FG%</div>
+              <div style="font-size:11px;font-weight:800;color:${col}">${s.pct}%</div>
+            </div>
+          </div>
         </div>
-        <div style="font-size:10px;color:var(--muted);width:28px;text-align:right">${s.freq}%</div>
-        <div style="font-size:11px;font-weight:700;color:${col};width:32px;text-align:right">${s.pct}%</div>
+        <div style="height:4px;background:rgba(250,249,246,0.08);border-radius:2px">
+          <div style="height:4px;width:${barW}%;background:rgba(250,249,246,0.2);border-radius:2px"></div>
+        </div>
       </div>`;
     }
 
