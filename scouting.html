@@ -1600,44 +1600,30 @@ function renderShotChart(db, teamName, canvasId){
   const DEPTH = 47; // court units to show (enough to see top of arc)
   const CX = y => y/100 * W;
   const CY = x => x/DEPTH * H;
-
-  // Key court measurements (from real shot data analysis)
-  const BX = 7,  BY = 50;   // basket court position
-  const R  = 30.76;          // 3PT arc radius in court units
-const STR_Y_L = 0;
+// Key court measurements (from real shot data analysis)
+  const BX = 7,  BY = 50;
+  const R  = 30.76;
+  const STR_Y_L = 0;
   const STR_Y_R = 100;
-const ARC_Y_L = 20.3;
+  const ARC_Y_L = 20.3;
   const ARC_Y_R = 79.7;
-  // Arc reaches: Y_min = BY - R = 19.2, Y_max = BY + R = 80.8
-const BREAK_X = 15;        // depth where straight line meets arc
-  // Arc angle at the transition points (straight line meets arc)
-  // At Y=ARC_Y_L (leftmost arc point), angle = PI (pointing left)
-  // At Y=ARC_Y_R (rightmost arc point), angle = 0 (pointing right)
-  // Arc goes from PI (left) through PI/2 (bottom) to 0 (right)
-const ARC_START = Math.PI;
-  const ARC_END   = 0;
+  const BREAK_X = 15;
 
   // Canvas positions
-  const bx = CX(BY), by_c = CY(BX);  // basket on canvas
+  const arx = R/100 * W;
+  const ary = R/DEPTH * H;
   const bx = CX(BY), by_c = CY(BX);
-  const breakAngleL = Math.atan2((CY(BREAK_X) - by_c) / ary, (CX(ARC_Y_L) - bx) / arx);
-  const breakAngleR = Math.atan2((CY(BREAK_X) - by_c) / ary, (CX(ARC_Y_R) - bx) / arx);
-  // Arc radius in canvas coords (different X/Y scales = ellipse)
-  const arx = R/100 * W;   // arc radius in canvas-X direction
-  const ary = R/DEPTH * H; // arc radius in canvas-Y direction
-
-  // Key Y positions on canvas
-  const strLx = CX(STR_Y_L);    // left straight line canvas-X
-  const strRx = CX(STR_Y_R);    // right straight line canvas-X
-const arcLx  = CX(12);    // left where straight line meets arc
-  const arcRx  = CX(88);    // right where straight line meets arc
-  const breakY  = CY(15);   // canvas-Y of the break point depth
+  const arcLx  = CX(ARC_Y_L);
+  const arcRx  = CX(ARC_Y_R);
+  const breakY  = CY(BREAK_X);
+  const strLx = CX(STR_Y_L);
+  const strRx = CX(STR_Y_R);
   const paintL = CX(35), paintR = CX(65), paintB = CY(19);
-
-  // Arc bottom (deepest point, at PI/2) canvas position
   const arcBottomY = by_c + ary;
 
-  // Sample ellipse arc from angle t1 to t2 (increasing)
+  const breakAngleL = Math.atan2((breakY - by_c) / ary, (arcLx - bx) / arx);
+  const breakAngleR = Math.atan2((breakY - by_c) / ary, (arcRx - bx) / arx);
+
   function arcPoints(t1, t2, steps){
     const pts = [];
     const n = steps || 48;
@@ -1647,7 +1633,6 @@ const arcLx  = CX(12);    // left where straight line meets arc
     }
     return pts;
   }
-
   // ── Zone classification ────────────────────────────────────────────────────
   function normShot(r){
     let x=r.x, y=r.y;
