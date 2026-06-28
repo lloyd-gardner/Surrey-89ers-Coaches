@@ -1727,8 +1727,7 @@ ctx.moveTo(strRx,0);
   fill(zf('wing3_left',0.4),()=>{
     ctx.moveTo(arcLx,0);
     ctx.lineTo(strLx,0);
-    ctx.lineTo(strLx,CY(BX));
-    ctx.lineTo(0,H);
+ctx.lineTo(strLx,breakY);    ctx.lineTo(0,H);
     // Arc from left to bottom
     arcPoints(Math.PI, Math.PI/2, 24).reverse().forEach(([x,y])=>ctx.lineTo(x,y));
     ctx.lineTo(arcLx,by_c);
@@ -1738,8 +1737,8 @@ ctx.moveTo(strRx,0);
   fill(zf('wing3_right',0.4),()=>{
     ctx.moveTo(arcRx,0);
     ctx.lineTo(strRx,0);
-    ctx.lineTo(strRx,CY(BX));
-    ctx.lineTo(W,H);
+ctx.lineTo(strRx,breakY) 
+  ctx.lineTo(W,H);
     arcPoints(0, Math.PI/2, 24).reverse().forEach(([x,y])=>ctx.lineTo(x,y));
     ctx.lineTo(arcRx,by_c);
   });
@@ -1830,16 +1829,16 @@ ctx.moveTo(strRx,0);
 
 // Left straight line (baseline to arc leftmost point — vertical line)
   ctx.beginPath();
-  ctx.moveTo(strLx,0);
-  ctx.lineTo(strLx,by_c);
-  ctx.lineTo(arcLx,by_c);
+ctx.moveTo(strLx,0);
+  ctx.lineTo(strLx,breakY);
+  ctx.lineTo(arcLx,breakY);
   ctx.stroke();
 
   // Right straight line
   ctx.beginPath();
-  ctx.moveTo(strRx,0);
-  ctx.lineTo(strRx,by_c);
-  ctx.lineTo(arcRx,by_c);
+ctx.moveTo(strRx,0);
+  ctx.lineTo(strRx,breakY);
+  ctx.lineTo(arcRx,breakY);
   ctx.stroke();
 
   // Arc (ellipse from left to right passing through bottom)
