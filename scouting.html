@@ -1745,14 +1745,11 @@ fillWithEllipseArc(zf('mid_left',0.4),()=>{
   });
 
   // 4. Right midrange
-  fillWithEllipseArc(zf('mid_right',0.4),()=>{
-    ctx.moveTo(cRx,cLy);
-    // Arc from tR going clockwise (ccw=false) back to 0 (rightmost point)
-    drawEllipseArc(bx,by,arx,ary,tR,0,false);
-    // Now at rightmost point (bx+arx, by)
-    ctx.lineTo(paintR,by);
+fillWithEllipseArc(zf('mid_right',0.4),()=>{
+    ctx.moveTo(W,0);
     ctx.lineTo(paintR,0);
-    ctx.lineTo(W,0);
+    ctx.lineTo(paintR,paintB);
+    drawEllipseArc(bx,by,arx,ary,0,tR,true);
     ctx.lineTo(W,cLy);
   });
 
