@@ -2273,7 +2273,9 @@ const LIVE_TYPES = new Set(['badpass','ballhandling']);
     if(topCombos.length){
       const maxN = topCombos[0][1];
       html += '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">TOP COMBINATIONS</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
       topCombos.forEach(([combo,n]) => { html += comboRow(combo, n, maxN); });
+      html += '</div>';
     }
 
     html += '</div></div>';
