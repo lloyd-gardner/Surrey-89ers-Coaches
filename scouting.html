@@ -1654,7 +1654,7 @@ function renderShotChart(db, teamName, canvasId){
       return 'arc3_top';
     } else {
 if(x<19&&y>35&&y<65){
-        return x<10 ? 'paint_low' : 'paint_high';
+return x<14 ? 'paint_low' : 'paint_high';
       }
       if(y<50) return 'mid_left';
       return 'mid_right';
@@ -1751,13 +1751,12 @@ const zKeys=['paint_low','paint_high','mid_left','mid_right',
     ctx.lineTo(paintR,paintB);
   });
 
-  // Low paint
+// Low paint (baseline to break point depth)
   ctx.fillStyle=zf('paint_low',0.45);
-  ctx.fillRect(paintL, 0, paintR-paintL, py(10));
-
-  // High paint
+  ctx.fillRect(paintL, 0, paintR-paintL, BRK);
+  // High paint (break point to FT line)
   ctx.fillStyle=zf('paint_high',0.45);
-  ctx.fillRect(paintL, py(10), paintR-paintL, paintB-py(10));
+  ctx.fillRect(paintL, BRK, paintR-paintL, paintB-BRK);
 
   // Restricted area
   fill(zf('restricted',0.55),()=>{
@@ -1849,8 +1848,8 @@ const zKeys=['paint_low','paint_high','mid_left','mid_right',
   label('arc3_top',      BKX,          py(38),  false);
   label('mid_left',      px(22),       py(11),  false);
   label('mid_right',     px(78),       py(11),  false);
-label('paint_low',     BKX,          py(5),   false);
-  label('paint_high',    BKX,          py(14),  false);
+label('paint_low',  BKX, py(7)+10,  false);
+  label('paint_high', BKX, BRK+((paintB-BRK)/2), false);
   label('restricted',    BKX,          BKY+px(8)+10, true);
 
   // ── COLOUR KEY ───────────────────────────────────────────────────────────────
