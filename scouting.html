@@ -1760,8 +1760,10 @@ const zKeys=['paint_low','paint_high','mid_left','mid_right',
   ctx.fillStyle=zf('paint_high',0.45);
   ctx.fillRect(paintL, BRK, paintR-paintL, paintB-BRK);
 
-  // Restricted area
+  // Restricted area (1.22m / 4ft radius semicircle from basket)
   fill(zf('restricted',0.55),()=>{
+    ctx.arc(BKX, BKY, px(4), 0, Math.PI);
+  });
 
   ctx.restore();
 
