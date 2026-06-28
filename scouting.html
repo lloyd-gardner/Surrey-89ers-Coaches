@@ -1619,8 +1619,12 @@ function renderShotChart(db, teamName, canvasId){
   const paintL = cx(35), paintR = cx(65), paintB = cy(19);
 
   // Corner 3 lines: depth=14, width at Y=14 and Y=86
-  const cLx = cx(14), cRx = cx(86);
-  const cLy=by+ary*Math.sin(tL);  // canvas-Y where arc meets corner lines (actual intersection)
+const cLx = cx(14), cRx = cx(86);
+  // Calculate tL/tR using corner line depth cy(14) first, then recalculate cLy from arc
+  const _cLy = cy(14);
+  const tL = Math.atan2((_cLy - by) / ary, (cLx - bx) / arx);
+  const tR = Math.atan2((_cLy - by) / ary, (cRx - bx) / arx);
+  const cLy = by + ary * Math.sin(tL);  // actual y where arc meets corner x position
 
   // 3PT arc angles (ellipse parameterisation):
   // We need angles where the ellipse meets the corner lines
