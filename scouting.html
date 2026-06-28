@@ -1667,67 +1667,89 @@ async function renderNextOpponent(){
     ctx.restore();
   }
 
-  // ── ZONE FILLS ────────────────────────────────────────────────────────────
+// ── ZONE FILLS ────────────────────────────────────────────────────────────
   ctx.save();
 
-  // 1. Restricted area
+  // Arc angles: arc opens downward from basket
+  // Left side of arc meets left corner line at angle = PI (pointing left)
+  // Right side meets right corner line at angle = 0 (pointing right)  
+  // Bottom of arc is at angle = PI/2 (pointing down)
+  const angL = Math.acos(Math.min(1,Math.max(-1,(basketX-cornerLx)/r3)));
+  const angR = Math.acos(Math.min(1,Math.max(-1,(cornerRx-basketX)/r3)));
+  const arcStartAngle = Math.PI - angL;  // where arc meets left corner line
+  const arcEndAngle   = angR;            // where arc meets right corner line
+
+  // 1. Restricted area (semicircle near basket opening downward)
   { const p=new Path2D();
-    p.arc(basketX,basketY,8*W/100,0,Math.PI);
+    p.arc(basketX, basketY, 8*W/100, 0, Math.PI);
     p.closePath();
-    fillZone(p, zoneColor('restricted',zonePct('restricted'),0.4)); }
+    fillZone(p, zoneColor('restricted', zonePct('restricted'), 0.4)); }
 
-  // 2. Paint (non-RA)
+  // 2. Paint (rectangle from baseline down to FT line, minus RA handled by draw order)
   { const p=new Path2D();
-    p.rect(paintL,0,paintR-paintL,paintB);
-    fillZone(p, zoneColor('paint',zonePct('paint'),0.3)); }
+    p.rect(paintL, 0, paintR-paintL, paintB);
+    fillZone(p, zoneColor('paint', zonePct('paint'), 0.3)); }
 
-  // 3. Left midrange
+  // 3. Left midrange: left of paint, inside 3PT arc, above arc
   { const p=new Path2D();
-    p.moveTo(0,0); p.lineTo(paintL,0); p.lineTo(paintL,paintB);
-    p.arc(basketX,basketY,r3,Math.PI,Math.PI*1.5,false);
-    p.lineTo(0,0); p.closePath();
-    fillZone(p, zoneColor('mid_left',zonePct('mid_left'),0.3)); }
-
-  // 4. Right midrange
-  { const p=new Path2D();
-    p.moveTo(paintR,0); p.lineTo(W,0); p.lineTo(W,paintB);
-    p.arc(basketX,basketY,r3,Math.PI*2,Math.PI*1.5,true);
-    p.lineTo(paintR,paintB); p.closePath();
-    fillZone(p, zoneColor('mid_right',zonePct('mid_right'),0.3)); }
-
-  // 5. Corner 3 left
-  { const p=new Path2D();
-    p.rect(0,0,cornerLx,cornerLineY);
-    fillZone(p, zoneColor('corner3_left',zonePct('corner3_left'),0.3)); }
-
-  // 6. Corner 3 right
-  { const p=new Path2D();
-    p.rect(cornerRx,0,W-cornerRx,cornerLineY);
-    fillZone(p, zoneColor('corner3_right',zonePct('corner3_right'),0.3)); }
-
-// 7. Left wing 3
-  { const p=new Path2D();
-    p.moveTo(0,cornerLineY); p.lineTo(cornerLx,cornerLineY);
-    p.arc(basketX,basketY,r3,Math.PI,Math.PI*0.5,true);
-    p.lineTo(0,H); p.closePath();
-    fillZone(p, zoneColor('wing3_left',zonePct('wing3_left'),0.3)); }
-
-  // 8. Right wing 3
-  { const p=new Path2D();
-    p.moveTo(cornerRx,cornerLineY); p.lineTo(W,cornerLineY);
-    p.lineTo(W,H);
-    p.arc(basketX,basketY,r3,Math.PI*0.5,0,true);
+    p.moveTo(0, 0);
+    p.lineTo(paintL, 0);
+    p.lineTo(paintL, paintB);
+    p.arc(basketX, basketY, r3, Math.PI, arcStartAngle, true);
+    p.lineTo(0, cornerLineY);
     p.closePath();
-    fillZone(p, zoneColor('wing3_right',zonePct('wing3_right'),0.3)); }
+    fillZone(p, zoneColor('mid_left', zonePct('mid_left'), 0.3)); }
 
-  // 9. Top of arc 3 (below arc, between wings)
+  // 4. Right midrange: right of paint, inside 3PT arc, above arc
   { const p=new Path2D();
-    p.arc(basketX,basketY,r3,Math.PI,0,true);
-    p.lineTo(W,H); p.lineTo(0,H); p.closePath();
-    fillZone(p, zoneColor('arc3_top',zonePct('arc3_top'),0.3)); }
+    p.moveTo(W, 0);
+    p.lineTo(paintR, 0);
+    p.lineTo(paintR, paintB);
+    p.arc(basketX, basketY, r3, arcEndAngle, 0, true);
+    p.lineTo(cornerRx, cornerLineY);
+    p.lineTo(W, cornerLineY);
+    p.closePath();
+    fillZone(p, zoneColor('mid_right', zonePct('mid_right'), 0.3)); }
+
+  // 5. Corner 3 left: top-left rectangle
+  { const p=new Path2D();
+    p.rect(0, 0, cornerLx, cornerLineY);
+    fillZone(p, zoneColor('corner3_left', zonePct('corner3_left'), 0.3)); }
+
+  // 6. Corner 3 right: top-right rectangle
+  { const p=new Path2D();
+    p.rect(cornerRx, 0, W-cornerRx, cornerLineY);
+    fillZone(p, zoneColor('corner3_right', zonePct('corner3_right'), 0.3)); }
+
+  // 7. Left wing 3: outside arc, left side, below corner line
+  { const p=new Path2D();
+    p.moveTo(0, cornerLineY);
+    p.lineTo(cornerLx, cornerLineY);
+    p.arc(basketX, basketY, r3, arcStartAngle, Math.PI/2, false);
+    p.lineTo(0, H);
+    p.closePath();
+    fillZone(p, zoneColor('wing3_left', zonePct('wing3_left'), 0.3)); }
+
+  // 8. Right wing 3: outside arc, right side, below corner line
+  { const p=new Path2D();
+    p.moveTo(cornerRx, cornerLineY);
+    p.lineTo(W, cornerLineY);
+    p.lineTo(W, H);
+    p.arc(basketX, basketY, r3, Math.PI/2, arcEndAngle, false);
+    p.closePath();
+    fillZone(p, zoneColor('wing3_right', zonePct('wing3_right'), 0.3)); }
+
+  // 9. Top of arc 3: below arc, between the two wings
+  { const p=new Path2D();
+    p.arc(basketX, basketY, r3, Math.PI/2, Math.PI/2, false);
+    p.moveTo(basketX, basketY+r3);
+    p.lineTo(W/2, H);
+    p.arc(basketX, basketY, r3, Math.PI/2, arcEndAngle, false);
+    p.arc(basketX, basketY, r3, arcStartAngle, Math.PI/2, false);
+    p.closePath();
+    fillZone(p, zoneColor('arc3_top', zonePct('arc3_top'), 0.3)); }
 
   ctx.restore();
-
   // ── COURT LINES ───────────────────────────────────────────────────────────
   ctx.save();
   ctx.strokeStyle='rgba(250,249,246,0.25)'; ctx.lineWidth=1.5;
