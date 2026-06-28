@@ -2117,15 +2117,12 @@ const oppLower = NEXT_OPP.toLowerCase();
           ${worstShots.map(s => shotPill(s, false)).join('')}
         </div>
       </div>`;
-    }
-
-    html += '</div>';
+    }html += '</div>';
     menuCard.innerHTML = html;
+  })();
 
   // ── Passing & Turnovers ───────────────────────────────────────────────────
   (function renderPassingPanel(){
-    const passingCard = document.getElementById("no-passing-card");
-    if(!passingCard) return;
 
     const oppLower = NEXT_OPP.toLowerCase();
     const teamPbp  = (db.raw.pbp||[]).filter(r => (r.Team||'').toLowerCase() === oppLower);
