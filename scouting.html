@@ -1723,33 +1723,32 @@ function renderShotChart(db, teamName, canvasId){
   ctx.fillStyle=zoneColor('wing3_right',0.5);
   ctx.fillRect(paintR, BRK, W-paintR, H-BRK);
 
-  // 2. Paint mid colour INSIDE the arc on top (elbow / high-wing area)
-  // Left: region between CRN and paintL, below BRK, inside arc
+  // 2. Paint mid colour INSIDE the arc on top (high-wing / elbow area)
+  // Left high-wing: inside arc, between paintL and CRN, below BRK
+  // Shape: top edge = BRK line (CRN→paintL), right edge = paintL vertical down to paintB,
+  //        outer edge = arc from tML→tL (sweeping outward), top-left corner at (CRN, BRK)
   fillClipped(
     zoneColor('mid_left',0.5),
     ()=>{ ctx.rect(CRN, BRK, paintL-CRN, H-BRK); },
     ()=>{
-      // Arc from tL (corner break on left) to tML (lane line on left), then close via paint
-      const pts = arc(tL, tML, 24);
-      ctx.moveTo(pts[0][0], pts[0][1]);
-      pts.forEach(([x,y])=>ctx.lineTo(x,y));
-      ctx.lineTo(paintL, BRK);
+      ctx.moveTo(paintL, BRK);
+      ctx.lineTo(paintL, paintB);
+      arc(tML, tL, 24).forEach(([x,y])=>ctx.lineTo(x,y));
       ctx.lineTo(CRN, BRK);
-      ctx.lineTo(pts[0][0], pts[0][1]);
+      ctx.closePath();
     }
   );
 
-  // Right: region between paintR and W-CRN, below BRK, inside arc
+  // Right high-wing: mirror
   fillClipped(
     zoneColor('mid_right',0.5),
     ()=>{ ctx.rect(paintR, BRK, (W-CRN)-paintR, H-BRK); },
     ()=>{
-      const pts = arc(tMR, tR, 24);
-      ctx.moveTo(pts[0][0], pts[0][1]);
-      pts.forEach(([x,y])=>ctx.lineTo(x,y));
+      ctx.moveTo(paintR, BRK);
+      ctx.lineTo(paintR, paintB);
+      arc(tMR, tR, 24).forEach(([x,y])=>ctx.lineTo(x,y));
       ctx.lineTo(W-CRN, BRK);
-      ctx.lineTo(paintR, BRK);
-      ctx.lineTo(pts[0][0], pts[0][1]);
+      ctx.closePath();
     }
   );
 
