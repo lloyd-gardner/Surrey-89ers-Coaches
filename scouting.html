@@ -1715,20 +1715,43 @@ function renderShotChart(db, teamName, canvasId){
   ctx.fillStyle=zoneColor('mid_right',0.5);      ctx.fillRect(paintR,0, (W-CRN)-paintR,BRK);
   ctx.fillStyle=zoneColor('corner3_right',0.5);  ctx.fillRect(W-CRN, 0, CRN,         BRK);
 
-  // ── ROW 2 OUTER COLUMNS: wing3, full width below BRK ────────────────────────
-  // Draw wing3 first so mid_left/mid_right arc fills paint correctly on top
-
-  // LEFT (0 → paintL), below BRK
+  // ── ROW 2 OUTER COLUMNS: wing3 base + arc-clipped mid inside arc ────────────
+  // 1. Fill full outer columns with wing3 colour
   ctx.fillStyle=zoneColor('wing3_left',0.5);
   ctx.fillRect(0, BRK, paintL, H-BRK);
 
-  // RIGHT (paintR → W), below BRK
   ctx.fillStyle=zoneColor('wing3_right',0.5);
   ctx.fillRect(paintR, BRK, W-paintR, H-BRK);
 
-  // ── ROW 2 MIDRANGE: no separate fill below BRK — wing3 covers full outer column ─
-  // The elbow area (CRN→paintL, below BRK) is visually part of wing3.
-  // Data for mid_left/mid_right already includes those elbow shots.
+  // 2. Paint mid colour INSIDE the arc on top (elbow / high-wing area)
+  // Left: region between CRN and paintL, below BRK, inside arc
+  fillClipped(
+    zoneColor('mid_left',0.5),
+    ()=>{ ctx.rect(CRN, BRK, paintL-CRN, H-BRK); },
+    ()=>{
+      // Arc from tL (corner break on left) to tML (lane line on left), then close via paint
+      const pts = arc(tL, tML, 24);
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      pts.forEach(([x,y])=>ctx.lineTo(x,y));
+      ctx.lineTo(paintL, BRK);
+      ctx.lineTo(CRN, BRK);
+      ctx.lineTo(pts[0][0], pts[0][1]);
+    }
+  );
+
+  // Right: region between paintR and W-CRN, below BRK, inside arc
+  fillClipped(
+    zoneColor('mid_right',0.5),
+    ()=>{ ctx.rect(paintR, BRK, (W-CRN)-paintR, H-BRK); },
+    ()=>{
+      const pts = arc(tMR, tR, 24);
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      pts.forEach(([x,y])=>ctx.lineTo(x,y));
+      ctx.lineTo(W-CRN, BRK);
+      ctx.lineTo(paintR, BRK);
+      ctx.lineTo(pts[0][0], pts[0][1]);
+    }
+  );
 
   // ── ROW 2 CENTRE COLUMN: BRK downward, clipped to inside-arc area ────────────
   // paint_high: BRK → paintB, lane width (pure rect, always inside arc)
@@ -1842,7 +1865,7 @@ function renderShotChart(db, teamName, canvasId){
   // Row 1 (baseline → BRK)
   label('corner3_left',  CRN/2,    BRK*0.6);
   label('mid_left',      colL,     BRK*0.6);
-  label('paint_low',     colC,     BKY+cY(3));   // just below basket
+  label('paint_low',     colC,     BKY+cY(3));
   label('mid_right',     colR,     BRK*0.6);
   label('corner3_right', W-CRN/2,  BRK*0.6);
 
@@ -1851,11 +1874,14 @@ function renderShotChart(db, teamName, canvasId){
   label('mid_centre',    colC,  paintB+(arcNadirY-paintB)/2);
   label('arc3_top',      colC,  arcNadirY+(H-arcNadirY)*0.45);
 
-  // Wings — in the solid sideline strip (0→CRN), midway down the wing zone
-  // The sideline strip is always coloured (arc never reaches it below BRK)
+  // Row 2 wings — label in the outer strip (outside arc), midway down
   const wingMidY = BRK + (H-BRK)*0.5;
-  label('wing3_left',  paintL/2,       wingMidY);
-  label('wing3_right', W - paintL/2,   wingMidY);
+  label('wing3_left',  CRN/2,     wingMidY);
+  label('wing3_right', W-CRN/2,   wingMidY);
+
+  // Row 2 high-wing mid — elbow inside arc, midway down
+  label('mid_left',   colL,  wingMidY);
+  label('mid_right',  colR,  wingMidY);
 }
 
 function drawCourt(){}
