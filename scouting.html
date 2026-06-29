@@ -1535,7 +1535,11 @@ function selectFixture(idx){
   NEXT_OPP = FIXTURES[idx].team;
   renderFixtureSelector();
   fillNextOpponent();
-  delete loaded["player-slides"];
+  if(loaded["player-slides"] && DB){
+    buildSlides(DB, NEXT_OPP);
+  } else {
+    delete loaded["player-slides"];
+  }
 }
 
 
