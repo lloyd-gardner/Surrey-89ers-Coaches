@@ -2940,7 +2940,7 @@ function buildSlides(db,teamName){
     container.innerHTML=`
       <div class="no-print" style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
         <div style="font-size:13px;color:var(--muted)">${allPlayers.length} players · ${fullNameMap[teamName]||teamShort(teamName)}</div>
-        <button class="btn btn-green" onclick="window.print()">🖨️ Print All A3 Landscape</button>
+        <button class="btn btn-green" onclick="printAllSlides()">🖨️ Print All A3 Landscape</button>
         <div style="font-size:11px;color:var(--muted);padding:6px 10px;background:var(--card2);border-radius:6px;border:1px solid var(--border-soft)">
           📁 Photos: upload to <code style="font-size:10px;color:var(--blue)">data/photos/london-lions/firstname_lastname.jpg</code>
         </div>
@@ -2966,7 +2966,7 @@ function buildSlides(db,teamName){
     container.innerHTML=`
       <div class="no-print" style="display:flex;gap:10px;align-items:center;margin-bottom:20px">
         <div style="font-size:13px;color:var(--muted)">${players.length} players (basic data only)</div>
-        <button class="btn btn-green" onclick="window.print()">🖨️ Print All A3</button>
+        <button class="btn btn-green" onclick="printAllSlides()">🖨️ Print All A3</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:20px">
         ${converted.map((p,i)=>slideCard(p,i)).join("")}
@@ -3385,104 +3385,64 @@ var types3 = pbpTypes(shots3,[
 }
 
 
-function printSingleSlide(idx, playerName){
-  const el = document.getElementById("slide-"+idx);
-  if(!el) return;
-
-  const clone = el.cloneNode(true);
-  // Remove buttons from clone
+// ── Shared: apply Surrey brand print styles to a cloned slide DOM node ───────
+function applyPrintStyles(clone){
   clone.querySelectorAll('.slide-buttons,.no-print').forEach(function(b){ b.remove(); });
-  // Apply Surrey brand print styles — recursive DOM walk
-  (function applyPrint(el){
+  (function walk(el){
     var s = el.getAttribute('style')||'';
-
-    // ── 1. Bar fills: preserve colour, skip background reset ─────────────────
     var isBarFill = s.includes('height:100%') && s.includes('width:') &&
                     (s.includes('border-radius:2px')||s.includes('border-radius:3px'));
     if(!isBarFill){
-
-      // ── 2. Specific pill backgrounds ───────────────────────────────────────
       if(s.includes('rgba(0,131,72,0.08)')){
         el.style.background='#fff';
-        el.style.borderTop='1px solid #008348';
-        el.style.borderRight='1px solid #008348';
-        el.style.borderBottom='1px solid #008348';
-        el.style.borderLeft='3px solid #008348';
+        el.style.borderTop='1px solid #008348'; el.style.borderRight='1px solid #008348';
+        el.style.borderBottom='1px solid #008348'; el.style.borderLeft='3px solid #008348';
       } else if(s.includes('rgba(224,85,85,0.06)')){
-        el.style.cssText = el.style.cssText + ';background:#fff!important';
         el.style.background='#fff';
-        el.style.borderTop='1px solid #c0392b';
-        el.style.borderRight='1px solid #c0392b';
-        el.style.borderBottom='1px solid #c0392b';
-        el.style.borderLeft='3px solid #c0392b';
+        el.style.borderTop='1px solid #c0392b'; el.style.borderRight='1px solid #c0392b';
+        el.style.borderBottom='1px solid #c0392b'; el.style.borderLeft='3px solid #c0392b';
       } else if(s.includes('rgba(74,222,128,0.07)')){
         el.style.background='#fff'; el.style.border='1px solid #008348';
       } else if(s.includes('rgba(255,138,138,0.07)')){
         el.style.background='#fff'; el.style.border='1px solid #c0392b';
       } else if(s.includes('rgba(250,249,246,0.06)')||s.includes('rgba(255,255,255,.07)')||s.includes('rgba(255,255,255,0.07)')){
-        // Bar tracks
         el.style.background='#e0e0e0';
       } else if(s.includes('rgba(0,0,0,0.2)')){
-        // HOW TO GUARD rows + shot zone boxes
         el.style.background='#fff'; el.style.border='1px solid #ccc';
       } else if(s.includes('background')){
-        // All other backgrounds → white
         el.style.background='#fff';
-        // Card pills get a grey outline so they're visible
-        if(s.includes('border-radius')){
-          el.style.border='1px solid #ccc';
-        }
+        if(s.includes('border-radius')) el.style.border='1px solid #ccc';
       }
-
-      // ── 3. Borders ─────────────────────────────────────────────────────────
       if(s.includes('var(--border-soft)')) el.style.borderColor='#ddd';
     }
-
-    // ── 4. ALL text → black by default, then restore accents ─────────────────
-    // Set every element's color to #111 regardless of what style it has
     el.style.color = '#111';
-
-    // Now restore meaningful accent colours
     if(s.includes('color:var(--green)')||s.includes('color:#4ade80')) el.style.color='#008348';
     if(s.includes('color:#60c8fa')||s.includes('color:var(--blue)')) el.style.color='#008348';
     if(s.includes('color:var(--amber)')||s.includes('color:#f59e0b')) el.style.color='#b45309';
     if(s.includes('color:#ff8a8a')) el.style.color='#c0392b';
-    if(s.includes('color:var(--muted)')||s.includes('color:rgba(250,249,246,0.4')||
-       s.includes('color:rgba(250,249,246,0.35')) el.style.color='#666';
-    if(s.includes('color:rgba(250,249,246,0.5')||s.includes('color:rgba(250,249,246,0.45')||
-       s.includes('color:rgba(250,249,246,0.55')) el.style.color='#555';
+    if(s.includes('color:var(--muted)')||s.includes('color:rgba(250,249,246,0.4')||s.includes('color:rgba(250,249,246,0.35')) el.style.color='#666';
+    if(s.includes('color:rgba(250,249,246,0.5')||s.includes('color:rgba(250,249,246,0.45')||s.includes('color:rgba(250,249,246,0.55')) el.style.color='#555';
     if(s.includes('color:rgba(250,249,246,0.6')) el.style.color='#444';
-    // STRENGTHS/WEAKNESSES labels
     if(s.includes('color:#4ade80')) el.style.color='#008348';
     if(s.includes('color:#ff8a8a') && s.includes('letter-spacing')) el.style.color='#c0392b';
-
-    // ── 5. Letter-spacing: tighten on small labels only ──────────────────────
     var fsMatch = s.match(/font-size:(\d+)px/);
     var fs = fsMatch ? parseFloat(fsMatch[1]) : 0;
-    if(fs > 0 && fs <= 12 &&
-      (s.includes('letter-spacing:1px')||s.includes('letter-spacing:1.5px')||s.includes('letter-spacing:2px'))){
+    if(fs > 0 && fs <= 12 && (s.includes('letter-spacing:1px')||s.includes('letter-spacing:1.5px')||s.includes('letter-spacing:2px')))
       el.style.letterSpacing = '0.5px';
-    }
-
-    // Remove overflow:hidden that can clip content in print
     if(s.includes('overflow:hidden')) el.style.overflow='visible';
-
-    // Overflow:hidden clips pills in print window
-    if(s.includes('overflow:hidden')) el.style.overflow='visible';
-    Array.from(el.children).forEach(applyPrint);
+    Array.from(el.children).forEach(walk);
   })(clone);
-    // Left panel green border
   var hdr=clone.querySelector('.slide-header');
   if(hdr){hdr.style.background='#fff';hdr.style.borderRight='3px solid #008348';}
-  // Grade badges
   clone.querySelectorAll('.grade-a').forEach(function(e){e.style.background='#fff';e.style.border='2px solid #4ade80';e.style.color='#111';});
   clone.querySelectorAll('.grade-b').forEach(function(e){e.style.background='#fff';e.style.border='2px solid #008348';e.style.color='#111';});
   clone.querySelectorAll('.grade-c').forEach(function(e){e.style.background='#fff';e.style.border='2px solid #f59e0b';e.style.color='#111';});
   clone.querySelectorAll('.grade-d').forEach(function(e){e.style.background='#fff';e.style.border='2px solid #c0392b';e.style.color='#111';});
+}
 
-  // Collect all page CSS
-  // Collect page CSS but skip @media print rules — they'd apply unconditionally in new window
-  const styles = Array.from(document.styleSheets).map(function(ss){
+// ── Shared: collect page CSS, skipping @media print blocks ───────────────────
+function collectPageStyles(){
+  return Array.from(document.styleSheets).map(function(ss){
     try{
       return Array.from(ss.cssRules).map(function(r){
         if(r.type===4 && r.conditionText && r.conditionText.indexOf('print')>=0) return '';
@@ -3490,46 +3450,36 @@ function printSingleSlide(idx, playerName){
       }).join('\n');
     }catch(e){ return ''; }
   }).join('\n');
+}
 
+// ── Shared popup CSS for print window ────────────────────────────────────────
+var SLIDE_PRINT_CSS = [
+  '@page { size: A3 landscape; margin: 0; }',
+  'html, body { margin:0; padding:0; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }',
+  '.slide-card { width:100vw!important; height:100vh!important; max-width:none!important; border-radius:0!important; margin:0!important; display:grid!important; grid-template-columns:280px 1fr!important; overflow:hidden!important; background:#fff!important; page-break-after:always; break-after:page; }',
+  '.slide-header { background:#fff!important; border-right:3px solid #008348!important; }',
+  '.slide-buttons, .no-print { display:none!important; }',
+  '.slide-card, .slide-card * { color:#111!important; }',
+  '.slide-card [style] { background:#fff!important; }',
+].join('\n');
+
+// ── Print a single slide in a popup window ────────────────────────────────────
+function printSingleSlide(idx, playerName){
+  const el = document.getElementById("slide-"+idx);
+  if(!el) return;
+  const clone = el.cloneNode(true);
+  applyPrintStyles(clone);
+  const styles = collectPageStyles();
   const w = window.open('','_blank');
   w.document.write([
     '<!DOCTYPE html><html><head>',
     '<meta charset="UTF-8">',
     '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Space+Grotesk:wght@400;600;700;800;900&display=swap" rel="stylesheet">',
-    '<style>',
-    styles,
-    '@page { size: A3 landscape; margin: 0; }',
-    'html, body {',
-    '  margin: 0; padding: 0;',
-    '  background: #ffffff;',
-    '  -webkit-print-color-adjust: exact;',
-    '  print-color-adjust: exact;',
-    '}',
-    '.slide-card {',
-    '  width: 100vw !important;',
-    '  height: 100vh !important;',
-    '  max-width: none !important;',
-    '  border-radius: 0 !important;',
-    '  margin: 0 !important;',
-    '  display: grid !important;',
-    '  grid-template-columns: 280px 1fr !important;',
-    '  overflow: hidden !important;',
-    '  background: #ffffff !important;',
-    '}',
-    '.slide-header {',
-    '  background: #ffffff !important;',
-    '  border-right: 3px solid #008348 !important;',
-    '}',
-    '.slide-buttons, .no-print { display: none !important; }',
-    /* Blanket: all text black, all backgrounds white */
-    '.slide-card, .slide-card * { color: #111 !important; }',
-    '.slide-card [style] { background: #fff !important; }',
-    '</style>',
+    '<style>', styles, SLIDE_PRINT_CSS, '</style>',
     '</head><body>',
     clone.outerHTML,
     '<scr'+'ipt>',
     'document.fonts.ready.then(function() {',
-    '  // Re-render shot chart in print mode (white bg, outlines + labels only)',
     '  try {',
     '    var dstCanvas = document.querySelector("canvas");',
     '    var op = window.opener;',
@@ -3542,6 +3492,54 @@ function printSingleSlide(idx, playerName){
     '  setTimeout(function() { window.print(); }, 800);',
     '});',
     '<'+'/scr'+'ipt>',
+    '</body></html>'
+  ].join('\n'));
+  w.document.close();
+}
+
+// ── Print ALL slides in one popup window, one A3 page per slide ──────────────
+function printAllSlides(){
+  // Collect all slide-card elements currently rendered in slides-grid
+  const grid = document.getElementById('slides-grid');
+  if(!grid){ alert('No slides loaded — select a team first'); return; }
+  const slideEls = Array.from(grid.querySelectorAll('.slide-card'));
+  if(!slideEls.length){ alert('No slides loaded — select a team first'); return; }
+
+  // Build all clones with print styles applied
+  const clones = slideEls.map(function(el){
+    var c = el.cloneNode(true);
+    applyPrintStyles(c);
+    return c;
+  });
+
+  // Build the script block that re-renders all canvases in print mode
+  var chartScript = [
+    'document.fonts.ready.then(function() {',
+    '  try {',
+    '    var canvases = document.querySelectorAll("canvas");',
+    '    var op = window.opener;',
+    '    if (op && op._playerShotsCache && op.renderPlayerShotChart) {',
+    '      canvases.forEach(function(dst, i) {',
+    '        var shots = op._playerShotsCache[i];',
+    '        var gp    = op._playerGpCache ? op._playerGpCache[i] : 1;',
+    '        if (shots) op.renderPlayerShotChart(shots, null, gp, true, dst);',
+    '      });',
+    '    }',
+    '  } catch(e) {}',
+    '  setTimeout(function() { window.print(); }, 1200);',
+    '});',
+  ].join('\n');
+
+  const styles = collectPageStyles();
+  const w = window.open('','_blank');
+  w.document.write([
+    '<!DOCTYPE html><html><head>',
+    '<meta charset="UTF-8">',
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Space+Grotesk:wght@400;600;700;800;900&display=swap" rel="stylesheet">',
+    '<style>', styles, SLIDE_PRINT_CSS, '</style>',
+    '</head><body>',
+    clones.map(function(c){ return c.outerHTML; }).join('\n'),
+    '<scr'+'ipt>', chartScript, '<'+'/scr'+'ipt>',
     '</body></html>'
   ].join('\n'));
   w.document.close();
