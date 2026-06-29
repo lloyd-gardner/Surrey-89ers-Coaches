@@ -2897,11 +2897,13 @@ function selectSlidesTeam(team){
   buildSlides(DB,team);
 }
 
-function buildSlides(db,teamName){
+async function buildSlides(db,teamName){
   // Use depth chart data if available (has full scouting info)
-  // Otherwise fall back to League Ratings
-  const depthPlayers = DEPTH_CHARTS[teamName];
+  // Try Supabase first (admin portal data), then fall back to hardcoded DEPTH_CHARTS
   const container = document.getElementById("slides-grid");
+  container.innerHTML="<div class='loading-state'><div class='loading-spinner'></div>Loading...</div>";
+  const supabaseDepth = await fetchSupabaseDepthChart(teamName);
+  const depthPlayers = (supabaseDepth && supabaseDepth.length) ? supabaseDepth : (DEPTH_CHARTS[teamName]||null);
 
   // Shared helper: draw shot charts for a list of player objects after DOM settles
   function drawAllPlayerCharts(playerList){
