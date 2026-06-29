@@ -1693,7 +1693,6 @@ function renderShotChart(db, teamName, canvasId){
   // Arc angles at key intersections
   const tML=Math.atan2((paintB-BKY)/ARY,(paintL-BKX)/ARX); // arc ∩ left lane line
   const tMR=Math.atan2((paintB-BKY)/ARY,(paintR-BKX)/ARX); // arc ∩ right lane line
-  console.log('Arc angles (deg): tL=',tL*180/Math.PI,'tR=',tR*180/Math.PI,'tML=',tML*180/Math.PI,'tMR=',tMR*180/Math.PI);
 
   // Helper: clip to a rectangle then fill a colour
   function fillRect2(color,x,y,w,h){
@@ -1728,33 +1727,21 @@ function renderShotChart(db, teamName, canvasId){
   ctx.fillRect(paintR, BRK, W-paintR, H-BRK);
 
   // 2. Paint mid_high colour in elbow zones (inside arc, below BRK)
-  // Left elbow: top = BRK, left = CRN, right = paintL, bottom = arc curve
-  // The arc goes from tL (corner/BRK point) clockwise to tML (paint/paintB point)
-  // In canvas angles: tL ~ 120-150° (upper-left quadrant), tML ~ 100-120°
-  // We need the arc that sweeps DOWNWARD from tL toward tML going through larger angles
-  // Force this by sweeping tL → tML but if tML < tL, add 2π to get the long way round
-  {
-    const start = tL;
-    const end   = tML < tL ? tML + 2*Math.PI : tML;
-    const elbowPts = arc(start, end, 32);
-    fillPath(zoneColor('mid_left_high',0.5), ()=>{
-      ctx.moveTo(CRN, BRK);
-      elbowPts.forEach(([x,y])=>ctx.lineTo(x,y));
-      ctx.lineTo(paintL, BRK);
-    });
-  }
+  // Left elbow: tL=161° → tML=124° (decreasing, clockwise sweep along arc)
+  // Shape: (CRN,BRK) → arc sweep tL→tML → (paintL,BRK) → close
+  fillPath(zoneColor('mid_left_high',0.5), ()=>{
+    ctx.moveTo(CRN, BRK);
+    arc(tL, tML, 32).forEach(([x,y])=>ctx.lineTo(x,y));
+    ctx.lineTo(paintL, BRK);
+  });
 
-  // Right elbow: mirror — tR to tMR
-  {
-    const start = tR;
-    const end   = tMR > tR ? tMR - 2*Math.PI : tMR;
-    const elbowPts = arc(start, end, 32);
-    fillPath(zoneColor('mid_right_high',0.5), ()=>{
-      ctx.moveTo(W-CRN, BRK);
-      elbowPts.forEach(([x,y])=>ctx.lineTo(x,y));
-      ctx.lineTo(paintR, BRK);
-    });
-  }
+  // Right elbow: tR=19° → tMR=56° (increasing, clockwise sweep along arc)
+  // Shape: (W-CRN,BRK) → arc sweep tR→tMR → (paintR,BRK) → close
+  fillPath(zoneColor('mid_right_high',0.5), ()=>{
+    ctx.moveTo(W-CRN, BRK);
+    arc(tR, tMR, 32).forEach(([x,y])=>ctx.lineTo(x,y));
+    ctx.lineTo(paintR, BRK);
+  });
 
   // ── ROW 2 CENTRE COLUMN: BRK downward, clipped to inside-arc area ────────────
   // paint_high: BRK → paintB, lane width (pure rect, always inside arc)
@@ -1877,10 +1864,10 @@ function renderShotChart(db, teamName, canvasId){
   label('mid_centre',    colC,  paintB+(arcNadirY-paintB)/2);
   label('arc3_top',      colC,  arcNadirY+(H-arcNadirY)*0.45);
 
-  // Row 2 wings — label in outer strip (outside arc), midway down
+  // Row 2 wings — label in full outer column (0→paintL), midway down
   const wingMidY = BRK + (H-BRK)*0.5;
-  label('wing3_left',    CRN/2,   wingMidY);
-  label('wing3_right',   W-CRN/2, wingMidY);
+  label('wing3_left',    paintL/2,       wingMidY);
+  label('wing3_right',   W - paintL/2,   wingMidY);
 
   // Row 2 elbow (inside arc), midway down
   label('mid_left_high',  colL, wingMidY);
