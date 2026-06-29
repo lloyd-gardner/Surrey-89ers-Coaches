@@ -557,7 +557,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
     <!-- ── PLAYER SLIDES ── -->
     <div class="section-view" id="section-player-slides">
       <div class="page-header"><div class="page-title">Player Slides</div><div class="page-sub">Select team · Print A3 for locker room</div></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px" id="slides-team-btns"></div>
       <div id="slides-grid"><div class="loading-state"><div class="loading-spinner"></div></div></div>
     </div>
 
@@ -2882,15 +2881,7 @@ let slidesTeam=NEXT_OPP;
 
 async function renderSlides(){
   const db=await loadData();
-  // Resolve slidesTeam lazily — NEXT_OPP may not have been set at declaration time
-  if(!slidesTeam || !db.teamAgg[slidesTeam]){
-    slidesTeam = NEXT_OPP || Object.keys(db.teamAgg)[0] || '';
-  }
-  const teams=Object.keys(db.teamAgg).sort();
-  document.getElementById("slides-team-btns").innerHTML=teams.map(t=>`
-    <button class="btn ${t===slidesTeam?"btn-green":""} no-print"
-      data-team="${t}" onclick="selectSlidesTeam('${t}')">${teamShort(t)}</button>`).join("");
-  buildSlides(db,slidesTeam);
+  buildSlides(db, NEXT_OPP || Object.keys(db.teamAgg)[0] || '');
 }
 
 function selectSlidesTeam(team){
