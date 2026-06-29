@@ -1726,10 +1726,9 @@ function renderShotChart(db, teamName, canvasId){
   ctx.fillStyle=zoneColor('wing3_right',0.5);
   ctx.fillRect(paintR, BRK, W-paintR, H-BRK);
 
-  // ── ROW 2 MIDRANGE: no separate fill needed below BRK in mid columns ────────────
-  // wing3 already covers 0→paintL and paintR→W below BRK.
-  // The inside-arc centre zones (paint_high, mid_centre, arc3_top) paint on top.
-  // mid_left / mid_right colouring only applies in row 1 (above BRK).
+  // ── ROW 2 MIDRANGE: no separate fill below BRK — wing3 covers full outer column ─
+  // The elbow area (CRN→paintL, below BRK) is visually part of wing3.
+  // Data for mid_left/mid_right already includes those elbow shots.
 
   // ── ROW 2 CENTRE COLUMN: BRK downward, clipped to inside-arc area ────────────
   // paint_high: BRK → paintB, lane width (pure rect, always inside arc)
