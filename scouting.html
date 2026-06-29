@@ -2147,8 +2147,7 @@ async function fillNextOpponent(){
   if(tr&&tr.Grade) document.getElementById("no-grade").textContent=tr.Grade;
 
   // Last 5 — sort by date so we get the most recent 5 games regardless of sheet order
-  const last5=[...t.games].sort((a,b)=>new Date(b.Date)-new Date(a.Date)).slice(0,5).reverse();
-  document.getElementById("no-last5").innerHTML=last5.map(g=>
+const last5=[...t.games].sort((a,b)=>new Date(b.Date)-new Date(a.Date)).slice(0,5);  document.getElementById("no-last5").innerHTML=last5.map(g=>
     `<div class="l5-dot ${g.Result==="WIN"?"l5-w":"l5-l"}">${g.Result==="WIN"?"W":"L"}</div>`
   ).join("");
 
