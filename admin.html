@@ -293,14 +293,20 @@ async function init(){
   dbTeams.forEach(t=>{teamIdByName[t.name]=t.id;});
   // For each TEAMS entry, find best DB match if exact name not found
   // Match by checking if any significant word from the config name appears in the DB name (case-insensitive)
+// Hardcoded DB name overrides where the DB name differs from config
+  const dbNameOverrides = {
+    "Manchester Basketball": "Manchester Giants",
+  };
   TEAMS.forEach(t=>{
-    if(teamIdByName[t.name]) return; // exact match already found
+    if(teamIdByName[t.name]) return; // exact match found
+    // Try hardcoded override first
+    const override = dbNameOverrides[t.name];
+    if(override && teamIdByName[override]){ teamIdByName[t.name]=teamIdByName[override]; return; }
+    // Fall back to fuzzy word match
     const words = t.name.toLowerCase().split(/\s+/).filter(w=>w.length>3);
     for(const dbT of dbTeams){
-      const dbLow = dbT.name.toLowerCase();
-      if(words.some(w=>dbLow.includes(w))){
+      if(words.some(w=>dbT.name.toLowerCase().includes(w))){
         teamIdByName[t.name]=dbT.id;
-        console.log(`Matched "${t.name}" to DB team "${dbT.name}"`);
         break;
       }
     }
