@@ -1636,8 +1636,8 @@ function renderShotChart(db, teamName, canvasId){
   }
 
   // ── Zone classification ─────────────────────────────────────────────────────
-  // 10 zones: paint_low, paint_high, mid_left, mid_right, mid_centre,
-  //   corner3_left, corner3_right, wing3_left, wing3_right, arc3_top
+  // 12 zones: paint_low, paint_high, mid_left_low, mid_left_high, mid_right_low, mid_right_high,
+  //   mid_centre, corner3_left, corner3_right, wing3_left, wing3_right, arc3_top
   function getZone(r){
     let x=r.x, y=r.y;
     if(x>50){x=100-x; y=100-y;}
@@ -1649,13 +1649,15 @@ function renderShotChart(db, teamName, canvasId){
       return 'arc3_top';
     } else {
       if(x<19&&y>35&&y<65) return x<14?'paint_low':'paint_high';
-      // mid_centre: above FT line, between paint edges, inside arc
       if(x>=19&&x<28&&y>35&&y<65) return 'mid_centre';
-      return y<50?'mid_left':'mid_right';
+      // BRK ≈ court-X 14 — split mid into baseline (low) and elbow (high)
+      if(y<50) return x<14?'mid_left_low':'mid_left_high';
+      return x<14?'mid_right_low':'mid_right_high';
     }
   }
 
-  const zKeys=['paint_low','paint_high','mid_left','mid_right','mid_centre',
+  const zKeys=['paint_low','paint_high',
+    'mid_left_low','mid_left_high','mid_right_low','mid_right_high','mid_centre',
     'corner3_left','corner3_right','wing3_left','wing3_right','arc3_top'];
   const zones={};
   zKeys.forEach(z=>zones[z]={att:0,made:0});
@@ -1665,7 +1667,8 @@ function renderShotChart(db, teamName, canvasId){
   });
 
   // League-average FG% per zone (BBL reference)
-  const LAVG={paint_low:62,paint_high:46,mid_left:37,mid_right:37,mid_centre:40,
+  const LAVG={paint_low:62,paint_high:46,
+    mid_left_low:37,mid_left_high:37,mid_right_low:37,mid_right_high:37,mid_centre:40,
     corner3_left:36,corner3_right:36,wing3_left:35,wing3_right:35,arc3_top:33};
 
   function zoneColor(k,alpha){
@@ -1709,11 +1712,11 @@ function renderShotChart(db, teamName, canvasId){
 
   // ── ROW 1: full-width rectangles from baseline (y=0) to BRK ─────────────────
   // Simple rects — no arc involved in row 1
-  ctx.fillStyle=zoneColor('corner3_left',0.5);  ctx.fillRect(0,     0, CRN,         BRK);
-  ctx.fillStyle=zoneColor('mid_left',0.5);       ctx.fillRect(CRN,   0, paintL-CRN,  BRK);
-  ctx.fillStyle=zoneColor('paint_low',0.6);      ctx.fillRect(paintL,0, paintR-paintL,BRK);
-  ctx.fillStyle=zoneColor('mid_right',0.5);      ctx.fillRect(paintR,0, (W-CRN)-paintR,BRK);
-  ctx.fillStyle=zoneColor('corner3_right',0.5);  ctx.fillRect(W-CRN, 0, CRN,         BRK);
+  ctx.fillStyle=zoneColor('corner3_left',0.5);   ctx.fillRect(0,     0, CRN,              BRK);
+  ctx.fillStyle=zoneColor('mid_left_low',0.5);   ctx.fillRect(CRN,   0, paintL-CRN,       BRK);
+  ctx.fillStyle=zoneColor('paint_low',0.6);       ctx.fillRect(paintL,0, paintR-paintL,    BRK);
+  ctx.fillStyle=zoneColor('mid_right_low',0.5);  ctx.fillRect(paintR,0, (W-CRN)-paintR,   BRK);
+  ctx.fillStyle=zoneColor('corner3_right',0.5);  ctx.fillRect(W-CRN, 0, CRN,              BRK);
 
   // ── ROW 2 OUTER COLUMNS: wing3 base + arc-clipped mid inside arc ────────────
   // 1. Fill full outer columns with wing3 colour
@@ -1727,7 +1730,7 @@ function renderShotChart(db, teamName, canvasId){
   // Left elbow: bounded by BRK (top), paintL (right), arc (outer/bottom edge)
   // Trace: (CRN,BRK) → arc tL→tML → (paintL,paintB) → (paintL,BRK) → close
   fillClipped(
-    zoneColor('mid_left',0.5),
+    zoneColor('mid_left_high',0.5),
     ()=>{ ctx.rect(CRN, BRK, paintL-CRN, H-BRK); },
     ()=>{
       ctx.moveTo(CRN, BRK);
@@ -1737,9 +1740,9 @@ function renderShotChart(db, teamName, canvasId){
     }
   );
 
-  // Right elbow: mirror — (W-CRN,BRK) → arc tR→tMR → (paintR,paintB) → (paintR,BRK) → close
+  // Right elbow: mirror
   fillClipped(
-    zoneColor('mid_right',0.5),
+    zoneColor('mid_right_high',0.5),
     ()=>{ ctx.rect(paintR, BRK, (W-CRN)-paintR, H-BRK); },
     ()=>{
       ctx.moveTo(W-CRN, BRK);
@@ -1858,9 +1861,11 @@ function renderShotChart(db, teamName, canvasId){
 
   const colL=(CRN+paintL)/2, colC=BKX, colR=(paintR+(W-CRN))/2;
 
-  // Row 1 (baseline → BRK) — corner3 and paint only; mid shown in elbow below
+  // Row 1 (baseline → BRK)
   label('corner3_left',  CRN/2,    BRK*0.6);
+  label('mid_left_low',  colL,     BRK*0.6);
   label('paint_low',     colC,     BKY+cY(3));
+  label('mid_right_low', colR,     BRK*0.6);
   label('corner3_right', W-CRN/2,  BRK*0.6);
 
   // Row 2 centre column
@@ -1868,14 +1873,14 @@ function renderShotChart(db, teamName, canvasId){
   label('mid_centre',    colC,  paintB+(arcNadirY-paintB)/2);
   label('arc3_top',      colC,  arcNadirY+(H-arcNadirY)*0.45);
 
-  // Row 2 wings — label in the outer strip (outside arc), midway down
+  // Row 2 wings — label in outer strip (outside arc), midway down
   const wingMidY = BRK + (H-BRK)*0.5;
-  label('wing3_left',  CRN/2,     wingMidY);
-  label('wing3_right', W-CRN/2,   wingMidY);
+  label('wing3_left',    CRN/2,   wingMidY);
+  label('wing3_right',   W-CRN/2, wingMidY);
 
-  // Row 2 high-wing mid — elbow inside arc, midway down
-  label('mid_left',   colL,  wingMidY);
-  label('mid_right',  colR,  wingMidY);
+  // Row 2 elbow (inside arc), midway down
+  label('mid_left_high',  colL, wingMidY);
+  label('mid_right_high', colR, wingMidY);
 }
 
 function drawCourt(){}
