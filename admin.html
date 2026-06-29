@@ -290,6 +290,20 @@ async function init(){
   const dbTeams=await sbGet("slb_teams?select=id,name");
   const teamIdByName={};
   dbTeams.forEach(t=>{teamIdByName[t.name]=t.id;});
+  // Alias variants that may differ between DB and TEAMS config
+  const aliases={
+    "Manchester Basketball": ["Manchester"],
+    "Sheffield Sharks":      ["Sheffield","B. Braun Sheffield Sharks"],
+    "Caledonia Gladiators":  ["Caledonia"],
+    "Surrey 89ers":          ["Surrey"],
+  };
+  Object.entries(aliases).forEach(([canonical, variants])=>{
+    if(!teamIdByName[canonical]){
+      for(const v of variants){
+        if(teamIdByName[v]){ teamIdByName[canonical]=teamIdByName[v]; break; }
+      }
+    }
+  });
   const bar=document.getElementById("team-bar");
 const urlTeam=new URLSearchParams(window.location.search).get("team");
   let autoBtn=null, autoTeam=null;
