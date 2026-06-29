@@ -620,24 +620,27 @@ const SEASON_LABEL  = "2024-25";
 async function fetchSupabaseDepthChart(teamCaps) {
   try {
     // Resolve canonical team name from caps
-    const canonicalMap = {
-      "SURREY 89ERS":              "Surrey 89ers",
-      "LONDON LIONS":              "London Lions",
-      "BRISTOL FLYERS":            "Bristol Flyers",
-      "NEWCASTLE EAGLES":          "Newcastle Eagles",
-      "LEICESTER RIDERS":          "Leicester Riders",
-      "MANCHESTER BASKETBALL":     "Manchester Basketball",
-      "B. BRAUN SHEFFIELD SHARKS": "Sheffield Sharks",
-      "CHESHIRE PHOENIX":          "Cheshire Phoenix",
-      "CALEDONIA GLADIATORS":      "Caledonia Gladiators",
+const canonicalMap = {
+      "SURREY 89ERS":              ["Surrey 89ers"],
+      "LONDON LIONS":              ["London Lions"],
+      "BRISTOL FLYERS":            ["Bristol Flyers"],
+      "NEWCASTLE EAGLES":          ["Newcastle Eagles"],
+      "LEICESTER RIDERS":          ["Leicester Riders"],
+      "MANCHESTER BASKETBALL":     ["Manchester Basketball", "Manchester"],
+      "B. BRAUN SHEFFIELD SHARKS": ["Sheffield Sharks", "Sheffield"],
+      "CHESHIRE PHOENIX":          ["Cheshire Phoenix", "Cheshire"],
+      "CALEDONIA GLADIATORS":      ["Caledonia Gladiators", "Caledonia"],
     };
-    const teamName = canonicalMap[teamCaps];
-    if (!teamName) return null;
+    const nameVariants = canonicalMap[teamCaps];
+    if (!nameVariants) return null;
 
-    // Get team id
-    const teams = await sbFetch(`slb_teams?name=eq.${encodeURIComponent(teamName)}&select=id`);
-    if (!teams.length) return null;
-    const teamId = teams[0].id;
+    // Try each name variant until we find a match in slb_teams
+    let teamId = null;
+    for (const teamName of nameVariants) {
+      const teams = await sbFetch(`slb_teams?name=eq.${encodeURIComponent(teamName)}&select=id`);
+      if (teams.length) { teamId = teams[0].id; break; }
+    }
+    if (!teamId) return null;
 
     // Get season id
     const seasons = await sbFetch(`slb_seasons?label=eq.2024-25&select=id`);
