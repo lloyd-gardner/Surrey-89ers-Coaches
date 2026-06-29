@@ -2109,7 +2109,29 @@ async function fillNextOpponent(){
   const db = DB || await loadData();
   const t = db.teamAgg[NEXT_OPP];
   const fixture = FIXTURES[ACTIVE_FIXTURE];
-  if(!t){ document.getElementById("no-content").innerHTML="<div class='loading-state'>Team not found — check FIXTURES config</div>"; return; }
+
+  // Always update header elements regardless of whether team has stats data
+  const fullName = fullNameMap[NEXT_OPP] || teamShort(NEXT_OPP);
+  document.getElementById("no-name").textContent = fullName;
+  const notesEl = document.getElementById("no-notes-label");
+  if(notesEl) notesEl.textContent = fixture?.notes || fixture?.competition || "";
+  const venueLabel = fixture?.venue === "Home" ? `🏠 Home · ${fixture.location||"Surrey Sports Park"}` : `✈️ Away · ${fixture?.location||""}`;
+  document.getElementById("no-meta").textContent=`${fixture?.date||""} · ${venueLabel}`;
+  const rsCode = fixture?.rawNotes ? fixture.rawNotes.toUpperCase() : (fixture?.competition||"");
+  document.getElementById("no-title").textContent = rsCode || `vs ${teamShort(NEXT_OPP)}`;
+  document.getElementById("no-sub").textContent=`${fixture?.competition||""} · ${fixture?.date||""}`;
+  const logoEl = document.getElementById("no-team-logo");
+  const logoSrc = LOGOS[NEXT_OPP];
+  if(logoEl && logoSrc){ logoEl.src=logoSrc; logoEl.style.display="block"; logoEl.style.background="#fff"; logoEl.style.borderRadius="12px"; logoEl.style.padding="6px"; logoEl.style.width="64px"; logoEl.style.height="64px"; logoEl.style.objectFit="contain"; }
+  else if(logoEl){ logoEl.style.display="none"; }
+
+  if(!t){
+    document.getElementById("no-record").textContent="";
+    document.getElementById("no-pos").textContent="";
+    document.getElementById("no-last5").innerHTML="";
+    document.getElementById("no-content").innerHTML="<div class='loading-state'>No stats data for "+fullName+" yet — add game rows to the spreadsheet</div>";
+    return;
+  }
 
   const total=Object.keys(db.teamAgg).length;
   const teams=Object.values(db.teamAgg).sort((a,b)=>b.winPct-a.winPct);
@@ -2118,37 +2140,14 @@ async function fillNextOpponent(){
   const defR=getRanks(db.teamAgg,"defrtg",true);
   const efgR=getRanks(db.teamAgg,"efg");
 
-  // Header
-  document.getElementById("no-name").textContent = fullNameMap[NEXT_OPP] || teamShort(NEXT_OPP);
-  // Show RS2 style label under name
-  const notesEl = document.getElementById("no-notes-label");
-  if(notesEl) notesEl.textContent = fixture.notes || fixture.competition || "";
-  const venueLabel = fixture.venue === "Home" ? `🏠 Home · ${fixture.location||"Surrey Sports Park"}` : `✈️ Away · ${fixture.location||""}`;
-  document.getElementById("no-meta").textContent=`${fixture.date} · ${venueLabel}`;
-  // Show just the round code (RS2 etc) as the page title
-  const rsCode = fixture.rawNotes ? fixture.rawNotes.toUpperCase() : (fixture.competition||"");
-  document.getElementById("no-title").textContent = rsCode || `vs ${teamShort(NEXT_OPP)}`;
-  document.getElementById("no-sub").textContent=`${fixture.competition} · ${fixture.date}`;
-  // Team logo
-  const logoEl = document.getElementById("no-team-logo");
-  const logoSrc = LOGOS[NEXT_OPP];
-  if(logoEl && logoSrc){
-    logoEl.src=logoSrc;
-    logoEl.style.display="block";
-    logoEl.style.background="#fff";
-    logoEl.style.borderRadius="12px";
-    logoEl.style.padding="6px";
-    logoEl.style.width="64px";
-    logoEl.style.height="64px";
-    logoEl.style.objectFit="contain";
-  } else if(logoEl){ logoEl.style.display="none"; }
   document.getElementById("no-record").textContent=`${t.w}-${t.l}`;
   document.getElementById("no-pos").textContent=`#${pos} in league`;
   const tr=db.tr.find(r=>r.TEAM===NEXT_OPP);
   if(tr&&tr.Grade) document.getElementById("no-grade").textContent=tr.Grade;
 
   // Last 5 — sort by date so we get the most recent 5 games regardless of sheet order
-const last5=[...t.games].sort((a,b)=>new Date(b.Date)-new Date(a.Date)).slice(0,5);  document.getElementById("no-last5").innerHTML=last5.map(g=>
+  const last5=[...t.games].sort((a,b)=>new Date(b.Date)-new Date(a.Date)).slice(0,5);
+  document.getElementById("no-last5").innerHTML=last5.map(g=>
     `<div class="l5-dot ${g.Result==="WIN"?"l5-w":"l5-l"}">${g.Result==="WIN"?"W":"L"}</div>`
   ).join("");
 
@@ -3188,11 +3187,10 @@ var types3 = pbpTypes(shots3,[
     : '<div style="color:var(--muted);font-size:10px">No assist data</div>');
 
   var surreyLogo = '';
-  var teamLogoSrc = LOGOS[slidesTeam]||'';
-  var logoSrc = teamLogoSrc || LOGOS['SURREY 89ERS'] || '';
-  if(logoSrc){
+  var teamLogoSrc = LOGOS[teamName]||'';
+  if(teamLogoSrc){
     surreyLogo='<div style="width:56px;height:56px;background:#fff;border-radius:8px;padding:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'
-      +'<img src="'+logoSrc+'" style="width:48px;height:48px;object-fit:contain"></div>';
+      +'<img src="'+teamLogoSrc+'" style="width:48px;height:48px;object-fit:contain"></div>';
   }
 
 
@@ -3671,11 +3669,6 @@ function openPosterWindow(p, playerName, doPrint){
     {v:fmtN(p.fbp),         l:"FBK"},
     {v:fmtN(p.pip),         l:"PIP"},
   ];
-
-const teamLogoSrc = LOGOS[teamName]||"";
-  const logoHTML = teamLogoSrc
-    ? `<div style="width:60px;height:60px;background:#fff;border-radius:8px;padding:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><img src="${teamLogoSrc}" style="width:52px;height:52px;object-fit:contain"></div>`
-    : "";
 
   // Shot zones
   const zones = [
