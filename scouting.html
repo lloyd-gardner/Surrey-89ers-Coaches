@@ -1904,6 +1904,215 @@ label('mid_right_high', W - (CRN + (paintL-CRN)*0.55),   elbowY);
 
 function drawCourt(){}
 
+// ── Player shot chart — same geometry as renderShotChart, but takes a pre-filtered shot array ──
+function renderPlayerShotChart(playerShots, canvasId, gp){
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // Background
+  ctx.fillStyle='#0d1f13';
+  ctx.fillRect(0,0,W,H);
+
+  if(!playerShots || !playerShots.length){
+    ctx.fillStyle='rgba(250,249,246,0.25)';
+    ctx.font='bold 11px Inter,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('No shot data', W/2, H/2);
+    return;
+  }
+
+  const numGP = gp || 1;
+
+  // Court geometry — identical to renderShotChart
+  const DEPTH=47;
+  function cX(y){ return y/100*W; }
+  function cY(x){ return x/DEPTH*H; }
+
+  const BKX=cX(50), BKY=cY(7);
+  const ARX=W*0.401, ARY=H*0.465;
+  const CRN=cX(12), BRK=cY(14);
+  const paintL=cX(35), paintR=cX(65), paintB=cY(19);
+
+  const tL=Math.atan2((BRK-BKY)/ARY,(CRN-BKX)/ARX);
+  const tR=Math.atan2((BRK-BKY)/ARY,(W-CRN-BKX)/ARX);
+  const tML=Math.acos((paintL-BKX)/ARX);
+  const tMR=Math.acos((paintR-BKX)/ARX);
+
+  function arc(a,b,n){
+    n=n||64; const pts=[];
+    for(let i=0;i<=n;i++){
+      const t=a+(b-a)*(i/n);
+      pts.push([BKX+ARX*Math.cos(t), BKY+ARY*Math.sin(t)]);
+    }
+    return pts;
+  }
+  function fillPath(color,fn){
+    ctx.fillStyle=color; ctx.beginPath(); fn(); ctx.closePath(); ctx.fill();
+  }
+  function fillClipped(color,clipFn,fillFn){
+    ctx.save();
+    ctx.beginPath(); clipFn(); ctx.clip();
+    ctx.fillStyle=color; ctx.beginPath(); fillFn(); ctx.fill();
+    ctx.restore();
+  }
+
+  // Zone classification — identical to renderShotChart
+  function getZone(r){
+    let x=r.x, y=r.y;
+    if(x>50){x=100-x; y=100-y;}
+    if(r.Action==='3pt'){
+      if(y<12) return 'corner3_left';
+      if(y>88) return 'corner3_right';
+      if(y<35) return 'wing3_left';
+      if(y>65) return 'wing3_right';
+      return 'arc3_top';
+    } else {
+      if(x<19&&y>35&&y<65) return x<14?'paint_low':'paint_high';
+      if(x>=19&&x<28&&y>35&&y<65) return 'mid_centre';
+      if(y<50) return x<14?'mid_left_high':'mid_left_low';
+      return x<14?'mid_right_high':'mid_right_low';
+    }
+  }
+
+  const zKeys=['paint_low','paint_high',
+    'mid_left_low','mid_left_high','mid_right_low','mid_right_high','mid_centre',
+    'corner3_left','corner3_right','wing3_left','wing3_right','arc3_top'];
+  const zones={};
+  zKeys.forEach(z=>zones[z]={att:0,made:0});
+  playerShots.forEach(r=>{
+    const z=getZone(r);
+    if(zones[z]){zones[z].att++; if(r.Success===1||r.Success===true||String(r.Success)==='1')zones[z].made++;}
+  });
+
+  const LAVG={paint_low:62,paint_high:46,
+    mid_left_low:37,mid_left_high:37,mid_right_low:37,mid_right_high:37,mid_centre:40,
+    corner3_left:36,corner3_right:36,wing3_left:35,wing3_right:35,arc3_top:33};
+
+  function zoneColor(k,alpha){
+    const z=zones[k]; if(!z||!z.att) return `rgba(60,80,65,${alpha})`;
+    const pct=z.made/z.att*100;
+    const d=pct-(LAVG[k]||37);
+    if(d>5)  return `rgba(34,197,94,${alpha})`;
+    if(d>0)  return `rgba(134,239,172,${alpha})`;
+    if(d>-5) return `rgba(245,158,11,${alpha})`;
+    return    `rgba(220,60,60,${alpha})`;
+  }
+
+  // Zone fills — identical layout to renderShotChart
+  ctx.fillStyle=zoneColor('corner3_left',0.5);   ctx.fillRect(0,     0, CRN,           BRK);
+  ctx.fillStyle=zoneColor('mid_left_low',0.5);   ctx.fillRect(CRN,   0, paintL-CRN,    BRK);
+  ctx.fillStyle=zoneColor('paint_low',0.6);       ctx.fillRect(paintL,0, paintR-paintL, BRK);
+  ctx.fillStyle=zoneColor('mid_right_low',0.5);  ctx.fillRect(paintR,0, (W-CRN)-paintR,BRK);
+  ctx.fillStyle=zoneColor('corner3_right',0.5);  ctx.fillRect(W-CRN, 0, CRN,           BRK);
+
+  ctx.fillStyle=zoneColor('wing3_left',0.5);  ctx.fillRect(0,     BRK, paintL,    H-BRK);
+  ctx.fillStyle=zoneColor('wing3_right',0.5); ctx.fillRect(paintR,BRK, W-paintR,  H-BRK);
+
+  fillPath(zoneColor('mid_left_high',0.5), ()=>{
+    ctx.moveTo(CRN, BRK);
+    arc(tL, tML, 32).forEach(([x,y])=>ctx.lineTo(x,y));
+    ctx.lineTo(paintL, BRK); ctx.closePath();
+  });
+  fillPath(zoneColor('mid_right_high',0.5), ()=>{
+    ctx.moveTo(W-CRN, BRK);
+    arc(tR, tMR, 32).forEach(([x,y])=>ctx.lineTo(x,y));
+    ctx.lineTo(paintR, BRK); ctx.closePath();
+  });
+
+  ctx.fillStyle=zoneColor('paint_high',0.6);
+  ctx.fillRect(paintL, BRK, paintR-paintL, paintB-BRK);
+
+  fillClipped(
+    zoneColor('mid_centre',0.5),
+    ()=>{ ctx.moveTo(paintL,paintB); ctx.lineTo(paintR,paintB); ctx.lineTo(paintR,H); ctx.lineTo(paintL,H); },
+    ()=>{ ctx.moveTo(paintL,paintB); arc(tML,tMR,32).forEach(([x,y])=>ctx.lineTo(x,y)); ctx.lineTo(paintR,paintB); }
+  );
+  const arcNadirY=BKY+ARY;
+  fillClipped(
+    zoneColor('arc3_top',0.5),
+    ()=>{ ctx.rect(paintL, BKY, paintR-paintL, H-BKY); },
+    ()=>{ arc(tML,tMR,32).forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)); ctx.lineTo(paintR,H); ctx.lineTo(paintL,H); }
+  );
+
+  // Court lines
+  const LINE='rgba(250,249,246,0.45)', LINEDIM='rgba(250,249,246,0.20)';
+  ctx.save(); ctx.lineWidth=1.0;
+  ctx.strokeStyle=LINE; ctx.strokeRect(0,0,W,H);
+  ctx.beginPath(); ctx.moveTo(0,BRK); ctx.lineTo(W,BRK); ctx.strokeStyle=LINE; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(paintL,0); ctx.lineTo(paintL,H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(paintR,0); ctx.lineTo(paintR,H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CRN,0); ctx.lineTo(CRN,BRK); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W-CRN,0); ctx.lineTo(W-CRN,BRK); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(paintL,paintB); ctx.lineTo(paintR,paintB); ctx.stroke();
+  ctx.strokeStyle='rgba(250,249,246,0.75)'; ctx.lineWidth=2.0;
+  ctx.beginPath(); ctx.moveTo(cX(44),cY(4.5)); ctx.lineTo(cX(56),cY(4.5)); ctx.stroke();
+  ctx.strokeStyle='rgba(250,249,246,0.9)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.arc(BKX,BKY,cX(1.5),0,Math.PI*2); ctx.stroke();
+  ctx.strokeStyle=LINE; ctx.lineWidth=1.2;
+  ctx.beginPath();
+  arc(tL,tR,96).forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));
+  ctx.stroke();
+  ctx.restore();
+
+  // Zone labels — FG% on top line, makes/att on second line (scaled font for smaller canvas)
+  function label(k, lx, ly){
+    const z=zones[k]; if(!z) return;
+    const pct = z.att ? Math.round(z.made/z.att*100) : null;
+    const attPG = (z.att/numGP).toFixed(1);
+    const madePG= (z.made/numGP).toFixed(1);
+    ctx.save();
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.shadowColor='rgba(0,0,0,0.95)'; ctx.shadowBlur=6;
+    if(pct!==null){
+      ctx.font='bold 11px Inter,sans-serif';
+      ctx.fillStyle=zoneColor(k,1).replace(/[\d.]+\)$/,'1)');
+      ctx.fillText(pct+'%', lx, ly-6);
+    } else {
+      ctx.font='bold 9px Inter,sans-serif';
+      ctx.fillStyle='rgba(250,249,246,0.3)';
+      ctx.fillText('—', lx, ly-6);
+    }
+    ctx.font='8px Inter,sans-serif';
+    ctx.fillStyle='rgba(250,249,246,0.7)';
+    ctx.shadowBlur=3;
+    ctx.fillText(madePG+'/'+attPG, lx, ly+6);
+    ctx.restore();
+  }
+
+  const colL=(CRN+paintL)/2, colC=BKX, colR=(paintR+(W-CRN))/2;
+  label('corner3_left',  CRN/2,       BRK*0.55);
+  label('mid_left_low',  colL,         BRK*0.55);
+  label('paint_low',     colC,         BKY+cY(3));
+  label('mid_right_low', colR,         BRK*0.55);
+  label('corner3_right', W-CRN/2,      BRK*0.55);
+  label('paint_high',    colC,         BRK+(paintB-BRK)/2);
+  label('mid_centre',    colC,         paintB+(arcNadirY-paintB)/2);
+  label('arc3_top',      colC,         arcNadirY+(H-arcNadirY)*0.45);
+  const wingMidY = BRK + (H-BRK)*0.5;
+  label('wing3_left',    paintL/2,     wingMidY);
+  label('wing3_right',   W-paintL/2,   wingMidY);
+  const elbowY = BRK + (H-BRK)*0.12;
+  label('mid_left_high',  CRN+(paintL-CRN)*0.55,       elbowY);
+  label('mid_right_high', W-(CRN+(paintL-CRN)*0.55),   elbowY);
+
+  // Shot dots — green = make, red = miss
+  playerShots.forEach(r=>{
+    let x=r.x, y=r.y;
+    if(x>50){x=100-x; y=100-y;}
+    const cx2=cX(y), cy2=cY(x);
+    const made=r.Success===1||r.Success===true||String(r.Success)==='1';
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx2,cy2,2.5,0,Math.PI*2);
+    ctx.fillStyle=made?'rgba(74,222,128,0.85)':'rgba(220,60,60,0.75)';
+    ctx.fill();
+    ctx.strokeStyle=made?'rgba(34,197,94,0.5)':'rgba(180,40,40,0.4)';
+    ctx.lineWidth=0.5; ctx.stroke();
+    ctx.restore();
+  });
+}
+
 async function fillNextOpponent(){
   if(DB && !DB.raw?.shots) DB = null;
   const db = DB || await loadData();
@@ -2709,6 +2918,27 @@ function buildSlides(db,teamName){
   const depthPlayers = DEPTH_CHARTS[teamName];
   const container = document.getElementById("slides-grid");
 
+  // Shared helper: draw shot charts for a list of player objects after DOM settles
+  function drawAllPlayerCharts(playerList){
+    if(!db.raw || !db.raw.shots) return;
+    const teamLower = teamName.toLowerCase();
+    setTimeout(function(){
+      playerList.forEach(function(p,i){
+        // Filter db.raw.shots by player name (same source as team shot chart)
+        var shots = db.raw.shots.filter(function(r){
+          return matchPlayerName(r.Player||'', p.name||'') &&
+                 (r.Action==='2pt'||r.Action==='3pt') &&
+                 r.x!=null && r.y!=null;
+        });
+        // gp = distinct games this player shot in
+        var gpSet = new Set(shots.map(function(r){ return r['Game id']||''; }));
+        gpSet.delete('');
+        var gp = gpSet.size || (db.teamAgg[teamName]&&db.teamAgg[teamName].gp) || 1;
+        renderPlayerShotChart(shots, 'chart-'+i, gp);
+      });
+    }, 100);
+  }
+
   if(depthPlayers && depthPlayers.length){
     const starters = depthPlayers.filter(p=>p.pos<=5).sort((a,b)=>a.pos-b.pos);
     const bench    = depthPlayers.filter(p=>p.pos>5).sort((a,b)=>a.pos-b.pos);
@@ -2725,6 +2955,7 @@ function buildSlides(db,teamName){
       <div style="display:flex;flex-direction:column;gap:20px">
         ${allPlayers.map((p,i)=>{ try{ return slideCard(p,i); } catch(e){ return '<div class="card" style="padding:20px;color:#ff8a8a">Error on '+fmtName(p.name||'')+': '+e.message+'</div>'; } }).join("")}
       </div>`;
+    drawAllPlayerCharts(allPlayers);
   } else {
     // Fallback to League Ratings
     const players=db.lr.filter(r=>r.TEAM===teamName&&(parseFloat(r.GP)||0)>=5&&r.PPG!=null)
@@ -2747,17 +2978,7 @@ function buildSlides(db,teamName){
       <div style="display:flex;flex-direction:column;gap:20px">
         ${converted.map((p,i)=>slideCard(p,i)).join("")}
       </div>`;
-    // Draw shot charts
-    if(DB && DB.raw && DB.raw.pbp){
-      setTimeout(function(){
-        allPlayers.forEach(function(p,i){
-          var shots=(DB.raw.pbp||[]).filter(function(r){
-            return (r.Action==="2pt"||r.Action==="3pt")&&matchPlayerName(r.Player||"",p.name||"")&&r["Shot X"]!=null&&r["Shot X"]!=="";
-          });
-          drawShotChart("chart-"+i, shots);
-        });
-      }, 100);
-    }
+    drawAllPlayerCharts(converted);
   }
 }
 
