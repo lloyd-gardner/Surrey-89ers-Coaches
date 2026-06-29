@@ -288,19 +288,20 @@ async function init(){
   const seasons=await sbGet(`slb_seasons?label=eq.${encodeURIComponent(SEASON_LABEL)}&select=id`);
   seasonId=seasons[0]?.id;
   const dbTeams=await sbGet("slb_teams?select=id,name");
+  console.log("DB teams:", dbTeams.map(t=>t.name));
   const teamIdByName={};
   dbTeams.forEach(t=>{teamIdByName[t.name]=t.id;});
-  // Alias variants that may differ between DB and TEAMS config
-  const aliases={
-    "Manchester Basketball": ["Manchester"],
-    "Sheffield Sharks":      ["Sheffield","B. Braun Sheffield Sharks"],
-    "Caledonia Gladiators":  ["Caledonia"],
-    "Surrey 89ers":          ["Surrey"],
-  };
-  Object.entries(aliases).forEach(([canonical, variants])=>{
-    if(!teamIdByName[canonical]){
-      for(const v of variants){
-        if(teamIdByName[v]){ teamIdByName[canonical]=teamIdByName[v]; break; }
+  // For each TEAMS entry, find best DB match if exact name not found
+  // Match by checking if any significant word from the config name appears in the DB name (case-insensitive)
+  TEAMS.forEach(t=>{
+    if(teamIdByName[t.name]) return; // exact match already found
+    const words = t.name.toLowerCase().split(/\s+/).filter(w=>w.length>3);
+    for(const dbT of dbTeams){
+      const dbLow = dbT.name.toLowerCase();
+      if(words.some(w=>dbLow.includes(w))){
+        teamIdByName[t.name]=dbT.id;
+        console.log(`Matched "${t.name}" to DB team "${dbT.name}"`);
+        break;
       }
     }
   });
