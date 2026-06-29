@@ -2936,8 +2936,7 @@ function buildSlides(db,teamName){
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:20px">
-        ${allPlayers.map((p,i)=>{ try{ return slideCard(p,i); } catch(e){ return '<div class="card" style="padding:20px;color:#ff8a8a">Error on '+fmtName(p.name||'')+': '+e.message+'</div>'; } }).join("")}
-      </div>`;
+${allPlayers.map((p,i)=>{ try{ return slideCard(p,i,teamName); } catch(e){ return '<div class="card" style="padding:20px;color:#ff8a8a">Error on '+fmtName(p.name||'')+': '+e.message+'</div>'; } }).join("")}      </div>`;
     drawAllPlayerCharts(allPlayers);
   } else {
     // Fallback to League Ratings
@@ -2959,7 +2958,7 @@ function buildSlides(db,teamName){
         <button class="btn btn-green" onclick="printAllSlides()">🖨️ Print All A3</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:20px">
-        ${converted.map((p,i)=>slideCard(p,i)).join("")}
+        ${converted.map((p,i)=>slideCard(p,i,teamName)).join("")}
       </div>`;
     drawAllPlayerCharts(converted);
   }
@@ -2978,7 +2977,7 @@ function matchPlayerName(pbpName, dataName){
   return pb.indexOf(sur)>=0||(fst.charAt(0)&&pb.indexOf(fst.charAt(0)+'. '+sur)>=0);
 }
 
-function slideCard(p, idx){
+function slideCard(p, idx, teamName){
   var name     = fmtName(p.name||'');
   var num      = p.number||'—';
   var paintPct = Math.round((p.paint_pct||0)*100);
