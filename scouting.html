@@ -1724,30 +1724,27 @@ function renderShotChart(db, teamName, canvasId){
   ctx.fillRect(paintR, BRK, W-paintR, H-BRK);
 
   // 2. Paint mid colour INSIDE the arc on top (high-wing / elbow area)
-  // Left high-wing: inside arc, between paintL and CRN, below BRK
-  // Shape: top edge = BRK line (CRN→paintL), right edge = paintL vertical down to paintB,
-  //        outer edge = arc from tML→tL (sweeping outward), top-left corner at (CRN, BRK)
+  // Left elbow: bounded by BRK (top), paintL (right), arc (outer/bottom edge)
+  // Trace: (CRN,BRK) → arc tL→tML → (paintL,paintB) → (paintL,BRK) → close
   fillClipped(
     zoneColor('mid_left',0.5),
     ()=>{ ctx.rect(CRN, BRK, paintL-CRN, H-BRK); },
     ()=>{
-      ctx.moveTo(paintL, BRK);
-      ctx.lineTo(paintL, paintB);
-      arc(tML, tL, 24).forEach(([x,y])=>ctx.lineTo(x,y));
-      ctx.lineTo(CRN, BRK);
+      ctx.moveTo(CRN, BRK);
+      arc(tL, tML, 32).forEach(([x,y])=>ctx.lineTo(x,y));
+      ctx.lineTo(paintL, BRK);
       ctx.closePath();
     }
   );
 
-  // Right high-wing: mirror
+  // Right elbow: mirror — (W-CRN,BRK) → arc tR→tMR → (paintR,paintB) → (paintR,BRK) → close
   fillClipped(
     zoneColor('mid_right',0.5),
     ()=>{ ctx.rect(paintR, BRK, (W-CRN)-paintR, H-BRK); },
     ()=>{
-      ctx.moveTo(paintR, BRK);
-      ctx.lineTo(paintR, paintB);
-      arc(tMR, tR, 24).forEach(([x,y])=>ctx.lineTo(x,y));
-      ctx.lineTo(W-CRN, BRK);
+      ctx.moveTo(W-CRN, BRK);
+      arc(tR, tMR, 32).forEach(([x,y])=>ctx.lineTo(x,y));
+      ctx.lineTo(paintR, BRK);
       ctx.closePath();
     }
   );
@@ -1861,11 +1858,9 @@ function renderShotChart(db, teamName, canvasId){
 
   const colL=(CRN+paintL)/2, colC=BKX, colR=(paintR+(W-CRN))/2;
 
-  // Row 1 (baseline → BRK)
+  // Row 1 (baseline → BRK) — corner3 and paint only; mid shown in elbow below
   label('corner3_left',  CRN/2,    BRK*0.6);
-  label('mid_left',      colL,     BRK*0.6);
   label('paint_low',     colC,     BKY+cY(3));
-  label('mid_right',     colR,     BRK*0.6);
   label('corner3_right', W-CRN/2,  BRK*0.6);
 
   // Row 2 centre column
