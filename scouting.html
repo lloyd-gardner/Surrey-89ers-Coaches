@@ -1535,7 +1535,9 @@ function selectFixture(idx){
   NEXT_OPP = FIXTURES[idx].team;
   renderFixtureSelector();
   fillNextOpponent();
+  delete loaded["player-slides"];
 }
+
 
 
 function renderDepthChart(depthData, db){
@@ -3670,7 +3672,7 @@ function openPosterWindow(p, playerName, doPrint){
     {v:fmtN(p.pip),         l:"PIP"},
   ];
 
-  const teamLogoSrc = LOGOS[slidesTeam]||"";
+const teamLogoSrc = LOGOS[teamName]||"";
   const logoHTML = teamLogoSrc
     ? `<div style="width:60px;height:60px;background:#fff;border-radius:8px;padding:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><img src="${teamLogoSrc}" style="width:52px;height:52px;object-fit:contain"></div>`
     : "";
