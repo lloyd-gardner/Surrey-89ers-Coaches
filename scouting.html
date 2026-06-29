@@ -2943,22 +2943,43 @@ function buildSlides(db,teamName){
 ${allPlayers.map((p,i)=>{ try{ return slideCard(p,i,teamName); } catch(e){ return '<div class="card" style="padding:20px;color:#ff8a8a">Error on '+fmtName(p.name||'')+': '+e.message+'</div>'; } }).join("")}      </div>`;
     drawAllPlayerCharts(allPlayers);
   } else {
-    // Fallback to League Ratings
-    const players=db.lr.filter(r=>r.TEAM===teamName&&(parseFloat(r.GP)||0)>=5&&r.PPG!=null)
+    // Fallback — try lr first, then playerAgg built from raw game stats
+    let players = db.lr.filter(r=>r.TEAM===teamName&&(parseFloat(r.GP)||0)>=5&&r.PPG!=null)
       .sort((a,b)=>(parseFloat(b.MPG)||0)-(parseFloat(a.MPG)||0));
-    if(!players.length){ container.innerHTML="<div class='loading-state'>No player data for this team — add a Data sheet</div>"; return; }
-    // Convert LR format to depth chart format for slideCard
-    const converted = players.map((p,i)=>({
-      pos:i+1, name:p.PLAYER||"", number:"", position:"", height:"", handed:"",
-      ppg:parseFloat(p.PPG)||0, rpg:parseFloat(p.RPG)||0, apg:parseFloat(p.APG)||0,
-      tpg:0, mpg:parseFloat(p.MPG)||0, efg:parseFloat(p["eFG%"])||0,
-      pm:parseFloat(p["+/-"])||0, usage:parseFloat(p["USAGE%"])||0,
-      paint_pct:0,ft_pct:0,mid_pct:0,three_pct:0,
-      scoring:p.GRADE||"", defence:"", rebounding:"", playmaking:"",
-    }));
+
+    let converted;
+    if(players.length){
+      converted = players.map((p,i)=>({
+        pos:i+1, name:p.PLAYER||"", number:"", position:"", height:"", handed:"",
+        ppg:parseFloat(p.PPG)||0, rpg:parseFloat(p.RPG)||0, apg:parseFloat(p.APG)||0,
+        tpg:parseFloat(p.TPG)||0, mpg:parseFloat(p.MPG)||0, efg:parseFloat(p["eFG%"])||0,
+        pm:parseFloat(p["+/-"])||0, usage:parseFloat(p["USAGE%"])||0,
+        paint_pct:0, ft_pct:0, mid_pct:0, three_pct:0,
+        scoring:p.GRADE||"", defence:"", rebounding:"", playmaking:"",
+      }));
+    } else {
+      // Build from playerAgg (raw game-by-game stats already in DB)
+      const paPlayers = Object.values(db.playerAgg)
+        .filter(p => (p.team||"").toUpperCase() === teamName && p.gp >= 3 && p.ppg != null)
+        .sort((a,b) => (b.mpg||0) - (a.mpg||0));
+      converted = paPlayers.map((p,i)=>({
+        pos:i+1, name:p.name||"", number:p.num||"", position:"", height:"", handed:"",
+        ppg:p.ppg||0, rpg:p.rpg||0, apg:p.apg||0,
+        tpg:p.tpg||0, mpg:p.mpg||0, efg:p.efg||0,
+        pm:p.pm||0, usage:p.usage||0,
+        paint_pct:0, ft_pct:0, mid_pct:0, three_pct:0,
+        scoring:"", defence:"", rebounding:"", playmaking:"",
+        gp:p.gp,
+      }));
+    }
+
+    if(!converted.length){
+      container.innerHTML="<div class='loading-state'>No player data for "+( fullNameMap[teamName]||teamName)+" — no games in database yet</div>";
+      return;
+    }
     container.innerHTML=`
       <div class="no-print" style="display:flex;gap:10px;align-items:center;margin-bottom:20px">
-        <div style="font-size:13px;color:var(--muted)">${players.length} players (basic data only)</div>
+        <div style="font-size:13px;color:var(--muted)">${converted.length} players (stats only)</div>
         <button class="btn btn-green" onclick="printAllSlides()">🖨️ Print All A3</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:20px">
