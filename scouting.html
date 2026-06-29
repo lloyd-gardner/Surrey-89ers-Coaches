@@ -1905,18 +1905,20 @@ label('mid_right_high', W - (CRN + (paintL-CRN)*0.55),   elbowY);
 function drawCourt(){}
 
 // ── Player shot chart — same geometry as renderShotChart, but takes a pre-filtered shot array ──
-function renderPlayerShotChart(playerShots, canvasId, gp){
-  const canvas = document.getElementById(canvasId);
+// printMode=true → white background, no colour fills, just outlines + black labels (for print/export)
+// canvasOverride — optional canvas element to draw on instead of looking up by canvasId
+function renderPlayerShotChart(playerShots, canvasId, gp, printMode, canvasOverride){
+  const canvas = canvasOverride || document.getElementById(canvasId);
   if(!canvas) return;
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
 
   // Background
-  ctx.fillStyle='#0d1f13';
+  ctx.fillStyle = printMode ? '#ffffff' : '#0d1f13';
   ctx.fillRect(0,0,W,H);
 
   if(!playerShots || !playerShots.length){
-    ctx.fillStyle='rgba(250,249,246,0.25)';
+    ctx.fillStyle = printMode ? '#999' : 'rgba(250,249,246,0.25)';
     ctx.font='bold 11px Inter,sans-serif';
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('No shot data', W/2, H/2);
@@ -2000,44 +2002,48 @@ function renderPlayerShotChart(playerShots, canvasId, gp){
     return    `rgba(220,60,60,${alpha})`;
   }
 
-  // Zone fills — identical layout to renderShotChart
-  ctx.fillStyle=zoneColor('corner3_left',0.5);   ctx.fillRect(0,     0, CRN,           BRK);
-  ctx.fillStyle=zoneColor('mid_left_low',0.5);   ctx.fillRect(CRN,   0, paintL-CRN,    BRK);
-  ctx.fillStyle=zoneColor('paint_low',0.6);       ctx.fillRect(paintL,0, paintR-paintL, BRK);
-  ctx.fillStyle=zoneColor('mid_right_low',0.5);  ctx.fillRect(paintR,0, (W-CRN)-paintR,BRK);
-  ctx.fillStyle=zoneColor('corner3_right',0.5);  ctx.fillRect(W-CRN, 0, CRN,           BRK);
+  // Zone fills — skipped in printMode (outlines only)
+  if(!printMode){
+    ctx.fillStyle=zoneColor('corner3_left',0.5);   ctx.fillRect(0,     0, CRN,           BRK);
+    ctx.fillStyle=zoneColor('mid_left_low',0.5);   ctx.fillRect(CRN,   0, paintL-CRN,    BRK);
+    ctx.fillStyle=zoneColor('paint_low',0.6);       ctx.fillRect(paintL,0, paintR-paintL, BRK);
+    ctx.fillStyle=zoneColor('mid_right_low',0.5);  ctx.fillRect(paintR,0, (W-CRN)-paintR,BRK);
+    ctx.fillStyle=zoneColor('corner3_right',0.5);  ctx.fillRect(W-CRN, 0, CRN,           BRK);
 
-  ctx.fillStyle=zoneColor('wing3_left',0.5);  ctx.fillRect(0,     BRK, paintL,    H-BRK);
-  ctx.fillStyle=zoneColor('wing3_right',0.5); ctx.fillRect(paintR,BRK, W-paintR,  H-BRK);
+    ctx.fillStyle=zoneColor('wing3_left',0.5);  ctx.fillRect(0,     BRK, paintL,    H-BRK);
+    ctx.fillStyle=zoneColor('wing3_right',0.5); ctx.fillRect(paintR,BRK, W-paintR,  H-BRK);
 
-  fillPath(zoneColor('mid_left_high',0.5), ()=>{
-    ctx.moveTo(CRN, BRK);
-    arc(tL, tML, 32).forEach(([x,y])=>ctx.lineTo(x,y));
-    ctx.lineTo(paintL, BRK); ctx.closePath();
-  });
-  fillPath(zoneColor('mid_right_high',0.5), ()=>{
-    ctx.moveTo(W-CRN, BRK);
-    arc(tR, tMR, 32).forEach(([x,y])=>ctx.lineTo(x,y));
-    ctx.lineTo(paintR, BRK); ctx.closePath();
-  });
+    fillPath(zoneColor('mid_left_high',0.5), ()=>{
+      ctx.moveTo(CRN, BRK);
+      arc(tL, tML, 32).forEach(([x,y])=>ctx.lineTo(x,y));
+      ctx.lineTo(paintL, BRK); ctx.closePath();
+    });
+    fillPath(zoneColor('mid_right_high',0.5), ()=>{
+      ctx.moveTo(W-CRN, BRK);
+      arc(tR, tMR, 32).forEach(([x,y])=>ctx.lineTo(x,y));
+      ctx.lineTo(paintR, BRK); ctx.closePath();
+    });
 
-  ctx.fillStyle=zoneColor('paint_high',0.6);
-  ctx.fillRect(paintL, BRK, paintR-paintL, paintB-BRK);
+    ctx.fillStyle=zoneColor('paint_high',0.6);
+    ctx.fillRect(paintL, BRK, paintR-paintL, paintB-BRK);
 
-  fillClipped(
-    zoneColor('mid_centre',0.5),
-    ()=>{ ctx.moveTo(paintL,paintB); ctx.lineTo(paintR,paintB); ctx.lineTo(paintR,H); ctx.lineTo(paintL,H); },
-    ()=>{ ctx.moveTo(paintL,paintB); arc(tML,tMR,32).forEach(([x,y])=>ctx.lineTo(x,y)); ctx.lineTo(paintR,paintB); }
-  );
+    fillClipped(
+      zoneColor('mid_centre',0.5),
+      ()=>{ ctx.moveTo(paintL,paintB); ctx.lineTo(paintR,paintB); ctx.lineTo(paintR,H); ctx.lineTo(paintL,H); },
+      ()=>{ ctx.moveTo(paintL,paintB); arc(tML,tMR,32).forEach(([x,y])=>ctx.lineTo(x,y)); ctx.lineTo(paintR,paintB); }
+    );
+    fillClipped(
+      zoneColor('arc3_top',0.5),
+      ()=>{ ctx.rect(paintL, BKY, paintR-paintL, H-BKY); },
+      ()=>{ arc(tML,tMR,32).forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)); ctx.lineTo(paintR,H); ctx.lineTo(paintL,H); }
+    );
+  }
+
   const arcNadirY=BKY+ARY;
-  fillClipped(
-    zoneColor('arc3_top',0.5),
-    ()=>{ ctx.rect(paintL, BKY, paintR-paintL, H-BKY); },
-    ()=>{ arc(tML,tMR,32).forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)); ctx.lineTo(paintR,H); ctx.lineTo(paintL,H); }
-  );
 
   // Court lines
-  const LINE='rgba(250,249,246,0.45)', LINEDIM='rgba(250,249,246,0.20)';
+  const LINE = printMode ? 'rgba(0,0,0,0.5)'   : 'rgba(250,249,246,0.45)';
+  const LINEDIM = printMode ? 'rgba(0,0,0,0.25)' : 'rgba(250,249,246,0.20)';
   ctx.save(); ctx.lineWidth=1.0;
   ctx.strokeStyle=LINE; ctx.strokeRect(0,0,W,H);
   ctx.beginPath(); ctx.moveTo(0,BRK); ctx.lineTo(W,BRK); ctx.strokeStyle=LINE; ctx.stroke();
@@ -2046,9 +2052,9 @@ function renderPlayerShotChart(playerShots, canvasId, gp){
   ctx.beginPath(); ctx.moveTo(CRN,0); ctx.lineTo(CRN,BRK); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(W-CRN,0); ctx.lineTo(W-CRN,BRK); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(paintL,paintB); ctx.lineTo(paintR,paintB); ctx.stroke();
-  ctx.strokeStyle='rgba(250,249,246,0.75)'; ctx.lineWidth=2.0;
+  ctx.strokeStyle = printMode ? 'rgba(0,0,0,0.6)' : 'rgba(250,249,246,0.75)'; ctx.lineWidth=2.0;
   ctx.beginPath(); ctx.moveTo(cX(44),cY(4.5)); ctx.lineTo(cX(56),cY(4.5)); ctx.stroke();
-  ctx.strokeStyle='rgba(250,249,246,0.9)'; ctx.lineWidth=1.2;
+  ctx.strokeStyle = printMode ? 'rgba(0,0,0,0.7)' : 'rgba(250,249,246,0.9)'; ctx.lineWidth=1.2;
   ctx.beginPath(); ctx.arc(BKX,BKY,cX(1.5),0,Math.PI*2); ctx.stroke();
   ctx.strokeStyle=LINE; ctx.lineWidth=1.2;
   ctx.beginPath();
@@ -2064,19 +2070,19 @@ function renderPlayerShotChart(playerShots, canvasId, gp){
     const madePG= (z.made/numGP).toFixed(1);
     ctx.save();
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.shadowColor='rgba(0,0,0,0.95)'; ctx.shadowBlur=6;
+    if(!printMode){ ctx.shadowColor='rgba(0,0,0,0.95)'; ctx.shadowBlur=6; }
     if(pct!==null){
       ctx.font='bold 11px Inter,sans-serif';
-      ctx.fillStyle=zoneColor(k,1).replace(/[\d.]+\)$/,'1)');
+      ctx.fillStyle = printMode ? '#111' : zoneColor(k,1).replace(/[\d.]+\)$/,'1)');
       ctx.fillText(pct+'%', lx, ly-6);
     } else {
       ctx.font='bold 9px Inter,sans-serif';
-      ctx.fillStyle='rgba(250,249,246,0.3)';
+      ctx.fillStyle = printMode ? '#bbb' : 'rgba(250,249,246,0.3)';
       ctx.fillText('—', lx, ly-6);
     }
     ctx.font='8px Inter,sans-serif';
-    ctx.fillStyle='rgba(250,249,246,0.7)';
-    ctx.shadowBlur=3;
+    ctx.fillStyle = printMode ? '#555' : 'rgba(250,249,246,0.7)';
+    if(!printMode) ctx.shadowBlur=3;
     ctx.fillText(madePG+'/'+attPG, lx, ly+6);
     ctx.restore();
   }
@@ -2096,21 +2102,6 @@ function renderPlayerShotChart(playerShots, canvasId, gp){
   const elbowY = BRK + (H-BRK)*0.12;
   label('mid_left_high',  CRN+(paintL-CRN)*0.55,       elbowY);
   label('mid_right_high', W-(CRN+(paintL-CRN)*0.55),   elbowY);
-
-  // Shot dots — green = make, red = miss
-  playerShots.forEach(r=>{
-    let x=r.x, y=r.y;
-    if(x>50){x=100-x; y=100-y;}
-    const cx2=cX(y), cy2=cY(x);
-    const made=r.Success===1||r.Success===true||String(r.Success)==='1';
-    ctx.save();
-    ctx.beginPath(); ctx.arc(cx2,cy2,2.5,0,Math.PI*2);
-    ctx.fillStyle=made?'rgba(74,222,128,0.85)':'rgba(220,60,60,0.75)';
-    ctx.fill();
-    ctx.strokeStyle=made?'rgba(34,197,94,0.5)':'rgba(180,40,40,0.4)';
-    ctx.lineWidth=0.5; ctx.stroke();
-    ctx.restore();
-  });
 }
 
 async function fillNextOpponent(){
@@ -2921,20 +2912,22 @@ function buildSlides(db,teamName){
   // Shared helper: draw shot charts for a list of player objects after DOM settles
   function drawAllPlayerCharts(playerList){
     if(!db.raw || !db.raw.shots) return;
-    const teamLower = teamName.toLowerCase();
+    // Cache per-player shots and gp so printSingleSlide can re-render in print mode
+    window._playerShotsCache = window._playerShotsCache || {};
+    window._playerGpCache    = window._playerGpCache    || {};
     setTimeout(function(){
       playerList.forEach(function(p,i){
-        // Filter db.raw.shots by player name (same source as team shot chart)
         var shots = db.raw.shots.filter(function(r){
           return matchPlayerName(r.Player||'', p.name||'') &&
                  (r.Action==='2pt'||r.Action==='3pt') &&
                  r.x!=null && r.y!=null;
         });
-        // gp = distinct games this player shot in
         var gpSet = new Set(shots.map(function(r){ return r['Game id']||''; }));
         gpSet.delete('');
         var gp = gpSet.size || (db.teamAgg[teamName]&&db.teamAgg[teamName].gp) || 1;
-        renderPlayerShotChart(shots, 'chart-'+i, gp);
+        window._playerShotsCache[i] = shots;
+        window._playerGpCache[i]    = gp;
+        renderPlayerShotChart(shots, 'chart-'+i, gp, false);
       });
     }, 100);
   }
@@ -3536,14 +3529,14 @@ function printSingleSlide(idx, playerName){
     clone.outerHTML,
     '<scr'+'ipt>',
     'document.fonts.ready.then(function() {',
-    '  // Copy shot chart canvas from opener',
+    '  // Re-render shot chart in print mode (white bg, outlines + labels only)',
     '  try {',
-    '    var srcCanvas = window.opener.document.getElementById("chart-'+idx+'");',
     '    var dstCanvas = document.querySelector("canvas");',
-    '    if (srcCanvas && dstCanvas) {',
-    '      dstCanvas.width = srcCanvas.width;',
-    '      dstCanvas.height = srcCanvas.height;',
-    '      dstCanvas.getContext("2d").drawImage(srcCanvas, 0, 0);',
+    '    var op = window.opener;',
+    '    if (dstCanvas && op && op._playerShotsCache && op.renderPlayerShotChart) {',
+    '      var shots = op._playerShotsCache['+idx+'];',
+    '      var gp    = op._playerGpCache ? op._playerGpCache['+idx+'] : 1;',
+    '      if (shots) op.renderPlayerShotChart(shots, null, gp, true, dstCanvas);',
     '    }',
     '  } catch(e) {}',
     '  setTimeout(function() { window.print(); }, 800);',
