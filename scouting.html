@@ -632,22 +632,18 @@ async function fetchSupabaseDepthChart(teamCaps) {
       "CALEDONIA GLADIATORS":      ["Caledonia Gladiators", "Caledonia"],
     };
     const nameVariants = canonicalMap[teamCaps];
-    console.log("[DC] teamCaps:", teamCaps, "variants:", nameVariants);
     if (!nameVariants) return null;
 
     // Try each name variant until we find a match in slb_teams
     let teamId = null, matchedName = null;
     for (const teamName of nameVariants) {
       const teams = await sbFetch(`slb_teams?name=eq.${encodeURIComponent(teamName)}&select=id,name`);
-      console.log("[DC] trying name:", teamName, "→ result:", teams);
       if (teams.length) { teamId = teams[0].id; matchedName = teams[0].name; break; }
     }
-    if (!teamId) { console.warn("[DC] no team found in slb_teams for", teamCaps); return null; }
-    console.log("[DC] matched teamId:", teamId, "name:", matchedName);
+
 
     // Get season id
     const seasons = await sbFetch(`slb_seasons?label=eq.2024-25&select=id,label`);
-    console.log("[DC] seasons:", seasons);
     if (!seasons.length) return null;
     const seasonId = seasons[0].id;
 
@@ -655,14 +651,13 @@ async function fetchSupabaseDepthChart(teamCaps) {
     const players = await sbFetch(
       `slb_players?current_team_id=eq.${teamId}&select=id,full_name,jersey_number,position`
     );
-    console.log("[DC] players found:", players.length, players.map(p=>p.full_name));
+  
     if (!players.length) return null;
 
     const pids = players.map(p => p.id).join(",");
     const scouting = await sbFetch(
       `slb_player_scouting?player_id=in.(${pids})&season_id=eq.${seasonId}&active=eq.true&select=*`
     );
-    console.log("[DC] scouting records found:", scouting.length, scouting.map(s=>({pid:s.player_id,pos:s.depth_pos,active:s.active})));
 
     const scoutMap = {};
     scouting.forEach(s => { scoutMap[s.player_id] = s; });
@@ -709,7 +704,6 @@ async function fetchSupabaseDepthChart(teamCaps) {
         };
       })
       .sort((a, b) => a.pos - b.pos);
-    console.log("[DC] returning", result.length, "players with depth positions");
     return result;
   } catch(e) {
     console.error("fetchSupabaseDepthChart error:", e);
