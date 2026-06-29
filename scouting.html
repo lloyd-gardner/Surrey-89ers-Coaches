@@ -1726,35 +1726,13 @@ function renderShotChart(db, teamName, canvasId){
   ctx.fillStyle=zoneColor('wing3_right',0.5);
   ctx.fillRect(paintR, BRK, W-paintR, H-BRK);
 
-  // ── ROW 2 MIDRANGE: inside arc, between CRN and lane lines, below BRK ─────────
-  // Left midrange below BRK: the region between CRN→paintL that is OUTSIDE the 3PT arc.
-  // Path: CRN,BRK → down to H → across to paintL,H → up to paintL,paintB → arc back to CRN,BRK
-  ctx.save();
-  ctx.beginPath(); ctx.rect(CRN, BRK, paintL-CRN, H-BRK); ctx.clip();
+  // ── ROW 2 MIDRANGE: full column below BRK (CRN→paintL and paintR→W-CRN)
+  // Paint the whole column with mid colour first — arc interior zones overwrite on top
   ctx.fillStyle=zoneColor('mid_left',0.5);
-  ctx.beginPath();
-  ctx.moveTo(CRN, BRK);
-  ctx.lineTo(CRN, H);
-  ctx.lineTo(paintL, H);
-  ctx.lineTo(paintL, paintB);
-  arc(tML, tL, 48).forEach(([x,y])=>ctx.lineTo(x,y));
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
+  ctx.fillRect(CRN, BRK, paintL-CRN, H-BRK);
 
-  // Right midrange below BRK
-  ctx.save();
-  ctx.beginPath(); ctx.rect(paintR, BRK, (W-CRN)-paintR, H-BRK); ctx.clip();
   ctx.fillStyle=zoneColor('mid_right',0.5);
-  ctx.beginPath();
-  ctx.moveTo(W-CRN, BRK);
-  ctx.lineTo(W-CRN, H);
-  ctx.lineTo(paintR, H);
-  ctx.lineTo(paintR, paintB);
-  arc(tMR, tR, 48).forEach(([x,y])=>ctx.lineTo(x,y));
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
+  ctx.fillRect(paintR, BRK, (W-CRN)-paintR, H-BRK);
 
   // ── ROW 2 CENTRE COLUMN: BRK downward, clipped to inside-arc area ────────────
   // paint_high: BRK → paintB, lane width (pure rect, always inside arc)
