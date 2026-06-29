@@ -1690,9 +1690,11 @@ function renderShotChart(db, teamName, canvasId){
   //   Inside arc below BRK:            mid_left_low | paint_high | mid_right_low
   //                                    mid_centre | arc3_top
 
-  // Arc angles at key intersections
-  const tML=Math.atan2((paintB-BKY)/ARY,(paintL-BKX)/ARX); // arc ∩ left lane line
-  const tMR=Math.atan2((paintB-BKY)/ARY,(paintR-BKX)/ARX); // arc ∩ right lane line
+  // Arc angles at key intersections — solve for angle where arc crosses each lane line X
+  // ellipse: x = BKX + ARX*cos(t)  →  cos(t) = (x-BKX)/ARX  →  t = acos(...)
+  // Left lane line (paintL): arc crosses here at two points; we want the lower one (sin>0)
+  const tML = Math.acos((paintL-BKX)/ARX);   // gives t in [0,π], sin(t)>0 = lower half
+  const tMR = Math.acos((paintR-BKX)/ARX);   // right lane line — t in [0,π] too
 
   // Helper: clip to a rectangle then fill a colour
   function fillRect2(color,x,y,w,h){
@@ -1727,20 +1729,22 @@ function renderShotChart(db, teamName, canvasId){
   ctx.fillRect(paintR, BRK, W-paintR, H-BRK);
 
   // 2. Paint mid_high colour in elbow zones (inside arc, below BRK)
-  // Left elbow: tL=161° → tML=124° (decreasing, clockwise sweep along arc)
-  // Shape: (CRN,BRK) → arc sweep tL→tML → (paintL,BRK) → close
+  // Left elbow: (CRN,BRK) → arc from tL down to tML → close back to (CRN,BRK) via BRK line
+  // tL=161° (corner/BRK), tML=~90° (lane line crossing) — sweep tL→tML decreasing
   fillPath(zoneColor('mid_left_high',0.5), ()=>{
     ctx.moveTo(CRN, BRK);
     arc(tL, tML, 32).forEach(([x,y])=>ctx.lineTo(x,y));
     ctx.lineTo(paintL, BRK);
+    ctx.closePath();
   });
 
-  // Right elbow: tR=19° → tMR=56° (increasing, clockwise sweep along arc)
-  // Shape: (W-CRN,BRK) → arc sweep tR→tMR → (paintR,BRK) → close
+  // Right elbow: (W-CRN,BRK) → arc from tR up to tMR → close back via BRK line
+  // tR=19° (corner/BRK), tMR=~90° (lane line crossing) — sweep tR→tMR increasing
   fillPath(zoneColor('mid_right_high',0.5), ()=>{
     ctx.moveTo(W-CRN, BRK);
     arc(tR, tMR, 32).forEach(([x,y])=>ctx.lineTo(x,y));
     ctx.lineTo(paintR, BRK);
+    ctx.closePath();
   });
 
   // ── ROW 2 CENTRE COLUMN: BRK downward, clipped to inside-arc area ────────────
@@ -1864,14 +1868,15 @@ function renderShotChart(db, teamName, canvasId){
   label('mid_centre',    colC,  paintB+(arcNadirY-paintB)/2);
   label('arc3_top',      colC,  arcNadirY+(H-arcNadirY)*0.45);
 
-  // Row 2 wings — label in full outer column (0→paintL), midway down
+  // Row 2 wings — label in outer (sideline) half of the wing column
   const wingMidY = BRK + (H-BRK)*0.5;
-  label('wing3_left',    paintL/2,       wingMidY);
-  label('wing3_right',   W - paintL/2,   wingMidY);
+  label('wing3_left',    CRN/2,         wingMidY);
+  label('wing3_right',   W - CRN/2,     wingMidY);
 
-  // Row 2 elbow (inside arc), midway down
-  label('mid_left_high',  colL, wingMidY);
-  label('mid_right_high', colR, wingMidY);
+  // Row 2 elbow — label in inner (paint-side) half of the wing column
+  const elbowX = (CRN + paintL) / 2;
+  label('mid_left_high',  elbowX,       wingMidY);
+  label('mid_right_high', W - elbowX,   wingMidY);
 }
 
 function drawCourt(){}
