@@ -655,8 +655,8 @@ async function fetchSupabaseDepthChart(teamCaps) {
     if (!players.length) return null;
 
     const pids = players.map(p => p.id).join(",");
-    const scouting = await sbFetch(
-      `slb_player_scouting?player_id=in.(${pids})&season_id=eq.${seasonId}&active=eq.true&select=*`
+const scouting = await sbFetch(
+      `slb_player_scouting?player_id=in.(${pids})&season_id=eq.${seasonId}&select=*`
     );
 
     const scoutMap = {};
