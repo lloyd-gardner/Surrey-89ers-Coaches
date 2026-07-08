@@ -643,7 +643,7 @@ async function fetchSupabaseDepthChart(teamCaps) {
 
 
     // Get season id
-    const seasons = await sbFetch(`slb_seasons?label=eq.2024-25&select=id,label`);
+    const seasons = await sbFetch(`slb_seasons?is_current=eq.true&select=id,label`);
     if (!seasons.length) return null;
     const seasonId = seasons[0].id;
 
