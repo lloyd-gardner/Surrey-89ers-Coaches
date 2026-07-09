@@ -634,47 +634,48 @@ async function fetchSupabaseDepthChart(teamCaps) {
     const nameVariants = canonicalMap[teamCaps];
     if (!nameVariants) return null;
 
-    // Try each name variant until we find a match in slb_teams
-    let teamId = null, matchedName = null;
-    for (const teamName of nameVariants) {
-      const teams = await sbFetch(`slb_teams?name=eq.${encodeURIComponent(teamName)}&select=id,name`);
-      if (teams.length) { teamId = teams[0].id; matchedName = teams[0].name; break; }
-    }
+    // Team lookup and season lookup don't depend on each other -- run together.
+    const teamLookupPromise = (async () => {
+      for (const teamName of nameVariants) {
+        const teams = await sbFetch(`slb_teams?name=eq.${encodeURIComponent(teamName)}&select=id,name`);
+        if (teams.length) return teams[0].id;
+      }
+      return null;
+    })();
+    const seasonsPromise = sbFetch(`slb_seasons?is_current=eq.true&select=id,label`);
 
-
-    // Get season id
-    const seasons = await sbFetch(`slb_seasons?is_current=eq.true&select=id,label`);
+    const [teamId, seasons] = await Promise.all([teamLookupPromise, seasonsPromise]);
+    if (!teamId) return null;
     if (!seasons.length) return null;
     const seasonId = seasons[0].id;
 
-    // Get players
-    const players = await sbFetch(
-      `slb_players?current_team_id=eq.${teamId}&select=id,full_name,jersey_number,position`
-    );
-  
+    // Players (needs teamId) and this season's game IDs (needs only seasonId)
+    // don't depend on each other either -- also run together.
+    const [players, seasonGames] = await Promise.all([
+      sbFetch(`slb_players?current_team_id=eq.${teamId}&select=id,full_name,jersey_number,position`),
+      sbFetch(`slb_games?season_id=eq.${seasonId}&select=id`)
+    ]);
     if (!players.length) return null;
 
     const pids = players.map(p => p.id).join(",");
-const scouting = await sbFetch(
-      `slb_player_scouting?player_id=in.(${pids})&season_id=eq.${seasonId}&select=*`
-    );
+    const seasonGameIds = seasonGames.map(g => g.id).join(",");
 
-const scoutMap = {};
+    // scouting / averages / raw game stats are independent of each other
+    // once pids + seasonGameIds are known -- run all three together.
+    const [scouting, averages, rawGameStats] = await Promise.all([
+      sbFetch(`slb_player_scouting?player_id=in.(${pids})&season_id=eq.${seasonId}&select=*`),
+      sbFetch(`slb_player_season_averages?player_id=in.(${pids})&season_id=eq.${seasonId}&select=player_id,games_played,ppg,rpg,apg,topg,spg,bpg,plus_minus,efg_pct,ts_pct,mpg`),
+      seasonGameIds
+        ? sbFetch(`slb_player_game_stats?player_id=in.(${pids})&game_id=in.(${seasonGameIds})&select=player_id,oreb,fbp,pip,fga,fgm,fg3a,fg3m,fta,ftm,dnp`)
+        : Promise.resolve([])
+    ]);
+
+    const scoutMap = {};
     scouting.forEach(s => { scoutMap[s.player_id] = s; });
 
-    const averages = await sbFetch(
-      `slb_player_season_averages?player_id=in.(${pids})&season_id=eq.${seasonId}&select=player_id,games_played,ppg,rpg,apg,topg,spg,bpg,plus_minus,efg_pct,ts_pct,mpg`
-    );
     const avgMap = {};
     averages.forEach(a => { avgMap[a.player_id] = a; });
 
-    // OFF/FBK/PIP aren't in slb_player_season_averages, so pull them from
-    // the raw per-game table instead, scoped to this season's actual games.
-    const seasonGames = await sbFetch(`slb_games?season_id=eq.${seasonId}&select=id`);
-    const seasonGameIds = seasonGames.map(g => g.id).join(",");
-    const rawGameStats = seasonGameIds
-      ? await sbFetch(`slb_player_game_stats?player_id=in.(${pids})&game_id=in.(${seasonGameIds})&select=player_id,oreb,fbp,pip,fga,fgm,fg3a,fg3m,fta,ftm,dnp`)
-      : [];
     const rawTotals = {};
     rawGameStats.forEach(r => {
       if (r.dnp) return;
