@@ -663,7 +663,7 @@ const scoutMap = {};
     scouting.forEach(s => { scoutMap[s.player_id] = s; });
 
     const averages = await sbFetch(
-      `slb_player_season_averages?player_id=in.(${pids})&season_id=eq.${seasonId}&select=player_id,games_played,ppg,rpg,apg,topg,spg,bpg,plus_minus,efg_pct,ts_pct,mpg,fgm_total,fga_total,fg3m_total,fg3a_total,ftm_total,fta_total,pts_total`
+      `slb_player_season_averages?player_id=in.(${pids})&season_id=eq.${seasonId}&select=player_id,games_played,ppg,rpg,apg,topg,spg,bpg,plus_minus,efg_pct,ts_pct,mpg`
     );
     const avgMap = {};
     averages.forEach(a => { avgMap[a.player_id] = a; });
@@ -673,15 +673,23 @@ const scoutMap = {};
     const seasonGames = await sbFetch(`slb_games?season_id=eq.${seasonId}&select=id`);
     const seasonGameIds = seasonGames.map(g => g.id).join(",");
     const rawGameStats = seasonGameIds
-      ? await sbFetch(`slb_player_game_stats?player_id=in.(${pids})&game_id=in.(${seasonGameIds})&select=player_id,oreb,fbp,pip,dnp`)
+      ? await sbFetch(`slb_player_game_stats?player_id=in.(${pids})&game_id=in.(${seasonGameIds})&select=player_id,oreb,fbp,pip,fga,fgm,fg3a,fg3m,fta,ftm,dnp`)
       : [];
     const rawTotals = {};
     rawGameStats.forEach(r => {
       if (r.dnp) return;
-      const t = rawTotals[r.player_id] || (rawTotals[r.player_id] = { oreb: 0, fbp: 0, pip: 0, gp: 0 });
+      const t = rawTotals[r.player_id] || (rawTotals[r.player_id] = {
+        oreb: 0, fbp: 0, pip: 0, fga: 0, fgm: 0, fg3a: 0, fg3m: 0, fta: 0, ftm: 0, gp: 0
+      });
       t.oreb += r.oreb || 0;
       t.fbp  += r.fbp  || 0;
       t.pip  += r.pip  || 0;
+      t.fga  += r.fga  || 0;
+      t.fgm  += r.fgm  || 0;
+      t.fg3a += r.fg3a || 0;
+      t.fg3m += r.fg3m || 0;
+      t.fta  += r.fta  || 0;
+      t.ftm  += r.ftm  || 0;
       t.gp   += 1;
     });
 
@@ -725,13 +733,14 @@ const sc = scoutMap[p.id];
           pm:         av.plus_minus || 0,
           usage:      sc.usage || 0,
           gp:         av.games_played || 0,
-          fgp:        av.fga_total ? (av.fgm_total / av.fga_total) : 0,
-          threepct:   av.fg3a_total ? (av.fg3m_total / av.fg3a_total) : 0,
-          threepm:    av.games_played ? (av.fg3m_total / av.games_played) : 0,
-          threepa:    av.games_played ? (av.fg3a_total / av.games_played) : 0,
-          fta:        av.games_played ? (av.fta_total / av.games_played) : 0,
-          ftm:        av.games_played ? (av.ftm_total / av.games_played) : 0,
-          ftpct:      av.fta_total ? (av.ftm_total / av.fta_total) : 0,
+          fgp:        (rawTotals[p.id] && rawTotals[p.id].fga) ? (rawTotals[p.id].fgm / rawTotals[p.id].fga) : 0,
+          threepct:   (rawTotals[p.id] && rawTotals[p.id].fg3a) ? (rawTotals[p.id].fg3m / rawTotals[p.id].fg3a) : 0,
+          threepm:    (rawTotals[p.id] && rawTotals[p.id].gp) ? (rawTotals[p.id].fg3m / rawTotals[p.id].gp) : 0,
+          threepa:    (rawTotals[p.id] && rawTotals[p.id].gp) ? (rawTotals[p.id].fg3a / rawTotals[p.id].gp) : 0,
+          three_rate: (rawTotals[p.id] && rawTotals[p.id].fga) ? (rawTotals[p.id].fg3a / rawTotals[p.id].fga) : 0,
+          fta:        (rawTotals[p.id] && rawTotals[p.id].gp) ? (rawTotals[p.id].fta / rawTotals[p.id].gp) : 0,
+          ftm:        (rawTotals[p.id] && rawTotals[p.id].gp) ? (rawTotals[p.id].ftm / rawTotals[p.id].gp) : 0,
+          ftpct:      (rawTotals[p.id] && rawTotals[p.id].fta) ? (rawTotals[p.id].ftm / rawTotals[p.id].fta) : 0,
           oreb:       (rawTotals[p.id] && rawTotals[p.id].gp) ? (rawTotals[p.id].oreb / rawTotals[p.id].gp) : 0,
           fbp:        (rawTotals[p.id] && rawTotals[p.id].gp) ? (rawTotals[p.id].fbp / rawTotals[p.id].gp) : 0,
           pip:        (rawTotals[p.id] && rawTotals[p.id].gp) ? (rawTotals[p.id].pip / rawTotals[p.id].gp) : 0,
@@ -3124,7 +3133,7 @@ var types3 = pbpTypes(shots3,[
     {v:fmtN(p.apg),         l:'APG'},
     {v:fmtPct1(p.fgp),      l:'FG%'},
     {v:fmtPct1(p.threepct), l:'3P%'},
-    {v:fmtN(p.threepm),     l:'3PR'},
+    {v:fmtPct1(p.three_rate), l:'3PR'},
     {v:fmtN(p.fta),         l:'FTA'},
     {v:fmtPct1(p.ftpct),    l:'FT%'},
     {v:fmtN(p.oreb),        l:'OFF'},
@@ -3739,7 +3748,7 @@ function openPosterWindow(p, playerName, doPrint){
     {v:fmtN(p.apg),         l:"APG"},
     {v:fmtPct1(p.fgp),      l:"FG%"},
     {v:fmtPct1(p.threepct), l:"3P%"},
-    {v:fmtN(p.threepm),     l:"3PR"},
+    {v:fmtPct1(p.three_rate), l:"3PR"},
     {v:fmtN(p.fta),         l:"FTA"},
     {v:fmtPct1(p.ftpct),    l:"FT%"},
     {v:fmtN(p.oreb),        l:"OFF"},
