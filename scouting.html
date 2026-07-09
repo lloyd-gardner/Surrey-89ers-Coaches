@@ -3069,10 +3069,16 @@ function matchPlayerName(pbpName, dataName){
 function slideCard(p, idx, teamName){
   var name     = fmtName(p.name||'');
   var num      = p.number||'—';
-  var paintPct = Math.round((p.paint_pct||0)*100);
-  var ftPct    = Math.round((p.ft_pct||0)*100);
-  var midPct   = Math.round((p.mid_pct||0)*100);
-  var threePct = Math.round((p.three_pct||0)*100);
+  var _pShots  = ((DB&&DB.raw&&DB.raw.shots)||[]).filter(function(r){ return matchPlayerName(r.Player||'', p.name||''); });
+  var _pShotsTotal = _pShots.length;
+  function _zonePct(zoneName){
+    if(!_pShotsTotal) return 0;
+    return _pShots.filter(function(r){ return r.Zone===zoneName; }).length / _pShotsTotal * 100;
+  }
+  var paintPct = Math.round(_zonePct('Paint'));
+  var ftPct    = Math.round(_zonePct('FT'));
+  var midPct   = Math.round(_zonePct('Midrange'));
+  var threePct = Math.round(_zonePct('3PT'));
   var photoSrc = p.imageUrl || p.imageB64 || '';
   var ap       = p.assistProfile || null;
   var astRatePct   = p.assistedRate || 0;
@@ -3698,10 +3704,15 @@ function openPosterWindow(p, playerName, doPrint){
   // Rebuild the full slide HTML with poster-scale fonts
   const name = fmtName(p.name||"");
   const num  = p.number||"—";
-  const paintPct  = Math.round((p.paint_pct||0)*100);
-  const ftPct     = Math.round((p.ft_pct||0)*100);
-  const midPct    = Math.round((p.mid_pct||0)*100);
-  const threePct  = Math.round((p.three_pct||0)*100);
+  const _pShotsPoster = ((DB&&DB.raw&&DB.raw.shots)||[]).filter(r => matchPlayerName(r.Player||'', p.name||''));
+  const _pShotsPosterTotal = _pShotsPoster.length;
+  const _zonePctPoster = (zoneName) => _pShotsPosterTotal
+    ? _pShotsPoster.filter(r => r.Zone===zoneName).length / _pShotsPosterTotal * 100
+    : 0;
+  const paintPct  = Math.round(_zonePctPoster('Paint'));
+  const ftPct     = Math.round(_zonePctPoster('FT'));
+  const midPct    = Math.round(_zonePctPoster('Midrange'));
+  const threePct  = Math.round(_zonePctPoster('3PT'));
   const photoSrc  = p.imageUrl||p.imageB64||"";
   const ap        = p.assistProfile||null;
   const livePct   = 0; // can compute from PBP if needed - simplified for poster
