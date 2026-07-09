@@ -285,7 +285,7 @@ async function sbPost(table,row,service=false,conflictCols=null){
 
 // INIT
 async function init(){
-  const seasons=await sbGet(`slb_seasons?label=eq.${encodeURIComponent(SEASON_LABEL)}&select=id`);
+  const seasons=await sbGet(`slb_seasons?is_current=eq.true&select=id`);
   seasonId=seasons[0]?.id;
   const dbTeams=await sbGet("slb_teams?select=id,name");
   console.log("DB teams:", dbTeams.map(t=>t.name));
