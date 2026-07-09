@@ -663,10 +663,27 @@ const scoutMap = {};
     scouting.forEach(s => { scoutMap[s.player_id] = s; });
 
     const averages = await sbFetch(
-      `slb_player_season_averages?player_id=in.(${pids})&season_id=eq.${seasonId}&select=player_id,games_played,ppg,rpg,apg,topg,spg,bpg,plus_minus,efg_pct,ts_pct,mpg`
+      `slb_player_season_averages?player_id=in.(${pids})&season_id=eq.${seasonId}&select=player_id,games_played,ppg,rpg,apg,topg,spg,bpg,plus_minus,efg_pct,ts_pct,mpg,fgm_total,fga_total,fg3m_total,fg3a_total,ftm_total,fta_total,pts_total`
     );
     const avgMap = {};
     averages.forEach(a => { avgMap[a.player_id] = a; });
+
+    // OFF/FBK/PIP aren't in slb_player_season_averages, so pull them from
+    // the raw per-game table instead, scoped to this season's actual games.
+    const seasonGames = await sbFetch(`slb_games?season_id=eq.${seasonId}&select=id`);
+    const seasonGameIds = seasonGames.map(g => g.id).join(",");
+    const rawGameStats = seasonGameIds
+      ? await sbFetch(`slb_player_game_stats?player_id=in.(${pids})&game_id=in.(${seasonGameIds})&select=player_id,oreb,fbp,pip,dnp`)
+      : [];
+    const rawTotals = {};
+    rawGameStats.forEach(r => {
+      if (r.dnp) return;
+      const t = rawTotals[r.player_id] || (rawTotals[r.player_id] = { oreb: 0, fbp: 0, pip: 0, gp: 0 });
+      t.oreb += r.oreb || 0;
+      t.fbp  += r.fbp  || 0;
+      t.pip  += r.pip  || 0;
+      t.gp   += 1;
+    });
 
     const result = players
       .filter(p => scoutMap[p.id]?.depth_pos && scoutMap[p.id].depth_pos < 99)
@@ -708,6 +725,16 @@ const sc = scoutMap[p.id];
           pm:         av.plus_minus || 0,
           usage:      sc.usage || 0,
           gp:         av.games_played || 0,
+          fgp:        av.fga_total ? (av.fgm_total / av.fga_total) : 0,
+          threepct:   av.fg3a_total ? (av.fg3m_total / av.fg3a_total) : 0,
+          threepm:    av.games_played ? (av.fg3m_total / av.games_played) : 0,
+          threepa:    av.games_played ? (av.fg3a_total / av.games_played) : 0,
+          fta:        av.games_played ? (av.fta_total / av.games_played) : 0,
+          ftm:        av.games_played ? (av.ftm_total / av.games_played) : 0,
+          ftpct:      av.fta_total ? (av.ftm_total / av.fta_total) : 0,
+          oreb:       (rawTotals[p.id] && rawTotals[p.id].gp) ? (rawTotals[p.id].oreb / rawTotals[p.id].gp) : 0,
+          fbp:        (rawTotals[p.id] && rawTotals[p.id].gp) ? (rawTotals[p.id].fbp / rawTotals[p.id].gp) : 0,
+          pip:        (rawTotals[p.id] && rawTotals[p.id].gp) ? (rawTotals[p.id].pip / rawTotals[p.id].gp) : 0,
         };
       })
       .sort((a, b) => a.pos - b.pos);
