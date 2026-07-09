@@ -615,7 +615,7 @@ const LEAGUE_RANKS = {"ranks":{"PPG":{"BATTLE, RAEQUAN":1,"ROBINSON, PATRICK":2,
 const PW   = "89ers2627";
 const SUPABASE_URL  = "https://xxhotbyqajzosxtczezh.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4aG90YnlxYWp6b3N4dGN6ZXpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODYzODUsImV4cCI6MjA5NTk2MjM4NX0.m37aEWrf9Yx74CcZkcIRmn95D4fVWhnd2IWDxBbHSqs";
-const SEASON_LABEL  = "2024-25";
+const SEASON_LABEL  = "2025-26";
 
 async function fetchSupabaseDepthChart(teamCaps) {
   try {
@@ -1007,7 +1007,7 @@ function parseTeamDataSheet(wb, sheetName) {
 async function loadData(){
   if(DB) return DB;
 
-  const seasons = await sbFetchAll("slb_seasons", `label=eq.${encodeURIComponent(SEASON_LABEL)}&select=id`);
+  const seasons = await sbFetchAll("slb_seasons", `is_current=eq.true&select=id`);
   const seasonId = seasons[0]?.id;
   if(!seasonId){ console.error("Season not found:", SEASON_LABEL); return null; }
 
