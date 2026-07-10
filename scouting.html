@@ -2380,43 +2380,45 @@ async function fillNextOpponent(){
   // Key stats
   // Pre-compute all ranks
   const ranks = {};
-  const rankCols = {offrtg:false,defrtg:true,netrtg:false,efg:false,tov:false,oreb:false,pip:false,tempo:false,fbp:false,stl:false,blk:false,dreb:false,ast:false,ft:false,threep:false,pf:true,secondChance:false,benchPts:false,ptsFromTov:false};
+  const rankCols = {offrtg:false,defrtg:true,netrtg:false,efg:false,tov:false,oreb:false,pip:false,tempo:false,fbp:false,stl:false,blk:false,dreb:false,ast:false,ft:false,threep:false,pf:true,secondChance:false,benchPts:false,ptsFromTov:false,
+    ptsScored:false,fg:false,threeRate:false,threepm:false,fta:false,ftm:false,
+    ptsAllowed:true,q1a:true,q2a:true,q3a:true,q4a:true};
   Object.entries(rankCols).forEach(([col,asc])=>{ ranks[col]=getRanks(db.teamAgg,col,asc); });
 
   const statSections = [
     { label:"OFFENSIVE", color:"var(--blue)", stats:[
       {lbl:"OFF RTG",    val:fmt(t.offrtg),           rank:ranks.offrtg[NEXT_OPP]},
-      {lbl:"NET RTG",    val:(t.netrtg>0?"+":"")+fmt(t.netrtg), rank:null},
-      {lbl:"PPG",        val:fmt(t.ptsScored),         rank:null},
+      {lbl:"NET RTG",    val:(t.netrtg>0?"+":"")+fmt(t.netrtg), rank:ranks.netrtg[NEXT_OPP]},
+      {lbl:"PPG",        val:fmt(t.ptsScored),         rank:ranks.ptsScored[NEXT_OPP]},
       {lbl:"eFG%",       val:fmtPR(t.efg),             rank:ranks.efg[NEXT_OPP]},
-      {lbl:"FG%",        val:fmtPR(t.fg),              rank:null},
+      {lbl:"FG%",        val:fmtPR(t.fg),              rank:ranks.fg[NEXT_OPP]},
       {lbl:"3P%",        val:fmtPR(t.threep),          rank:ranks.threep[NEXT_OPP]},
       {lbl:"FT%",        val:fmtPR(t.ft),              rank:ranks.ft[NEXT_OPP]},
       {lbl:"TEMPO",      val:fmt(t.tempo),              rank:ranks.tempo[NEXT_OPP]},
-      {lbl:"3PT RATE",   val:fmtPR(t.threeRate),       rank:null},
+      {lbl:"3PT RATE",   val:fmtPR(t.threeRate),       rank:ranks.threeRate[NEXT_OPP]},
       {lbl:"OREB%",      val:fmtPR(t.oreb),            rank:ranks.oreb[NEXT_OPP]},
       {lbl:"AST%",       val:fmtPR(t.ast),             rank:ranks.ast[NEXT_OPP]},
       {lbl:"TOV%",       val:fmtPR(t.tov),             rank:ranks.tov[NEXT_OPP]},
-      {lbl:"3PM/G",      val:fmt(t.threepm),           rank:null},
+      {lbl:"3PM/G",      val:fmt(t.threepm),           rank:ranks.threepm[NEXT_OPP]},
       {lbl:"PIP/G",      val:fmt(t.pip),               rank:ranks.pip[NEXT_OPP]},
-      {lbl:"FTA/G",      val:fmt(t.fta),               rank:null},
-      {lbl:"FTM/G",      val:fmt(t.ftm),               rank:null},
+      {lbl:"FTA/G",      val:fmt(t.fta),               rank:ranks.fta[NEXT_OPP]},
+      {lbl:"FTM/G",      val:fmt(t.ftm),               rank:ranks.ftm[NEXT_OPP]},
       {lbl:"FBP/G",      val:fmt(t.fbp),               rank:ranks.fbp[NEXT_OPP]},
-      {lbl:"BENCH PTS",  val:fmt(t.benchPts),          rank:null},
+      {lbl:"BENCH PTS",  val:fmt(t.benchPts),          rank:ranks.benchPts[NEXT_OPP]},
       {lbl:"2ND CHANCE", val:fmt(t.secondChance),      rank:ranks.secondChance[NEXT_OPP]},
-      {lbl:"PTS fr TOV", val:fmt(t.ptsFromTov),        rank:null},
+      {lbl:"PTS fr TOV", val:fmt(t.ptsFromTov),        rank:ranks.ptsFromTov[NEXT_OPP]},
     ]},
     { label:"DEFENSIVE", color:"#ff8a8a", stats:[
       {lbl:"DEF RTG",    val:fmt(t.defrtg),            rank:ranks.defrtg[NEXT_OPP]},
-      {lbl:"PTS ALLOWED",val:fmt(t.ptsAllowed),        rank:null},
+      {lbl:"PTS ALLOWED",val:fmt(t.ptsAllowed),        rank:ranks.ptsAllowed[NEXT_OPP]},
       {lbl:"DREB%",      val:fmtPR(t.dreb),            rank:ranks.dreb[NEXT_OPP]},
       {lbl:"STL/G",      val:fmt(t.stl),               rank:ranks.stl[NEXT_OPP]},
       {lbl:"BLK/G",      val:fmt(t.blk),               rank:ranks.blk[NEXT_OPP]},
       {lbl:"PF/G",       val:fmt(t.pf),                rank:ranks.pf[NEXT_OPP]},
-      {lbl:"Q1 ALLOWED", val:fmt(t.q1a),               rank:null},
-      {lbl:"Q2 ALLOWED", val:fmt(t.q2a),               rank:null},
-      {lbl:"Q3 ALLOWED", val:fmt(t.q3a),               rank:null},
-      {lbl:"Q4 ALLOWED", val:fmt(t.q4a),               rank:null},
+      {lbl:"Q1 ALLOWED", val:fmt(t.q1a),               rank:ranks.q1a[NEXT_OPP]},
+      {lbl:"Q2 ALLOWED", val:fmt(t.q2a),               rank:ranks.q2a[NEXT_OPP]},
+      {lbl:"Q3 ALLOWED", val:fmt(t.q3a),               rank:ranks.q3a[NEXT_OPP]},
+      {lbl:"Q4 ALLOWED", val:fmt(t.q4a),               rank:ranks.q4a[NEXT_OPP]},
     ]},
   ];
 
@@ -2459,10 +2461,10 @@ async function fillNextOpponent(){
         <td class="td-num">${fmt((parseFloat(g.DEFRTG)||0)*100)}</td>
         <td class="td-num ${net>0?"td-green":"td-red"}">${net>0?"+":""}${fmt(net)}</td>
         <td class="td-num">${fmt(g.Tempo)}</td>
-        <td class="td-num">${fmtPR(parseFloat(g["FG%"])||0)}</td>
-        <td class="td-num">${fmtPR(parseFloat(g["3P%"])||0)}</td>
-        <td class="td-num">${fmtPR(parseFloat(g["eFG%"])||0)}</td>
-        <td class="td-num">${fmtPR(parseFloat(g["TOV%"])||0)}</td>
+        <td class="td-num">${fmtPR((parseFloat(g["FG%"])||0)*100)}</td>
+        <td class="td-num">${fmtPR((parseFloat(g["3P%"])||0)*100)}</td>
+        <td class="td-num">${fmtPR((parseFloat(g["eFG%"])||0)*100)}</td>
+        <td class="td-num">${fmtPR((parseFloat(g["TOV%"])||0)*100)}</td>
       </tr>`;
     }).join("") : "<tr><td colspan='13' style='text-align:center;padding:16px;color:var(--muted)'>No recent game data</td></tr>";
   }
@@ -2651,18 +2653,17 @@ const LIVE_TYPES = new Set(['badpass','ballhandling']);
       .map(([k,n]) => ({ label:TOV_LABELS[k]||k, n, pct:Math.round(n/totalTov*100), live:LIVE_TYPES.has(k) }));
 
     // ── Assists ──────────────────────────────────────────────────────────────
-    const dc = (DEPTH_CHARTS[NEXT_OPP]||[]);
-    let astTo2=0, astTo3=0, astTotal=0;
+    const teamAssistShots = (db.raw.shots||[]).filter(r =>
+      r.Success===1 && r.AssistedBy && matchTeam(r.Team||'', NEXT_OPP)
+    );
+    let astTo2=0, astTo3=0;
+    const astTotal = teamAssistShots.length;
     const comboMap = {};
-    dc.forEach(p => {
-      const ap = p.assistProfile; if(!ap) return;
-      astTo2    += (ap.ast_2pt||0);
-      astTo3    += (ap.ast_3pt||0);
-      astTotal  += (ap.total_ast||0);
-      if(ap.top_targets) ap.top_targets.forEach(([target, n]) => {
-        const key = fmtName(p.name||'')+'→'+target;
-        comboMap[key] = (comboMap[key]||0)+n;
-      });
+    teamAssistShots.forEach(r => {
+      if(r.Action==='2pt') astTo2++;
+      else if(r.Action==='3pt') astTo3++;
+      const key = (r.AssistedBy||'Unknown')+'→'+(r.Player||'Unknown');
+      comboMap[key] = (comboMap[key]||0)+1;
     });
     const ast2Pct = astTotal ? Math.round(astTo2/astTotal*100) : null;
     const ast3Pct = astTotal ? Math.round(astTo3/astTotal*100) : null;
@@ -2778,10 +2779,10 @@ if(topCombos.length){
         <td class="td-num">${fmt((parseFloat(g.DEFRTG)||0)*100)}</td>
         <td class="td-num ${(parseFloat(g["NET RTG"])||0)>0?"td-green":"td-red"}">${(parseFloat(g["NET RTG"])||0)>0?"+":""}${fmt((parseFloat(g["NET RTG"])||0)*100)}</td>
         <td class="td-num">${fmt(g.Tempo)}</td>
-        <td class="td-num">${fmtPR(parseFloat(g["FG%"])||0)}</td>
-        <td class="td-num">${fmtPR(parseFloat(g["3P%"])||0)}</td>
-        <td class="td-num">${fmtPR(parseFloat(g["eFG%"])||0)}</td>
-        <td class="td-num">${fmtPR(parseFloat(g["TOV%"])||0)}</td>
+        <td class="td-num">${fmtPR((parseFloat(g["FG%"])||0)*100)}</td>
+        <td class="td-num">${fmtPR((parseFloat(g["3P%"])||0)*100)}</td>
+        <td class="td-num">${fmtPR((parseFloat(g["eFG%"])||0)*100)}</td>
+        <td class="td-num">${fmtPR((parseFloat(g["TOV%"])||0)*100)}</td>
       </tr>`).join("")
     : "<tr><td colspan='13' style='text-align:center;padding:20px;color:var(--muted)'>No H2H games recorded</td></tr>";
 }
@@ -2850,10 +2851,10 @@ async function showTeamProfile(teamName){
         <td class="td-num">${fmt((parseFloat(g.DEFRTG)||0)*100)}</td>
         <td class="td-num ${net>0?"td-green":"td-red"}">${net>0?"+":""}${fmt(net)}</td>
         <td class="td-num">${fmt(g.Tempo)}</td>
-        <td class="td-num">${fmtPR(parseFloat(g["FG%"])||0)}</td>
-        <td class="td-num">${fmtPR(parseFloat(g["3P%"])||0)}</td>
-        <td class="td-num">${fmtPR(parseFloat(g["eFG%"])||0)}</td>
-        <td class="td-num">${fmtPR(parseFloat(g["TOV%"])||0)}</td>
+        <td class="td-num">${fmtPR((parseFloat(g["FG%"])||0)*100)}</td>
+        <td class="td-num">${fmtPR((parseFloat(g["3P%"])||0)*100)}</td>
+        <td class="td-num">${fmtPR((parseFloat(g["eFG%"])||0)*100)}</td>
+        <td class="td-num">${fmtPR((parseFloat(g["TOV%"])||0)*100)}</td>
       </tr>`;
     }).join("") : "<tr><td colspan='13' style='text-align:center;padding:16px;color:var(--muted)'>No recent game data</td></tr>";
   }
@@ -4019,8 +4020,8 @@ async function renderSelfScout(){
       <td class="td-num">${fmt((parseFloat(g.DEFRTG)||0)*100)}</td>
       <td class="td-num ${net>0?"td-green":"td-red"}">${net>0?"+":""}${fmt(net)}</td>
       <td class="td-num">${fmt(g.Tempo)}</td>
-      <td class="td-num">${fmtPR(parseFloat(g["eFG%"])||0)}</td>
-      <td class="td-num">${fmtPR(parseFloat(g["TOV%"])||0)}</td>
+      <td class="td-num">${fmtPR((parseFloat(g["eFG%"])||0)*100)}</td>
+      <td class="td-num">${fmtPR((parseFloat(g["TOV%"])||0)*100)}</td>
       <td class="td-num">${fmt(parseFloat(g.PIP)||0)}</td>
     </tr>`;
   }).join("");
