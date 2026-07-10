@@ -3242,12 +3242,14 @@ var types3 = pbpTypes(shots3,[
     +(types2.length ? sectionLabel('2PT CREATION','#ff8a8a')+barRows(types2,'#ff8a8a') : '');
 
   var guardHTML = guardItems.length
-    ? guardItems.map(function(g){
-        return '<div style="background:rgba(0,0,0,0.2);border-radius:6px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-          +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:rgba(250,249,246,0.45)">'+g[0]+'</div>'
-          +'<div style="font-size:15px;font-weight:900;color:var(--green);text-transform:uppercase">'+g[1]+'</div>'
-        +'</div>';
-      }).join('<div style="height:6px"></div>')
+    ? '<div style="display:grid;grid-template-columns:repeat('+guardItems.length+',1fr);gap:6px">'
+      + guardItems.map(function(g){
+          return '<div style="background:var(--card3);border-radius:8px;padding:7px 4px;text-align:center">'
+            +'<div style="font-size:14px;font-weight:900;color:var(--green);text-transform:uppercase;margin-bottom:3px;line-height:1.1">'+g[1]+'</div>'
+            +'<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">'+g[0]+'</div>'
+          +'</div>';
+        }).join('')
+      +'</div>'
     : '<div style="color:var(--muted);font-size:11px">No guard notes</div>';
 
   var whoHTML = (p.whoWhat||p.forcing||p.stopping)
@@ -3355,14 +3357,27 @@ var types3 = pbpTypes(shots3,[
 
     // LEFT
     +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column;overflow:hidden">'
-      +'<div style="height:110px;flex-shrink:0;overflow:hidden;background:var(--card3)">'+photoHTML+'</div>'
+      +'<div style="height:200px;flex-shrink:0;overflow:hidden;background:var(--card3)">'+photoHTML+'</div>'
       +'<div style="padding:8px 10px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
         +sectionLabel('SHOT MENU','var(--green)')
         +shotZonesHTML
       +'</div>'
-      +'<div style="padding:8px 10px;flex:1;overflow:hidden;min-height:0">'
-        +sectionLabel('SHOT CREATION')
-        +creationPanelHTML
+      +'<div style="padding:8px 10px;flex-shrink:0">'
+        +sectionLabel('ASSISTS','var(--green)')
+        +(ap?(function(){
+            var tot=ap.total_ast||1;
+            var pct2=Math.round((ap.ast_2pt||0)/tot*100);
+            var pct3=Math.round((ap.ast_3pt||0)/tot*100);
+            var passTo=ap.top_targets_pct&&ap.top_targets_pct.length
+              ?ap.top_targets_pct[0][0]+' '+ap.top_targets_pct[0][1]+'%'
+              :(ap.top_targets&&ap.top_targets.length?ap.top_targets[0][0]:'—');
+            return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
+              +miniStat(pct2+'%','% TO 2PT','#60c8fa')
+              +miniStat(pct3+'%','% TO 3PT','var(--blue)')
+              +miniStat(passTo,'PASSES TO','var(--green)')
+            +'</div>';
+          })()
+        :'<div style="color:var(--muted);font-size:11px">No data</div>')
       +'</div>'
     +'</div>'
 
@@ -3423,45 +3438,10 @@ var types3 = pbpTypes(shots3,[
         +'</div>'
       +'</div>'
 
-      // HOW TO GUARD | SHOT PROFILE | TOV + ASSISTS — fixed height bottom row
-      +'<div style="display:grid;grid-template-columns:280px 1fr 280px;flex-shrink:0;border-top:1px solid var(--border-soft);align-items:stretch">'
-
-        +'<div style="padding:10px 16px 12px;border-right:1px solid var(--border-soft);overflow:hidden">'
-          +sectionLabel('HOW TO GUARD','var(--green)')
-          +guardHTML
-        +'</div>'
-
-        +'<div style="padding:10px 16px;border-right:1px solid var(--border-soft);overflow:hidden">'
-          +sectionLabel('SHOT PROFILE')
-          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'
-            +'<div>'
-              +'<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#4ade80;margin-bottom:5px">STRENGTHS</div>'
-              +bestShots.map(function(t){ return shotStrengthPill(t,true); }).join('')
-            +'</div>'
-            +'<div>'
-              +'<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#ff8a8a;margin-bottom:5px">WEAKNESSES</div>'
-              +worstShots.map(function(t){ return shotStrengthPill(t,false); }).join('')
-            +'</div>'
-          +'</div>'
-        +'</div>'
-
-        +'<div style="padding:10px 16px;overflow:hidden">'
-          +sectionLabel('ASSISTS','var(--green)')
-          +(ap?(function(){
-              var tot=ap.total_ast||1;
-              var pct2=Math.round((ap.ast_2pt||0)/tot*100);
-              var pct3=Math.round((ap.ast_3pt||0)/tot*100);
-              var passTo=ap.top_targets_pct&&ap.top_targets_pct.length
-                ?ap.top_targets_pct[0][0]+' '+ap.top_targets_pct[0][1]+'%'
-                :(ap.top_targets&&ap.top_targets.length?ap.top_targets[0][0]:'—');
-              return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
-                +miniStat(pct2+'%','% TO 2PT','#60c8fa')
-                +miniStat(pct3+'%','% TO 3PT','var(--blue)')
-                +miniStat(passTo,'PASSES TO','var(--green)')
-              +'</div>';
-            })()
-          :'<div style="color:var(--muted);font-size:11px">No data</div>')
-        +'</div>'
+      // HOW TO GUARD — full-width pill row, matching Player Ratings style
+      +'<div style="padding:8px 20px 10px;flex-shrink:0;border-top:1px solid var(--border-soft)">'
+        +sectionLabel('HOW TO GUARD','var(--green)')
+        +guardHTML
       +'</div>'
     +'</div>'
   +'</div>'
