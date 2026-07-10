@@ -1221,6 +1221,7 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       "Quarter":  r.quarter,
       "x":        r.x,
       "y":        r.y,
+      "AssistedBy": r.assisted_by_player_id ? (playerById[r.assisted_by_player_id]?.full_name || "") : "",
     };
   }).filter(Boolean);
 
@@ -3080,7 +3081,24 @@ function slideCard(p, idx, teamName){
   var midPct   = Math.round(_zonePct('Midrange'));
   var threePct = Math.round(_zonePct('3PT'));
   var photoSrc = p.imageUrl || p.imageB64 || '';
-  var ap       = p.assistProfile || null;
+  var ap = (function(){
+    var pAssists = ((DB&&DB.raw&&DB.raw.shots)||[]).filter(function(r){
+      return r.Success===1 && r.AssistedBy && matchPlayerName(r.AssistedBy, p.name||'');
+    });
+    if(!pAssists.length) return null;
+    var targetCounts = {}, ast2=0, ast3=0;
+    pAssists.forEach(function(r){
+      if(r.Action==='2pt') ast2++;
+      else if(r.Action==='3pt') ast3++;
+      var t = r.Player||'Unknown';
+      targetCounts[t] = (targetCounts[t]||0)+1;
+    });
+    var totalAst = pAssists.length;
+    var targetList = Object.keys(targetCounts).map(function(k){ return [k, targetCounts[k]]; })
+      .sort(function(a,b){ return b[1]-a[1]; });
+    var targetsPct = targetList.map(function(t){ return [t[0], Math.round(t[1]/totalAst*100)]; });
+    return { total_ast: totalAst, ast_2pt: ast2, ast_3pt: ast3, top_targets: targetList, top_targets_pct: targetsPct };
+  })();
   var astRatePct   = p.assistedRate || 0;
   var selfCreatePct= 100 - astRatePct;
 
@@ -3357,7 +3375,7 @@ var types3 = pbpTypes(shots3,[
 
     // LEFT
     +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column;overflow:hidden">'
-      +'<div style="height:200px;flex-shrink:0;overflow:hidden;background:var(--card3)">'+photoHTML+'</div>'
+      +'<div style="height:350px;flex-shrink:0;overflow:hidden;background:var(--card3)">'+photoHTML+'</div>'
       +'<div style="padding:8px 10px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
         +sectionLabel('SHOT MENU','var(--green)')
         +shotZonesHTML
@@ -3432,7 +3450,7 @@ var types3 = pbpTypes(shots3,[
         +'</div>'
         +'<div style="padding:10px 12px;display:flex;flex-direction:column">'
           +sectionLabel('SHOT CHART')
-          +'<div style="flex:1;min-height:0">'
+          +'<div style="aspect-ratio:260/200;width:100%;max-height:100%;margin:0 auto">'
             +'<canvas id="'+chartId+'" width="260" height="200" style="width:100%;height:100%;display:block"></canvas>'
           +'</div>'
         +'</div>'
