@@ -141,8 +141,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
   page-break-before:always;break-before:page;page-break-inside:avoid;
   width:100%;
   max-width:1280px;
-  min-height:720px;
-  overflow:visible;
+  aspect-ratio:16/9;
+  overflow:hidden;
   border-radius:10px;
   display:grid;
   grid-template-columns:280px 1fr;
@@ -3355,11 +3355,7 @@ var types3 = pbpTypes(shots3,[
 
     // LEFT
     +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column;overflow:hidden">'
-      +'<div style="flex:1;min-height:0;overflow:hidden;background:var(--card3)">'+photoHTML+'</div>'
-      +'<div style="padding:8px 10px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
-        +sectionLabel('SHOT MENU','var(--green)')
-        +shotZonesHTML
-      +'</div>'
+      +'<div style="height:150px;flex-shrink:0;overflow:hidden;background:var(--card3)">'+photoHTML+'</div>'
       +'<div style="padding:8px 10px;flex:1;overflow:hidden;min-height:0">'
         +sectionLabel('SHOT CREATION')
         +creationPanelHTML
@@ -3397,6 +3393,12 @@ var types3 = pbpTypes(shots3,[
         +'<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:5px">'
           +statsRow.map(function(s){ return statBox(s.v,s.l); }).join('')
         +'</div>'
+      +'</div>'
+
+      // Shot Menu — moved here from left column so Shot Creation gets full column height
+      +'<div style="padding:4px 20px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
+        +sectionLabel('SHOT MENU','var(--green)')
+        +shotZonesHTML
       +'</div>'
 
       // Statements + Shot Chart
@@ -3446,12 +3448,6 @@ var types3 = pbpTypes(shots3,[
         +'</div>'
 
         +'<div style="padding:10px 16px;overflow:hidden">'
-          +sectionLabel('TURNOVERS','var(--amber)')
-          +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">'
-            +miniStat(fmtN(p.tpg),'TOV/G','')
-            +miniStat(livePct+'%','LIVE','#ff8a8a')
-            +miniStat((100-livePct)+'%','DEAD','var(--amber)')
-          +'</div>'
           +sectionLabel('ASSISTS','var(--green)')
           +(ap?(function(){
               var tot=ap.total_ast||1;
@@ -3647,20 +3643,8 @@ function saveSlideAsJpeg(idx, playerName){
   const el = document.getElementById("slide-"+idx);
   if(!el){ alert("Slide not found"); return; }
 
-  function restoreLayout(){
-    el.style.aspectRatio = '';
-    el.style.overflow = '';
-    el.style.minHeight = '';
-  }
-
   function doCapture(){
     el.classList.add("slide-buttons-hidden");
-    // Force the clean 16:9 shape just for this capture -- normal on-screen
-    // browsing stays flexible (full content, no clipping), but the exported
-    // JPEG (used as a 16:9 video title slide) needs the fixed proportions.
-    el.style.aspectRatio = '16/9';
-    el.style.overflow = 'hidden';
-    el.style.minHeight = '0';
     const rect = el.getBoundingClientRect();
 
     html2canvas(el, {
@@ -3677,7 +3661,6 @@ function saveSlideAsJpeg(idx, playerName){
       height: rect.height,
     }).then(function(rawCanvas){
       el.classList.remove("slide-buttons-hidden");
-      restoreLayout();
 
       var TW = 1920, TH = 1080;
       var scale = TW / rawCanvas.width;
@@ -3698,7 +3681,6 @@ function saveSlideAsJpeg(idx, playerName){
       link.click();
     }).catch(function(err){
       el.classList.remove("slide-buttons-hidden");
-      restoreLayout();
       alert("Export failed: "+err.message);
     });
   }
