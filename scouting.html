@@ -3389,11 +3389,17 @@ var types3 = pbpTypes(shots3,[
             var passTo=ap.top_targets_pct&&ap.top_targets_pct.length
               ?ap.top_targets_pct[0][0]+' '+ap.top_targets_pct[0][1]+'%'
               :(ap.top_targets&&ap.top_targets.length?ap.top_targets[0][0]:'—');
-            return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
-              +miniStat(pct2+'%','% TO 2PT','#60c8fa')
-              +miniStat(pct3+'%','% TO 3PT','var(--blue)')
-              +miniStat(passTo,'PASSES TO','var(--green)')
-            +'</div>';
+            function assistPill(val,label,col){
+              return '<div style="background:var(--card3);border-radius:8px;padding:8px 6px;text-align:center">'
+                +'<div style="font-size:16px;font-weight:900;color:'+col+';line-height:1.15">'+val+'</div>'
+                +'<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-top:3px">'+label+'</div>'
+              +'</div>';
+            }
+            return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">'
+              +assistPill(pct2+'%','% TO 2PT','#60c8fa')
+              +assistPill(pct3+'%','% TO 3PT','var(--blue)')
+            +'</div>'
+            +assistPill(passTo,'PASSES TO','var(--green)');
           })()
         :'<div style="color:var(--muted);font-size:11px">No data</div>')
       +'</div>'
@@ -3465,7 +3471,7 @@ var types3 = pbpTypes(shots3,[
   +'</div>'
 +'</div>'
   // Buttons sit BELOW the card
-  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px" class="no-print slide-buttons">'
+  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;margin-bottom:32px" class="no-print slide-buttons">'
     +'<button class="btn btn-green" style="font-size:12px;padding:10px" data-sideidx="'+idx+'" data-player="'+name+'" onclick="printSingleSlide(+this.dataset.sideidx,this.dataset.player)">&#128424; Print A3</button>'
     +'<button class="btn" style="font-size:12px;padding:10px;background:var(--card3);border:1px solid var(--border-soft);color:var(--offwhite)" data-sideidx="'+idx+'" data-player="'+name+'" onclick="saveSlideAsJpeg(+this.dataset.sideidx,this.dataset.player)">&#128247; Save JPEG</button>'
   +'</div>'
