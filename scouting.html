@@ -141,8 +141,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
   page-break-before:always;break-before:page;page-break-inside:avoid;
   width:100%;
   max-width:1280px;
-  aspect-ratio:16/9;
-  overflow:hidden;
+  min-height:720px;
+  overflow:visible;
   border-radius:10px;
   display:grid;
   grid-template-columns:280px 1fr;
@@ -3647,8 +3647,20 @@ function saveSlideAsJpeg(idx, playerName){
   const el = document.getElementById("slide-"+idx);
   if(!el){ alert("Slide not found"); return; }
 
+  function restoreLayout(){
+    el.style.aspectRatio = '';
+    el.style.overflow = '';
+    el.style.minHeight = '';
+  }
+
   function doCapture(){
     el.classList.add("slide-buttons-hidden");
+    // Force the clean 16:9 shape just for this capture -- normal on-screen
+    // browsing stays flexible (full content, no clipping), but the exported
+    // JPEG (used as a 16:9 video title slide) needs the fixed proportions.
+    el.style.aspectRatio = '16/9';
+    el.style.overflow = 'hidden';
+    el.style.minHeight = '0';
     const rect = el.getBoundingClientRect();
 
     html2canvas(el, {
@@ -3665,6 +3677,7 @@ function saveSlideAsJpeg(idx, playerName){
       height: rect.height,
     }).then(function(rawCanvas){
       el.classList.remove("slide-buttons-hidden");
+      restoreLayout();
 
       var TW = 1920, TH = 1080;
       var scale = TW / rawCanvas.width;
@@ -3685,6 +3698,7 @@ function saveSlideAsJpeg(idx, playerName){
       link.click();
     }).catch(function(err){
       el.classList.remove("slide-buttons-hidden");
+      restoreLayout();
       alert("Export failed: "+err.message);
     });
   }
