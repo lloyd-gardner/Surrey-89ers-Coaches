@@ -3355,7 +3355,11 @@ var types3 = pbpTypes(shots3,[
 
     // LEFT
     +'<div class="slide-header" style="padding:0;display:flex;flex-direction:column;overflow:hidden">'
-      +'<div style="height:150px;flex-shrink:0;overflow:hidden;background:var(--card3)">'+photoHTML+'</div>'
+      +'<div style="height:110px;flex-shrink:0;overflow:hidden;background:var(--card3)">'+photoHTML+'</div>'
+      +'<div style="padding:8px 10px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
+        +sectionLabel('SHOT MENU','var(--green)')
+        +shotZonesHTML
+      +'</div>'
       +'<div style="padding:8px 10px;flex:1;overflow:hidden;min-height:0">'
         +sectionLabel('SHOT CREATION')
         +creationPanelHTML
@@ -3393,12 +3397,6 @@ var types3 = pbpTypes(shots3,[
         +'<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:5px">'
           +statsRow.map(function(s){ return statBox(s.v,s.l); }).join('')
         +'</div>'
-      +'</div>'
-
-      // Shot Menu — moved here from left column so Shot Creation gets full column height
-      +'<div style="padding:4px 20px;border-bottom:1px solid var(--border-soft);flex-shrink:0">'
-        +sectionLabel('SHOT MENU','var(--green)')
-        +shotZonesHTML
       +'</div>'
 
       // Statements + Shot Chart
