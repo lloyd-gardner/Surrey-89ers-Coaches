@@ -2873,7 +2873,7 @@ async function showTeamProfile(teamName){
   const pos=teams.findIndex(x=>x.team===teamName)+1;
   const offR=getRanks(db.teamAgg,"offrtg");
   const defR=getRanks(db.teamAgg,"defrtg",true);
-  const efgR=getRanks(db.teamAgg,"efg");
+  const netR=getRanks(db.teamAgg,"netrtg");
   const tr=db.tr.find(r=>r.TEAM===teamName);
 
   const players=db.lr.filter(r=>r.TEAM===teamName&&(parseFloat(r.GP)||0)>=5&&r.PPG!=null)
@@ -2919,10 +2919,10 @@ async function showTeamProfile(teamName){
       <div>
         <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">TEAM PROFILE</div>
         <div style="display:flex;align-items:center;gap:16px">
-          ${LOGOS[teamName]?`<img src="${LOGOS[teamName]}" style="width:56px;height:56px;object-fit:contain" alt="">` :""}
-          <div class="opp-name">${teamShort(teamName)}</div>
+          ${LOGOS[teamName]?`<div style="width:56px;height:56px;background:#fff;border-radius:8px;padding:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <img src="${LOGOS[teamName]}" style="width:48px;height:48px;object-fit:contain" alt=""></div>` :""}
+          <div class="opp-name">${fullNameMap[teamName]||teamName}</div>
         </div>
-        <div class="opp-meta" style="margin-top:6px">${teamName}</div>
         ${tr?`<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
           ${tr.Grade?`<span class="pill pill-blue">${tr.Grade}</span>`:""}
           ${tr.Tempo?`<span class="pill pill-muted">Pace: ${tr.Tempo}</span>`:""}
@@ -2941,8 +2941,8 @@ async function showTeamProfile(teamName){
       </div>
     </div>
 
-    <div class="grid-4" style="margin-bottom:24px">
-      ${[{lbl:"OFF RTG",v:fmt(t.offrtg),r:offR[teamName]},{lbl:"DEF RTG",v:fmt(t.defrtg),r:defR[teamName]},{lbl:"eFG%",v:fmtPR(t.efg),r:efgR[teamName]},{lbl:"NET RTG",v:(t.netrtg>0?"+":"")+fmt(t.netrtg),r:null}]
+    <div class="grid-3" style="margin-bottom:24px">
+      ${[{lbl:"Offensive Rating",v:fmt(t.offrtg),r:offR[teamName]},{lbl:"Defensive Rating",v:fmt(t.defrtg),r:defR[teamName]},{lbl:"Net Rating",v:(t.netrtg>0?"+":"")+fmt(t.netrtg),r:netR[teamName]}]
         .map(s=>`<div class="card"><div class="card-body" style="text-align:center;padding:16px">
           <div class="stat-val">${s.v}</div><div class="stat-label">${s.lbl}</div>
           ${s.r?`<div style="margin-top:6px">${rankBadge(s.r,total)}</div>`:""}
