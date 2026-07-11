@@ -1112,7 +1112,12 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       // Rebound% = this team's rebounds as a share of ALL rebounds available in the game
       r["REB%"] = ((r["REB"]||0) + (pair["REB"]||0)) ? (r["REB"]||0) / ((r["REB"]||0) + (pair["REB"]||0)) * 100 : null;
       // Steal% = steals as a share of the OPPONENT's possessions (not this team's own)
-      r["STL%"] = pair["Poss"] ? (r["STL"]||0) / pair["Poss"] * 100 : null;
+      // Opponent's possessions, computed fresh from their own box score
+      // (FGA-OREB+TOV+0.44*FTA is the standard formula already used elsewhere
+      // in this project) rather than trusting the "Poss" column, which may
+      // not be reliably populated.
+      const oppPoss = (pair["FGA"]||0) - (pair["OREB"]||0) + (pair["TOV"]||0) + 0.44*(pair["FTA"]||0);
+      r["STL%"] = oppPoss ? (r["STL"]||0) / oppPoss * 100 : null;
     }
   });
 
@@ -1304,8 +1309,8 @@ function buildTeamAgg(rows, allRows){
       threeRate:avg("3PT Taken%")*100,
       pipAgainst:avg("PIP Against"), secondChanceAgainst:avg("2CP Against"),
       twoPAgainst:avg("2P% Against"), threepaAgainst:avg("3PA Against"),
-      threePAgainst:avg("3P% Against"), ftaAgainst:avg("FTA Against"),
-      ftAgainst:avg("FT% Against"), oppositionTov:avg("Opposition TOV%"),
+      threePAgainst:avg("3P% Against")*100, ftaAgainst:avg("FTA Against"),
+      ftAgainst:avg("FT% Against")*100, oppositionTov:avg("Opposition TOV%"),
       reboundPct:avg("REB%"), stealPct:avg("STL%"),
       ptsScored:avg("Pts Scored"), ptsAllowed:avg("Pts Allowed"),
       q1s:avg("Q1 Scored"),q2s:avg("Q2 Scored"),q3s:avg("Q3 Scored"),q4s:avg("Q4 Scored"),
