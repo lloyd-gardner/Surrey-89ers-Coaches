@@ -1068,6 +1068,7 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       "Q1 Allowed": r.q1_pts_allowed, "Q2 Allowed": r.q2_pts_allowed,
       "Q3 Allowed": r.q3_pts_allowed, "Q4 Allowed": r.q4_pts_allowed,
       "Tempo":       r.pace,
+      "Poss":        r.poss,
       "OFFRTG":      r.off_rtg ? r.off_rtg / 100 : null,
       "DEFRTG":      r.def_rtg ? r.def_rtg / 100 : null,
       "NET RTG":     r.net_rtg ? r.net_rtg / 100 : null,
@@ -1108,6 +1109,10 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       r["FTA Against"]     = pair["FTA"];
       r["FT% Against"]     = pair["FT%"];
       r["Opposition TOV%"] = pair["TOV%"];
+      // Rebound% = this team's rebounds as a share of ALL rebounds available in the game
+      r["REB%"] = ((r["REB"]||0) + (pair["REB"]||0)) ? (r["REB"]||0) / ((r["REB"]||0) + (pair["REB"]||0)) * 100 : null;
+      // Steal% = steals as a share of the OPPONENT's possessions (not this team's own)
+      r["STL%"] = pair["Poss"] ? (r["STL"]||0) / pair["Poss"] * 100 : null;
     }
   });
 
@@ -1301,6 +1306,7 @@ function buildTeamAgg(rows, allRows){
       twoPAgainst:avg("2P% Against"), threepaAgainst:avg("3PA Against"),
       threePAgainst:avg("3P% Against"), ftaAgainst:avg("FTA Against"),
       ftAgainst:avg("FT% Against"), oppositionTov:avg("Opposition TOV%"),
+      reboundPct:avg("REB%"), stealPct:avg("STL%"),
       ptsScored:avg("Pts Scored"), ptsAllowed:avg("Pts Allowed"),
       q1s:avg("Q1 Scored"),q2s:avg("Q2 Scored"),q3s:avg("Q3 Scored"),q4s:avg("Q4 Scored"),
       q1a:avg("Q1 Allowed"),q2a:avg("Q2 Allowed"),q3a:avg("Q3 Allowed"),q4a:avg("Q4 Allowed"),
@@ -2416,7 +2422,8 @@ async function fillNextOpponent(){
     ptsScored:false,fg:false,threeRate:false,threepm:false,fta:false,ftm:false,
     ptsAllowed:true,q1a:true,q2a:true,q3a:true,q4a:true,
     pipAgainst:true,secondChanceAgainst:true,twoPAgainst:true,threepaAgainst:true,
-    threePAgainst:true,ftaAgainst:true,ftAgainst:true,oppositionTov:false};
+    threePAgainst:true,ftaAgainst:true,ftAgainst:true,oppositionTov:false,
+    reboundPct:false,stealPct:false};
   Object.entries(rankCols).forEach(([col,asc])=>{ ranks[col]=getRanks(db.teamAgg,col,asc); });
 
   const statSections = [
@@ -2454,6 +2461,8 @@ async function fillNextOpponent(){
       {lbl:"FTA AGAINST",   val:fmt(t.ftaAgainst),           rank:ranks.ftaAgainst[NEXT_OPP]},
       {lbl:"FT% AGAINST",   val:fmtPR(t.ftAgainst),          rank:ranks.ftAgainst[NEXT_OPP]},
       {lbl:"OPP TOV%",      val:fmtPR(t.oppositionTov),      rank:ranks.oppositionTov[NEXT_OPP]},
+      {lbl:"REBOUND%",      val:fmtPR(t.reboundPct),         rank:ranks.reboundPct[NEXT_OPP]},
+      {lbl:"STEAL%",        val:fmtPR(t.stealPct),           rank:ranks.stealPct[NEXT_OPP]},
     ]},
   ];
 
