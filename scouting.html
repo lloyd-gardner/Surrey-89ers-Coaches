@@ -2859,6 +2859,73 @@ function showTPSelector(){
   document.getElementById("tp-selector").style.display="block";
   document.getElementById("tp-detail").style.display="none";
 }
+
+// Best/worst shot type for a player, reusing the same volume x efficiency
+// scoring built for Player Slides, but deliberately excluding Floater and
+// Hook/Post -- these are such low-usage shot types for most players that
+// they'd otherwise dominate "best"/"worst" purely on small-sample noise.
+function computeShotProfile(db, playerName){
+  var shots = ((db&&db.raw&&db.raw.shots)||[]).filter(function(r){
+    return matchPlayerName(r.Player||'', playerName);
+  });
+  var shots3 = shots.filter(function(r){ return r.Action==='3pt'; });
+  var shots2 = shots.filter(function(r){ return r.Action==='2pt'; });
+
+  function pbpTypes(shotsArr, types){
+    if(!shotsArr.length) return [];
+    return types.map(function(t){
+      var ms = shotsArr.filter(function(s){
+        var st=(s['Sub Type']||'').toLowerCase();
+        return t.keys.indexOf(st)>=0;
+      });
+      var made = ms.filter(function(s){ return s.Success==1||s.Success==='1'||s.Success===true; }).length;
+      return {
+        label: t.label, n: ms.length,
+        pct: shotsArr.length ? Math.round(ms.length/shotsArr.length*100) : 0,
+        madeRate: ms.length ? Math.round(made/ms.length*100) : 0,
+      };
+    }).filter(function(t){ return t.n>0; });
+  }
+
+  var types3 = pbpTypes(shots3, [
+    {label:'Catch & Shoot', keys:['jump shot']},
+    {label:'Pull-Up',       keys:['pull-up']},
+    {label:'Step-Back',     keys:['step-back']},
+  ]);
+  var types2 = pbpTypes(shots2, [
+    {label:'Layup/Drive', keys:['layup','driving layup','reverse layup']},
+    {label:'Dunk',        keys:['dunk','alley-oop dunk','alley-oop','tip-in dunk','tip-in layup']},
+    {label:'Mid-Range',   keys:['jump shot']},
+    {label:'Pull-Up Mid', keys:['pull-up','step-back']},
+    // Floater and Hook/Post intentionally left out -- too low-volume to be
+    // a meaningful "best" or "worst" shot for almost any player.
+  ]);
+
+  var allTypes = [];
+  types3.forEach(function(t){ allTypes.push({label:t.label+' (3PT)', pct:t.pct, fg:t.madeRate, score:t.pct*t.madeRate}); });
+  types2.forEach(function(t){ allTypes.push({label:t.label, pct:t.pct, fg:t.madeRate, score:t.pct*t.madeRate}); });
+
+  var qualified = allTypes.filter(function(t){ return t.pct >= 5; });
+  qualified.sort(function(a,b){ return b.score - a.score; });
+
+  return {
+    best:  qualified.length ? qualified[0] : null,
+    worst: qualified.length ? qualified[qualified.length-1] : null,
+  };
+}
+
+// Isolation vs Assisted % -- of this player's own made shots, what share
+// were assisted by a teammate (assisted_by_player_id set) vs self-created.
+function computeIsoAssistPct(db, playerName){
+  var made = ((db&&db.raw&&db.raw.shots)||[]).filter(function(r){
+    return matchPlayerName(r.Player||'', playerName) && (r.Success==1||r.Success==='1'||r.Success===true);
+  });
+  if(!made.length) return null;
+  var assisted = made.filter(function(r){ return !!r.AssistedBy; }).length;
+  var assistedPct = Math.round(assisted/made.length*100);
+  return { isoPct: 100-assistedPct, assistedPct: assistedPct };
+}
+
 async function showTeamProfile(teamName){
   document.getElementById("tp-selector").style.display="none";
   document.getElementById("tp-detail").style.display="block";
@@ -2911,6 +2978,45 @@ async function showTeamProfile(teamName){
   // Shot chart
   renderShotChart(db, NEXT_OPP, "no-shot-chart");
 
+  // Player pills: starters (depth_pos 1-5) then reserves (6-10), 10 max
+  const depthRoster = (await fetchSupabaseDepthChart(teamName)) || [];
+  const starters = depthRoster.slice(0, 5);
+  const reserves = depthRoster.slice(5, 10);
+
+  function playerPillHTML(pl){
+    const sp = computeShotProfile(db, pl.name);
+    const ia = computeIsoAssistPct(db, pl.name);
+    const photo = pl.imageUrl
+      ? `<img src="${pl.imageUrl}" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block">`
+      : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.2);font-size:11px">NO PHOTO</div>`;
+    return `<div style="background:var(--card2);border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
+      <div style="height:110px;background:var(--card3);position:relative">
+        ${photo}
+        <div style="position:absolute;top:6px;right:8px;font-size:16px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.6)">#${pl.number||"-"}</div>
+      </div>
+      <div style="padding:10px 10px 12px;flex:1;display:flex;flex-direction:column">
+        <div style="font-size:13px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:2px">${fmtName(pl.name||"")}</div>
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${pl.height||"-"} ${pl.position||"-"} ${pl.handed||""}</div>
+        <div style="font-size:9px;color:var(--muted);line-height:1.4;flex:1">
+          ${ia?`<div>Iso vs Assisted: <span style="color:#fff;font-weight:700">${ia.isoPct}%</span> / <span style="color:#fff;font-weight:700">${ia.assistedPct}%</span></div>`:`<div style="color:rgba(255,255,255,0.25)">No shot data</div>`}
+          ${sp.best?`<div style="margin-top:4px;color:#4ade80">Best: ${sp.best.label} (${sp.best.fg}% on ${sp.best.pct}% freq)</div>`:""}
+          ${sp.worst?`<div style="margin-top:2px;color:#ff8a8a">Worst: ${sp.worst.label} (${sp.worst.fg}% on ${sp.worst.pct}% freq)</div>`:""}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  const rosterPillsHTML = depthRoster.length ? `
+    <div style="margin-bottom:10px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--offwhite)">Projected Starters</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px">
+      ${starters.map(playerPillHTML).join("")}
+    </div>
+    ${reserves.length?`<div style="margin-bottom:10px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">Projected Reserves</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px">
+      ${reserves.map(playerPillHTML).join("")}
+    </div>`:""}
+  ` : "";
+
   const h2h=db.raw.ts.filter(r=>r.Team==="SURREY 89ERS"&&(r.Opp||"")=== teamName);
   const h2hW=h2h.filter(r=>r.Result==="WIN").length;
 
@@ -2948,6 +3054,8 @@ async function showTeamProfile(teamName){
           ${s.r?`<div style="margin-top:6px">${rankBadge(s.r,total)}</div>`:""}
         </div></div>`).join("")}
     </div>
+
+    ${rosterPillsHTML}
 
     <div class="grid-2" style="margin-bottom:24px">
       <div class="card">
