@@ -3059,6 +3059,72 @@ async function showTeamProfile(teamName){
     </div>`:""}
   ` : "";
 
+  // Team Leaders: top 3 per category, computed fresh from real per-game
+  // player data (db.raw.ps) rather than the pre-aggregated db.lr view,
+  // since some of db.lr's fields (PIP especially) are known not to be
+  // reliably populated.
+  const teamPs = db.raw.ps.filter(r => r.Team === teamName);
+  const byPlayer = {};
+  teamPs.forEach(r => {
+    const key = r.Player;
+    if(!byPlayer[key]) byPlayer[key] = { name:key, gp:0, pts:0, min:0, oreb:0, pip:0, ftm:0, fta:0, tpm:0, tpa:0 };
+    const b = byPlayer[key];
+    b.gp++;
+    b.pts += r["Pts Scored"]||0;
+    b.min += r["MIN"]||0;
+    b.oreb += r["OREB"]||0;
+    b.pip += r["PIP"]||0;
+    b.ftm += r["FTM"]||0;
+    b.fta += r["FTA"]||0;
+    b.tpm += r["3PM"]||0;
+    b.tpa += r["3PA"]||0;
+  });
+  const teamPlayerList = Object.values(byPlayer).filter(b => b.gp >= 5);
+
+  function top3(list, valueFn, sortAsc){
+    return list.map(b => ({name:b.name, v:valueFn(b)}))
+      .filter(x => x.v != null)
+      .sort((a,b) => sortAsc ? a.v-b.v : b.v-a.v)
+      .slice(0,3);
+  }
+
+  const leaders = {
+    "PPG":               top3(teamPlayerList, b => b.gp?b.pts/b.gp:null),
+    "Minutes/G":         top3(teamPlayerList, b => b.gp?b.min/b.gp:null),
+    "Off Rebounds/G":    top3(teamPlayerList, b => b.gp?b.oreb/b.gp:null),
+    "Points in Paint/G": top3(teamPlayerList, b => b.gp?b.pip/b.gp:null),
+    "3P%":               top3(teamPlayerList.filter(b=>b.tpa>=10), b => b.tpa?b.tpm/b.tpa*100:null),
+    "Best FT%":          top3(teamPlayerList.filter(b=>b.fta>=10), b => b.fta?b.ftm/b.fta*100:null),
+    "Worst FT%":         top3(teamPlayerList.filter(b=>b.fta>=10), b => b.fta?b.ftm/b.fta*100:null, true),
+  };
+
+  function leaderCardHTML(title, entries, isPct){
+    if(!entries.length) return `<div class="card" style="padding:14px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--green);margin-bottom:8px">${title}</div>
+      <div style="color:rgba(255,255,255,0.25);font-size:11px">No data</div>
+    </div>`;
+    return `<div class="card" style="padding:14px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--green);margin-bottom:10px">${title}</div>
+      ${entries.map((e,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;${i<entries.length-1?'border-bottom:1px solid rgba(255,255,255,0.06)':''}">
+        <div style="font-size:12px;color:#fff"><span style="color:var(--muted);margin-right:6px">${i+1}</span>${fmtName(e.name)}</div>
+        <div style="font-size:13px;font-weight:700;color:#fff">${isPct?e.v.toFixed(1)+'%':e.v.toFixed(1)}</div>
+      </div>`).join("")}
+    </div>`;
+  }
+
+  const leadersHTML = `
+    <div class="section-header"><div class="section-label">Team Leaders</div></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+      ${leaderCardHTML("PPG", leaders["PPG"])}
+      ${leaderCardHTML("Minutes/G", leaders["Minutes/G"])}
+      ${leaderCardHTML("Off Rebounds/G", leaders["Off Rebounds/G"])}
+      ${leaderCardHTML("Points in Paint/G", leaders["Points in Paint/G"])}
+      ${leaderCardHTML("3P%", leaders["3P%"], true)}
+      ${leaderCardHTML("Best FT%", leaders["Best FT%"], true)}
+      ${leaderCardHTML("Worst FT%", leaders["Worst FT%"], true)}
+    </div>
+  `;
+
   const h2h=db.raw.ts.filter(r=>r.Team==="SURREY 89ERS"&&(r.Opp||"")=== teamName);
   const h2hW=h2h.filter(r=>r.Result==="WIN").length;
 
@@ -3131,10 +3197,7 @@ async function showTeamProfile(teamName){
       </div>
     </div>
 
-    <div class="section-header"><div class="section-label">Roster</div></div>
-    <div class="card" style="margin-bottom:24px">
-      ${players.length?players.map(p=>playerRowHTML(p)).join(""):"<div class='loading-state'>No data</div>"}
-    </div>
+    ${leadersHTML}
 
     ${lus.length?`
     <div class="section-header"><div class="section-label">Key Lineups</div></div>
