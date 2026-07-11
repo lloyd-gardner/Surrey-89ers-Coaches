@@ -2861,6 +2861,19 @@ async function renderTPSelector(){
 // remaining (confirmed: 10-minute FIBA quarters, so seconds = fraction*600).
 // Scans each game's PBP stream in true chronological order (by ActionNum,
 // NOT array order, which isn't guaranteed) looking forward from each steal.
+// game_clock is stored as "MM:SS:CS" (minutes:seconds:centiseconds),
+// counting down from 10:00 each quarter (confirmed against real data --
+// it is NOT the decimal-fraction format seen in the Excel export).
+function parseClockToSeconds(clockStr){
+  if(!clockStr) return null;
+  var parts = String(clockStr).split(':');
+  if(parts.length < 2) return null;
+  var mins = parseInt(parts[0],10)||0;
+  var secs = parseInt(parts[1],10)||0;
+  var centis = parts.length>2 ? (parseInt(parts[2],10)||0) : 0;
+  return mins*60 + secs + centis/100;
+}
+
 function computeJailbreakSteals(db, teamName){
   const events = (db.raw.pbp||[]);
   const byGame = {};
@@ -2881,11 +2894,13 @@ function computeJailbreakSteals(db, teamName){
     for(let i=0;i<rows.length;i++){
       const ev = rows[i];
       if(ev.Action!=='steal' || ev.Team!==teamName) continue;
+      const stealSec = parseClockToSeconds(ev.Time);
       for(let j=i+1;j<rows.length;j++){
         const nxt = rows[j];
         if(nxt.Quarter!==ev.Quarter) break; // quarter ended before 4s elapsed -- stop looking
-        const elapsedSec = (ev.Time - nxt.Time) * 600;
-        if(elapsedSec > 4) break; // too much time passed, break is over
+        const nxtSec = parseClockToSeconds(nxt.Time);
+        const elapsedSec = (stealSec!=null && nxtSec!=null) ? (stealSec - nxtSec) : null;
+        if(elapsedSec==null || elapsedSec > 4) break; // too much time passed (or unparsable), break is over
         if(nxt.Team===teamName && (nxt.Action==='2pt'||nxt.Action==='3pt')){
           // slb_pbp_events has no success/made column -- detect a make by
           // checking whether the score actually increased versus the
