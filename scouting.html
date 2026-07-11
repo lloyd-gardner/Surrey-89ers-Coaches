@@ -2886,10 +2886,16 @@ function computeJailbreakSteals(db, teamName){
         if(nxt.Quarter!==ev.Quarter) break; // quarter ended before 4s elapsed -- stop looking
         const elapsedSec = (ev.Time - nxt.Time) * 600;
         if(elapsedSec > 4) break; // too much time passed, break is over
-        if(nxt.Team===teamName && (nxt.Action==='2pt'||nxt.Action==='3pt') &&
-           (nxt.Success==1||nxt.Success==='1'||nxt.Success===true)){
-          count++;
-          break; // this steal counted, move on to the next one
+        if(nxt.Team===teamName && (nxt.Action==='2pt'||nxt.Action==='3pt')){
+          // slb_pbp_events has no success/made column -- detect a make by
+          // checking whether the score actually increased versus the
+          // immediately preceding event, which is reliably present.
+          const prevTotal = ((rows[j-1] && rows[j-1]["Score H"])||0) + ((rows[j-1] && rows[j-1]["Score A"])||0);
+          const curTotal  = (nxt["Score H"]||0) + (nxt["Score A"]||0);
+          if(curTotal > prevTotal){
+            count++;
+            break; // this steal counted, move on to the next one
+          }
         }
         if(nxt.Team===teamName && nxt.Action==='turnover') break; // break squandered
       }
