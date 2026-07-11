@@ -1054,7 +1054,7 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       "FGM": r.fgm, "FGA": r.fga,
       "FG%":         r.fga  ? r.fgm  / r.fga  : 0,
       "2PM": r.fg2m, "2PA": r.fg2a,
-      "2P%":         r.fg2a ? r.fg2m / r.fg2a : 0,
+      "2P%":         r.fg2a ? r.fg2m / r.fg2a * 100 : 0,
       "3PM": r.fg3m, "3PA": r.fg3a,
       "3P%":         r.fg3a ? r.fg3m / r.fg3a : 0,
       "FTM": r.ftm,  "FTA": r.fta,
@@ -1065,8 +1065,8 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       "Pts Allowed": allowed,
       "Q1 Scored": r.q1_pts, "Q2 Scored": r.q2_pts,
       "Q3 Scored": r.q3_pts, "Q4 Scored": r.q4_pts,
-      "Q1 Allowed": null, "Q2 Allowed": null,
-      "Q3 Allowed": null, "Q4 Allowed": null,
+      "Q1 Allowed": r.q1_pts_allowed, "Q2 Allowed": r.q2_pts_allowed,
+      "Q3 Allowed": r.q3_pts_allowed, "Q4 Allowed": r.q4_pts_allowed,
       "Tempo":       r.pace,
       "OFFRTG":      r.off_rtg ? r.off_rtg / 100 : null,
       "DEFRTG":      r.def_rtg ? r.def_rtg / 100 : null,
@@ -1077,13 +1077,20 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       "OREB%":       (r.oreb != null && r.dreb != null) ? r.oreb / (r.oreb + r.dreb) * 100 : null,
       "DREB%":       (r.oreb != null && r.dreb != null) ? r.dreb / (r.oreb + r.dreb) * 100 : null,
       "AST%":        r.fgm ? (r.ast / r.fgm) * 100 : null,
-      "FBP":         null,
-      "PIP":         null,
+      "FBP":         r.fbp || 0,
+      "PIP":         r.pip || 0,
+      "2CP":         r.second_chance_pts || 0,
+      "Pts from TOV": r.pts_from_tov || 0,
+      "Bench Pts":   r.bench_pts || 0,
+      "Time Leading": r.time_leading || 0,
+      "Biggest Run": r.biggest_run || 0,
+      "Lead Changes": r.lead_changes || 0,
       "_gameId":     g.livestats_game_id,
     };
   }).filter(Boolean);
 
-  // Fill Opp and Q-Allowed by pairing home+away rows per game
+  // Fill Opp and the "against" stats by pairing home+away rows per game --
+  // the opponent's own stats IN THAT SAME GAME are what "against" means.
   const tsByGame = {};
   ts.forEach(r => {
     if(!tsByGame[r._gameId]) tsByGame[r._gameId] = [];
@@ -1092,11 +1099,15 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
   ts.forEach(r => {
     const pair = (tsByGame[r._gameId] || []).find(x => x.Team !== r.Team);
     if(pair){
-      r.Opp           = pair.Team;
-      r["Q1 Allowed"] = pair["Q1 Scored"];
-      r["Q2 Allowed"] = pair["Q2 Scored"];
-      r["Q3 Allowed"] = pair["Q3 Scored"];
-      r["Q4 Allowed"] = pair["Q4 Scored"];
+      r.Opp                = pair.Team;
+      r["PIP Against"]     = pair["PIP"];
+      r["2CP Against"]     = pair["2CP"];
+      r["2P% Against"]     = pair["2P%"];
+      r["3PA Against"]     = pair["3PA"];
+      r["3P% Against"]     = pair["3P%"];
+      r["FTA Against"]     = pair["FTA"];
+      r["FT% Against"]     = pair["FT%"];
+      r["Opposition TOV%"] = pair["TOV%"];
     }
   });
 
@@ -1130,10 +1141,25 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       "eFG%":     efg,
       "PP40":     r.seconds_played ? ((r.pts || 0) / (r.seconds_played / 60)) * 40 : 0,
       "Usage%":   null,
-      "PIP":      null, "FBP": null,
+      "PIP":      r.pip || 0, "FBP": r.fbp || 0,
       "_gameId":  g.livestats_game_id,
     };
   }).filter(Boolean);
+
+  // Team-level PIP/FBP = sum of that team's players' PIP/FBP in that game
+  // (slb_team_game_stats doesn't track these at team level, but the real
+  // backfilled per-player data does -- this avoids needing a second source).
+  const teamPipFbp = {};
+  ps.forEach(r => {
+    const key = r._gameId + "||" + r.Team;
+    if(!teamPipFbp[key]) teamPipFbp[key] = { pip: 0, fbp: 0 };
+    teamPipFbp[key].pip += r.PIP || 0;
+    teamPipFbp[key].fbp += r.FBP || 0;
+  });
+  ts.forEach(r => {
+    const agg = teamPipFbp[r._gameId + "||" + r.Team];
+    if(agg){ r.PIP = agg.pip; r.FBP = agg.fbp; }
+  });
 
   // ── raw.lu — lineup stints ──
 // ── raw.lu — lineup stints ──
@@ -1264,11 +1290,17 @@ function buildTeamAgg(rows, allRows){
       pf:sum("Pts Scored"), pa:sum("Pts Allowed"),
       offrtg:avg("OFFRTG")*100, defrtg:avg("DEFRTG")*100,
       netrtg:avg("NET RTG")*100, tempo:avg("Tempo"),
-      efg:avg("eFG%"), tov:avg("TOV%"), oreb:avg("OREB%"),
+      efg:avg("eFG%")*100, tov:avg("TOV%"), oreb:avg("OREB%"),
       dreb:avg("DREB%"), stl:avg("STL"), blk:avg("BLK"), pf:avg("PF"),
-      pip:avg("PIP"), fbp:avg("FBP"), fg:avg("FG%"),
-      threep:avg("3P%"), ft:avg("FT%"), fta:avg("FTA"), ftm:avg("FTM"), ast:avg("AST%"),
-      threeRate:avg("3PT Taken%"),
+      pip:avg("PIP"), fbp:avg("FBP"), fg:avg("FG%")*100,
+      secondChance:avg("2CP"), benchPts:avg("Bench Pts"), ptsFromTov:avg("Pts from TOV"),
+      threep:avg("3P%")*100, ft:avg("FT%")*100, fta:avg("FTA"), ftm:avg("FTM"), ast:avg("AST%"),
+      threepm:avg("3PM"),
+      threeRate:avg("3PT Taken%")*100,
+      pipAgainst:avg("PIP Against"), secondChanceAgainst:avg("2CP Against"),
+      twoPAgainst:avg("2P% Against"), threepaAgainst:avg("3PA Against"),
+      threePAgainst:avg("3P% Against"), ftaAgainst:avg("FTA Against"),
+      ftAgainst:avg("FT% Against"), oppositionTov:avg("Opposition TOV%"),
       ptsScored:avg("Pts Scored"), ptsAllowed:avg("Pts Allowed"),
       q1s:avg("Q1 Scored"),q2s:avg("Q2 Scored"),q3s:avg("Q3 Scored"),q4s:avg("Q4 Scored"),
       q1a:avg("Q1 Allowed"),q2a:avg("Q2 Allowed"),q3a:avg("Q3 Allowed"),q4a:avg("Q4 Allowed"),
@@ -2382,13 +2414,13 @@ async function fillNextOpponent(){
   const ranks = {};
   const rankCols = {offrtg:false,defrtg:true,netrtg:false,efg:false,tov:false,oreb:false,pip:false,tempo:false,fbp:false,stl:false,blk:false,dreb:false,ast:false,ft:false,threep:false,pf:true,secondChance:false,benchPts:false,ptsFromTov:false,
     ptsScored:false,fg:false,threeRate:false,threepm:false,fta:false,ftm:false,
-    ptsAllowed:true,q1a:true,q2a:true,q3a:true,q4a:true};
+    ptsAllowed:true,q1a:true,q2a:true,q3a:true,q4a:true,
+    pipAgainst:true,secondChanceAgainst:true,twoPAgainst:true,threepaAgainst:true,
+    threePAgainst:true,ftaAgainst:true,ftAgainst:true,oppositionTov:false};
   Object.entries(rankCols).forEach(([col,asc])=>{ ranks[col]=getRanks(db.teamAgg,col,asc); });
 
   const statSections = [
     { label:"OFFENSIVE", color:"var(--blue)", stats:[
-      {lbl:"OFF RTG",    val:fmt(t.offrtg),           rank:ranks.offrtg[NEXT_OPP]},
-      {lbl:"NET RTG",    val:(t.netrtg>0?"+":"")+fmt(t.netrtg), rank:ranks.netrtg[NEXT_OPP]},
       {lbl:"PPG",        val:fmt(t.ptsScored),         rank:ranks.ptsScored[NEXT_OPP]},
       {lbl:"eFG%",       val:fmtPR(t.efg),             rank:ranks.efg[NEXT_OPP]},
       {lbl:"FG%",        val:fmtPR(t.fg),              rank:ranks.fg[NEXT_OPP]},
@@ -2409,16 +2441,19 @@ async function fillNextOpponent(){
       {lbl:"PTS fr TOV", val:fmt(t.ptsFromTov),        rank:ranks.ptsFromTov[NEXT_OPP]},
     ]},
     { label:"DEFENSIVE", color:"#ff8a8a", stats:[
-      {lbl:"DEF RTG",    val:fmt(t.defrtg),            rank:ranks.defrtg[NEXT_OPP]},
       {lbl:"PTS ALLOWED",val:fmt(t.ptsAllowed),        rank:ranks.ptsAllowed[NEXT_OPP]},
       {lbl:"DREB%",      val:fmtPR(t.dreb),            rank:ranks.dreb[NEXT_OPP]},
       {lbl:"STL/G",      val:fmt(t.stl),               rank:ranks.stl[NEXT_OPP]},
       {lbl:"BLK/G",      val:fmt(t.blk),               rank:ranks.blk[NEXT_OPP]},
       {lbl:"PF/G",       val:fmt(t.pf),                rank:ranks.pf[NEXT_OPP]},
-      {lbl:"Q1 ALLOWED", val:fmt(t.q1a),               rank:ranks.q1a[NEXT_OPP]},
-      {lbl:"Q2 ALLOWED", val:fmt(t.q2a),               rank:ranks.q2a[NEXT_OPP]},
-      {lbl:"Q3 ALLOWED", val:fmt(t.q3a),               rank:ranks.q3a[NEXT_OPP]},
-      {lbl:"Q4 ALLOWED", val:fmt(t.q4a),               rank:ranks.q4a[NEXT_OPP]},
+      {lbl:"PIP AGAINST",   val:fmt(t.pipAgainst),           rank:ranks.pipAgainst[NEXT_OPP]},
+      {lbl:"2P% AGAINST",   val:fmtPR(t.twoPAgainst),        rank:ranks.twoPAgainst[NEXT_OPP]},
+      {lbl:"3PA AGAINST",   val:fmt(t.threepaAgainst),       rank:ranks.threepaAgainst[NEXT_OPP]},
+      {lbl:"3P% AGAINST",   val:fmtPR(t.threePAgainst),      rank:ranks.threePAgainst[NEXT_OPP]},
+      {lbl:"2ND CH AGAINST",val:fmt(t.secondChanceAgainst),  rank:ranks.secondChanceAgainst[NEXT_OPP]},
+      {lbl:"FTA AGAINST",   val:fmt(t.ftaAgainst),           rank:ranks.ftaAgainst[NEXT_OPP]},
+      {lbl:"FT% AGAINST",   val:fmtPR(t.ftAgainst),          rank:ranks.ftAgainst[NEXT_OPP]},
+      {lbl:"OPP TOV%",      val:fmtPR(t.oppositionTov),      rank:ranks.oppositionTov[NEXT_OPP]},
     ]},
   ];
 
