@@ -2978,6 +2978,134 @@ function computeOffensiveReboundOutcomes(db, teamName){
   };
 }
 
+// Defensive Stop Streaks: walks the opponent's possessions (from this
+// team's defensive perspective) and resolves each as SCORE or STOP.
+// A miss only counts as a resolved STOP once the very next rebound
+// confirms the defense actually secured it -- an offensive rebound by
+// the opponent means the SAME possession continues, not a new one.
+// Free throws reset the streak on any make (points are points, even
+// front-end-of-bonus), and a miss only resolves once the following
+// rebound (or end of period) confirms the trip is over.
+function computeDefensiveStopStreaks(db, teamName){
+  const events = (db.raw.pbp||[]);
+  const byGame = {};
+  events.forEach(function(r){
+    const gid = r["Game id"];
+    if(gid==null) return;
+    if(!byGame[gid]) byGame[gid] = [];
+    byGame[gid].push(r);
+  });
+
+  const gameHighs = [];
+  let threeStraightCount = 0;
+
+  Object.keys(byGame).forEach(function(gid){
+    const rows = byGame[gid].slice().sort(function(a,b){ return (a.ActionNum||0)-(b.ActionNum||0); });
+    if(!rows.some(function(r){ return r.Team===teamName; })) return;
+
+    let streak = 0, gameHigh = 0, countedThisStreak = false;
+
+    for(let i=0;i<rows.length;i++){
+      const ev = rows[i];
+      if(ev.Team===teamName) continue; // only opponent actions start a resolution here
+
+      if(ev.Action==='turnover'){
+        streak++;
+        gameHigh = Math.max(gameHigh, streak);
+        if(streak>=3 && !countedThisStreak){ threeStraightCount++; countedThisStreak=true; }
+        continue;
+      }
+
+      if(ev.Action==='2pt' || ev.Action==='3pt' || ev.Action==='freethrow'){
+        const prevTotal = ((rows[i-1]&&rows[i-1]["Score H"])||0) + ((rows[i-1]&&rows[i-1]["Score A"])||0);
+        const curTotal = (ev["Score H"]||0) + (ev["Score A"]||0);
+        if(curTotal>prevTotal){
+          streak = 0; countedThisStreak = false; // any make breaks the streak
+          continue;
+        }
+        // missed shot/FT -- find the resolving rebound
+        let resolved = null;
+        for(let j=i+1;j<rows.length;j++){
+          const nxt = rows[j];
+          if(nxt.Quarter!==ev.Quarter){ resolved='periodEnd'; break; }
+          if(nxt.Action==='rebound'){
+            resolved = (nxt.Team===teamName && nxt["Sub Type"]==='defensive') ? 'stop' : 'continues';
+            break;
+          }
+        }
+        if(resolved==='stop' || resolved==='periodEnd'){
+          streak++;
+          gameHigh = Math.max(gameHigh, streak);
+          if(streak>=3 && !countedThisStreak){ threeStraightCount++; countedThisStreak=true; }
+        }
+        // 'continues' -- same opponent possession goes on, no change yet
+      }
+    }
+    gameHighs.push(gameHigh);
+  });
+
+  return {
+    avgGameHigh: gameHighs.length ? gameHighs.reduce(function(a,b){return a+b;},0)/gameHighs.length : 0,
+    threeStraightCount: threeStraightCount,
+    games: gameHighs.length,
+  };
+}
+
+// Point Streaks: counts distinct 10-0 (or better) scoring runs per game --
+// this team's own uninterrupted point tally, reset to 0 the moment the
+// opponent scores anything. A run that reaches 16-0 still counts once,
+// same "count the streak once, not every point past the threshold" rule
+// as Defensive Stop Streaks / Knockouts.
+function computePointStreaks(db, teamName, threshold){
+  threshold = threshold || 10;
+  const events = (db.raw.pbp||[]);
+  const byGame = {};
+  events.forEach(function(r){
+    const gid = r["Game id"];
+    if(gid==null) return;
+    if(!byGame[gid]) byGame[gid] = [];
+    byGame[gid].push(r);
+  });
+
+  let totalRuns = 0;
+  let gamesCounted = 0;
+
+  Object.keys(byGame).forEach(function(gid){
+    const rows = byGame[gid].slice().sort(function(a,b){ return (a.ActionNum||0)-(b.ActionNum||0); });
+    if(!rows.some(function(r){ return r.Team===teamName; })) return;
+
+    let runPoints = 0, countedThisRun = false, runsThisGame = 0;
+
+    for(let i=0;i<rows.length;i++){
+      const ev = rows[i];
+      if(ev.Action!=='2pt' && ev.Action!=='3pt' && ev.Action!=='freethrow') continue;
+
+      const prevTotal = ((rows[i-1]&&rows[i-1]["Score H"])||0) + ((rows[i-1]&&rows[i-1]["Score A"])||0);
+      const curTotal = (ev["Score H"]||0) + (ev["Score A"]||0);
+      const pointsScored = curTotal - prevTotal;
+      if(pointsScored<=0) continue; // a miss, no score change
+
+      if(ev.Team===teamName){
+        runPoints += pointsScored;
+        if(runPoints>=threshold && !countedThisRun){
+          runsThisGame++;
+          countedThisRun = true;
+        }
+      } else {
+        runPoints = 0;
+        countedThisRun = false;
+      }
+    }
+    totalRuns += runsThisGame;
+    gamesCounted++;
+  });
+
+  return {
+    perGame: gamesCounted ? totalRuns/gamesCounted : 0,
+    games: gamesCounted,
+  };
+}
+
 function showTPSelector(){
   document.getElementById("tp-selector").style.display="block";
   document.getElementById("tp-detail").style.display="none";
@@ -3250,13 +3378,15 @@ async function showTeamProfile(teamName){
 
   const jailbreak = computeJailbreakSteals(db, teamName);
   const oreb = computeOffensiveReboundOutcomes(db, teamName);
+  const stopStreaks = computeDefensiveStopStreaks(db, teamName);
+  const knockoutsPerGame = stopStreaks.games ? stopStreaks.threeStraightCount/stopStreaks.games : 0;
+  const pointStreaks = computePointStreaks(db, teamName, 10);
   const advancedMetricsHTML = `
     <div class="section-header"><div class="section-label">Advanced Metrics</div></div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
       <div class="card" style="padding:16px;text-align:center">
         <div class="stat-val">${jailbreak.perGame.toFixed(2)}</div>
         <div class="stat-label">Jailbreak Steals/G</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:4px">${jailbreak.total} total this season</div>
       </div>
       <div class="card" style="padding:16px;text-align:center">
         <div class="stat-val">${oreb.putbackPct}%</div>
@@ -3269,7 +3399,18 @@ async function showTeamProfile(teamName){
       <div class="card" style="padding:16px;text-align:center">
         <div class="stat-val">${oreb.recyclePct}%</div>
         <div class="stat-label">OREB → Recycled</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:4px">${oreb.total} OREBs this season</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center">
+        <div class="stat-val">${stopStreaks.avgGameHigh.toFixed(1)}</div>
+        <div class="stat-label">Avg Best Stop Streak/G</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center">
+        <div class="stat-val">${knockoutsPerGame.toFixed(2)}</div>
+        <div class="stat-label">3+ Stop Streaks ("Knockouts")/G</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center">
+        <div class="stat-val">${pointStreaks.perGame.toFixed(2)}</div>
+        <div class="stat-label">10-0 Runs/G</div>
       </div>
     </div>
   `;
