@@ -2929,6 +2929,55 @@ function computeJailbreakSteals(db, teamName){
   };
 }
 
+// Offensive rebound outcomes: for every offensive rebound by a team,
+// what happens in the next 5 real seconds -- an immediate 2PT attempt
+// (putback), an immediate 3PT attempt (kick-out), or neither (recycled
+// into a fresh possession). Same sequencing approach as Jailbreak Steals,
+// now safe to rely on since action_number is consistent across all games.
+function computeOffensiveReboundOutcomes(db, teamName){
+  const events = (db.raw.pbp||[]);
+  const byGame = {};
+  events.forEach(function(r){
+    const gid = r["Game id"];
+    if(gid==null) return;
+    if(!byGame[gid]) byGame[gid] = [];
+    byGame[gid].push(r);
+  });
+
+  let putback = 0, kickout3 = 0, recycle = 0;
+
+  Object.keys(byGame).forEach(function(gid){
+    const rows = byGame[gid].slice().sort(function(a,b){ return (a.ActionNum||0)-(b.ActionNum||0); });
+    for(let i=0;i<rows.length;i++){
+      const ev = rows[i];
+      if(ev.Action!=='rebound' || ev["Sub Type"]!=='offensive' || ev.Team!==teamName) continue;
+      const rebSec = parseClockToSeconds(ev.Time);
+      let outcome = null;
+      for(let j=i+1;j<rows.length;j++){
+        const nxt = rows[j];
+        if(nxt.Quarter!==ev.Quarter) break; // quarter ended before 5s elapsed
+        const nxtSec = parseClockToSeconds(nxt.Time);
+        const elapsedSec = (rebSec!=null && nxtSec!=null) ? (rebSec - nxtSec) : null;
+        if(elapsedSec==null || elapsedSec > 5) break; // too much time passed
+        if(nxt.Team===teamName && nxt.Action==='2pt'){ outcome='putback'; break; }
+        if(nxt.Team===teamName && nxt.Action==='3pt'){ outcome='kickout3'; break; }
+        if(nxt.Team===teamName && nxt.Action==='turnover'){ outcome='recycle'; break; }
+      }
+      if(outcome==='putback') putback++;
+      else if(outcome==='kickout3') kickout3++;
+      else recycle++; // includes "ran out the 5s window with no shot"
+    }
+  });
+
+  const total = putback + kickout3 + recycle;
+  return {
+    total: total,
+    putbackPct: total ? Math.round(putback/total*100) : 0,
+    kickout3Pct: total ? Math.round(kickout3/total*100) : 0,
+    recyclePct: total ? Math.round(recycle/total*100) : 0,
+  };
+}
+
 function showTPSelector(){
   document.getElementById("tp-selector").style.display="block";
   document.getElementById("tp-detail").style.display="none";
@@ -3200,13 +3249,27 @@ async function showTeamProfile(teamName){
   `;
 
   const jailbreak = computeJailbreakSteals(db, teamName);
+  const oreb = computeOffensiveReboundOutcomes(db, teamName);
   const advancedMetricsHTML = `
     <div class="section-header"><div class="section-label">Advanced Metrics</div></div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
       <div class="card" style="padding:16px;text-align:center">
-        <div class="stat-val">${jailbreak.perGame.toFixed(1)}</div>
+        <div class="stat-val">${jailbreak.perGame.toFixed(2)}</div>
         <div class="stat-label">Jailbreak Steals/G</div>
         <div style="font-size:9px;color:var(--muted);margin-top:4px">${jailbreak.total} total this season</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center">
+        <div class="stat-val">${oreb.putbackPct}%</div>
+        <div class="stat-label">OREB → Putback</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center">
+        <div class="stat-val">${oreb.kickout3Pct}%</div>
+        <div class="stat-label">OREB → Kick-out 3</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center">
+        <div class="stat-val">${oreb.recyclePct}%</div>
+        <div class="stat-label">OREB → Recycled</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:4px">${oreb.total} OREBs this season</div>
       </div>
     </div>
   `;
