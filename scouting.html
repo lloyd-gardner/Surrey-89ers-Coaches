@@ -3164,18 +3164,23 @@ function computeCrunchTimeStats(db, teamName){
     }
   });
 
-  const players = Object.keys(byPlayer).map(function(name){
+  const allPlayers = Object.keys(byPlayer).map(function(name){
     const p = byPlayer[name];
     const pts = (p.fgm-p.fg3m)*2 + p.fg3m*3 + p.ftm;
     return {
       name: name, pts: pts,
       fgPct: p.fga ? Math.round((p.fgm/p.fga)*100) : null,
       ftPct: p.fta ? Math.round((p.ftm/p.fta)*100) : null,
+      fta: p.fta, ftm: p.ftm,
       tov: p.tov, plays: p.fga+p.fta+p.tov,
     };
-  }).filter(function(p){ return p.plays>0; })
-    .sort(function(a,b){ return b.pts-a.pts; })
-    .slice(0,5);
+  }).filter(function(p){ return p.plays>0; });
+
+  const players = allPlayers.slice().sort(function(a,b){ return b.pts-a.pts; }).slice(0,5);
+
+  const ftQualified = allPlayers.filter(function(p){ return p.fta>=2; });
+  const bestFT = ftQualified.slice().sort(function(a,b){ return b.ftPct-a.ftPct; }).slice(0,3);
+  const worstFT = ftQualified.slice().sort(function(a,b){ return a.ftPct-b.ftPct; }).slice(0,3);
 
   return {
     eFG: teamFga ? ((teamFgm+0.5*teamFg3m)/teamFga*100) : 0,
@@ -3183,6 +3188,8 @@ function computeCrunchTimeStats(db, teamName){
     toRate: (teamFga+teamTov) ? (teamTov/(teamFga+teamTov)*100) : 0,
     totalPlays: teamFga+teamFta+teamTov,
     players: players,
+    bestFT: bestFT,
+    worstFT: worstFT,
   };
 }
 
@@ -3367,7 +3374,7 @@ async function showTeamProfile(teamName){
     return `<div style="background:var(--card2);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 2px 8px rgba(0,0,0,0.25)">
       <div style="height:190px;background:var(--card3);position:relative;flex-shrink:0">
         ${photo}
-        <div style="position:absolute;top:8px;right:10px;font-size:20px;font-weight:800;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.7)">#${pl.number||"-"}</div>
+        <div style="position:absolute;top:8px;right:10px;font-size:20px;font-weight:800;color:var(--green);text-shadow:0 1px 4px rgba(0,0,0,0.85)">#${pl.number||"-"}</div>
       </div>
       <div style="padding:14px 14px 16px;flex:1;display:flex;flex-direction:column">
         <div style="font-size:16px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:3px">${fmtName(pl.name||"")}</div>
@@ -3398,13 +3405,14 @@ async function showTeamProfile(teamName){
   const byPlayer = {};
   teamPs.forEach(r => {
     const key = r.Player;
-    if(!byPlayer[key]) byPlayer[key] = { name:key, gp:0, pts:0, min:0, oreb:0, pip:0, ftm:0, fta:0, tpm:0, tpa:0 };
+    if(!byPlayer[key]) byPlayer[key] = { name:key, gp:0, pts:0, min:0, oreb:0, pip:0, fbp:0, ftm:0, fta:0, tpm:0, tpa:0 };
     const b = byPlayer[key];
     b.gp++;
     b.pts += r["Pts Scored"]||0;
     b.min += r["MIN"]||0;
     b.oreb += r["OREB"]||0;
     b.pip += r["PIP"]||0;
+    b.fbp += r["FBP"]||0;
     b.ftm += r["FTM"]||0;
     b.fta += r["FTA"]||0;
     b.tpm += r["3PM"]||0;
@@ -3424,6 +3432,7 @@ async function showTeamProfile(teamName){
     "Minutes/G":         top3(teamPlayerList, b => b.gp?b.min/b.gp:null),
     "Off Rebounds/G":    top3(teamPlayerList, b => b.gp?b.oreb/b.gp:null),
     "Points in Paint/G": top3(teamPlayerList, b => b.gp?b.pip/b.gp:null),
+    "Fast Break Pts/G":  top3(teamPlayerList, b => b.gp?b.fbp/b.gp:null),
     "3P%":               top3(teamPlayerList.filter(b=>b.tpa>=10), b => b.tpa?b.tpm/b.tpa*100:null),
     "Best FT%":          top3(teamPlayerList.filter(b=>b.fta>=10), b => b.fta?b.ftm/b.fta*100:null),
     "Worst FT%":         top3(teamPlayerList.filter(b=>b.fta>=10), b => b.fta?b.ftm/b.fta*100:null, true),
@@ -3450,6 +3459,7 @@ async function showTeamProfile(teamName){
       ${leaderCardHTML("Minutes/G", leaders["Minutes/G"])}
       ${leaderCardHTML("Off Rebounds/G", leaders["Off Rebounds/G"])}
       ${leaderCardHTML("Points in Paint/G", leaders["Points in Paint/G"])}
+      ${leaderCardHTML("Fast Break Pts/G", leaders["Fast Break Pts/G"])}
       ${leaderCardHTML("3P%", leaders["3P%"], true)}
       ${leaderCardHTML("Best FT%", leaders["Best FT%"], true)}
       ${leaderCardHTML("Worst FT%", leaders["Worst FT%"], true)}
@@ -3463,23 +3473,11 @@ async function showTeamProfile(teamName){
   const pointStreaks = computePointStreaks(db, teamName, 10);
   const crunch = computeCrunchTimeStats(db, teamName);
   const advancedMetricsHTML = `
-    <div class="section-header"><div class="section-label">Advanced Metrics</div></div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px">
+    <div class="section-header"><div class="section-label">Momentum</div></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
       <div class="card" style="padding:16px;text-align:center">
         <div class="stat-val">${jailbreak.perGame.toFixed(2)}</div>
         <div class="stat-label">Jailbreak Steals/G</div>
-      </div>
-      <div class="card" style="padding:16px;text-align:center">
-        <div class="stat-val">${oreb.putbackPct}%</div>
-        <div class="stat-label">OREB → Putback</div>
-      </div>
-      <div class="card" style="padding:16px;text-align:center">
-        <div class="stat-val">${oreb.kickout3Pct}%</div>
-        <div class="stat-label">OREB → Kick-out 3</div>
-      </div>
-      <div class="card" style="padding:16px;text-align:center">
-        <div class="stat-val">${oreb.recyclePct}%</div>
-        <div class="stat-label">OREB → Recycled</div>
       </div>
       <div class="card" style="padding:16px;text-align:center">
         <div class="stat-val">${stopStreaks.avgGameHigh.toFixed(1)}</div>
@@ -3495,9 +3493,24 @@ async function showTeamProfile(teamName){
       </div>
     </div>
 
-    <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:16px 0 10px">
-      Crunch Time (final period, ≤3:00 left, margin ≤5)
+    <div class="section-header"><div class="section-label">Offensive Rebounds</div></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">
+      <div class="card" style="padding:16px;text-align:center">
+        <div class="stat-val">${oreb.putbackPct}%</div>
+        <div class="stat-label">OREB → Putback</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center">
+        <div class="stat-val">${oreb.kickout3Pct}%</div>
+        <div class="stat-label">OREB → Kick-out 3</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center">
+        <div class="stat-val">${oreb.recyclePct}%</div>
+        <div class="stat-label">OREB → Recycled</div>
+      </div>
     </div>
+
+    <div class="section-header"><div class="section-label">Crunch Time</div></div>
+    <div style="font-size:10px;color:var(--muted);margin:-4px 0 12px">final period, ≤3:00 left, margin ≤5</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
       <div class="card" style="padding:16px;text-align:center">
         <div class="stat-val">${crunch.eFG.toFixed(1)}%</div>
@@ -3512,16 +3525,36 @@ async function showTeamProfile(teamName){
         <div class="stat-label">Crunch TO Rate</div>
       </div>
     </div>
-    ${crunch.players.length ? `
-    <div class="card" style="padding:14px;margin-bottom:24px">
-      <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Top Crunch Time Performers</div>
-      ${crunch.players.map(function(p){
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
-          <div style="font-size:12px;color:#fff">${fmtName(p.name)}</div>
-          <div style="font-size:11px;color:var(--muted)">${p.pts} pts · FG ${p.fgPct!=null?p.fgPct+'%':'—'} · FT ${p.ftPct!=null?p.ftPct+'%':'—'} · ${p.tov} TO</div>
-        </div>`;
-      }).join("")}
-    </div>` : `<div style="margin-bottom:24px;color:var(--muted);font-size:11px">No crunch-time possessions recorded yet this season.</div>`}
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="card" style="padding:14px">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Top Crunch Time Performers</div>
+        ${crunch.players.length ? crunch.players.map(function(p){
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+            <div style="font-size:12px;color:#fff">${fmtName(p.name)}</div>
+            <div style="font-size:11px;color:var(--muted)">${p.pts} pts · FG ${p.fgPct!=null?p.fgPct+'%':'—'} · ${p.tov} TO</div>
+          </div>`;
+        }).join("") : `<div style="color:rgba(255,255,255,0.25);font-size:11px">No crunch-time data yet this season.</div>`}
+      </div>
+      <div class="card" style="padding:14px">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Crunch Time FT%</div>
+        ${crunch.bestFT.length ? `
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:#4ade80;margin-bottom:4px">Best</div>
+          ${crunch.bestFT.map(function(p){
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+              <div style="font-size:12px;color:#fff">${fmtName(p.name)}</div>
+              <div style="font-size:12px;font-weight:700;color:#4ade80">${p.ftPct}% <span style="color:var(--muted);font-weight:400">(${p.ftm}/${p.fta})</span></div>
+            </div>`;
+          }).join("")}
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:#ff8a8a;margin:10px 0 4px">Worst</div>
+          ${crunch.worstFT.map(function(p){
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+              <div style="font-size:12px;color:#fff">${fmtName(p.name)}</div>
+              <div style="font-size:12px;font-weight:700;color:#ff8a8a">${p.ftPct}% <span style="color:var(--muted);font-weight:400">(${p.ftm}/${p.fta})</span></div>
+            </div>`;
+          }).join("")}
+        ` : `<div style="color:rgba(255,255,255,0.25);font-size:11px">Not enough crunch-time free throws yet this season.</div>`}
+      </div>
+    </div>
   `;
 
   const h2h=db.raw.ts.filter(r=>r.Team==="SURREY 89ERS"&&(r.Opp||"")=== teamName);
@@ -3563,38 +3596,6 @@ async function showTeamProfile(teamName){
     </div>
 
     ${rosterPillsHTML}
-
-    <div class="grid-2" style="margin-bottom:24px">
-      <div class="card">
-        <div class="card-header"><div class="card-title">Shot & Offence</div></div>
-        <div class="card-body">
-          <div class="shot-zones">
-            <div class="shot-zone zone-paint"><div class="shot-zone-pct">${fmt(t.pip,0)}</div><div class="shot-zone-label">PIP/G</div></div>
-            <div class="shot-zone zone-mid"><div class="shot-zone-pct">${fmtPR(t.efg)}</div><div class="shot-zone-label">eFG%</div></div>
-            <div class="shot-zone zone-three"><div class="shot-zone-pct">${fmtPR(t.threeRate)}</div><div class="shot-zone-label">3PT Rate</div></div>
-            <div class="shot-zone zone-ft"><div class="shot-zone-pct">${fmt(t.fbp,0)}</div><div class="shot-zone-label">FBP/G</div></div>
-          </div>
-          ${barHTML("3PT%",t.threep/45*100,"bar-fill-blue",fmtPR(t.threep))}
-          ${barHTML("FT%",t.ft/90*100,"bar-fill-amber",fmtPR(t.ft))}
-          ${barHTML("AST%",t.ast/80*100,"",fmtPR(t.ast))}
-          ${barHTML("OREB%",t.oreb/45*100,"bar-fill-red",fmtPR(t.oreb))}
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Season Averages</div></div>
-        <div class="card-body">
-          <table class="data-table">
-            <tr><td style="color:var(--muted)">Points/G</td><td class="td-num">${fmt(t.ptsScored)}</td></tr>
-            <tr><td style="color:var(--muted)">Allowed/G</td><td class="td-num">${fmt(t.ptsAllowed)}</td></tr>
-            <tr><td style="color:var(--muted)">Pace</td><td class="td-num">${fmt(t.tempo)}</td></tr>
-            <tr><td style="color:var(--muted)">TOV%</td><td class="td-num">${fmtPR(t.tov)} ${rankBadge(getRanks(db.teamAgg,"tov")[teamName],total)}</td></tr>
-            <tr><td style="color:var(--muted)">DREB%</td><td class="td-num">${fmtPR(t.dreb)}</td></tr>
-            <tr><td style="color:var(--muted)">STL/G</td><td class="td-num">${fmt(t.stl)}</td></tr>
-            <tr><td style="color:var(--muted)">BLK/G</td><td class="td-num">${fmt(t.blk)}</td></tr>
-          </table>
-        </div>
-      </div>
-    </div>
 
     ${leadersHTML}
 
