@@ -1221,20 +1221,22 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
 
   // ── lr — player season averages ──
   const lr = lrRows.map(r => ({
-    "Player": r.player_name,
+    "Player": r.full_name,
     "TEAM":   capsTeam(r.team_name),
-    "GP":     r.gp,
+    "GP":     r.games_played,
     "MPG":    r.mpg,
     "PPG":    r.ppg,
     "RPG":    r.rpg,
     "APG":    r.apg,
     "SPG":    r.spg,
     "BPG":    r.bpg,
-    "TPG":    r.tpg,
+    "TPG":    r.topg,
     "FG%":    r.fg_pct,
     "3P%":    r.fg3_pct,
     "FT%":    r.ft_pct,
     "eFG%":   r.efg_pct,
+    "+/-":    r.plus_minus,
+    "PP40":   (r.mpg && r.ppg) ? (r.ppg/r.mpg)*40 : null,
     "PIP":    null, "FBP": null, "Usage%": null,
   }));
 
@@ -1298,7 +1300,7 @@ function buildTeamAgg(rows, allRows){
     out[t]={
       team:t, gp:g.length, w:d.w, l:d.l,
       hw:d.hw,hl:d.hl,aw:d.aw,al:d.al,
-      pf:sum("Pts Scored"), pa:sum("Pts Allowed"),
+      ptsTotal:sum("Pts Scored"), pa:sum("Pts Allowed"),
       offrtg:avg("OFFRTG")*100, defrtg:avg("DEFRTG")*100,
       netrtg:avg("NET RTG")*100, tempo:avg("Tempo"),
       efg:avg("eFG%")*100, tov:avg("TOV%"), oreb:avg("OREB%"),
@@ -1526,7 +1528,7 @@ function renderStandings(db){
       <td class="td-num td-green">${t.w}</td>
       <td class="td-num td-red">${t.l}</td>
       <td class="td-num">${fmtP(t.winPct)}</td>
-      <td class="td-num">${fmt(t.pf/t.gp)}</td>
+      <td class="td-num">${fmt(t.ptsTotal/t.gp)}</td>
       <td class="td-num">${fmt(t.pa/t.gp)}</td>
       <td class="td-num ${t.pd>0?"td-green":t.pd<0?"td-red":""}">${t.pd>0?"+":""}${t.pd}</td>
       <td class="td-num">${t.hw}-${t.hl}</td>
@@ -3374,7 +3376,7 @@ async function showTeamProfile(teamName){
     return `<div style="background:var(--card2);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 2px 8px rgba(0,0,0,0.25)">
       <div style="height:190px;background:var(--card3);position:relative;flex-shrink:0">
         ${photo}
-        <div style="position:absolute;top:8px;right:10px;font-size:20px;font-weight:800;color:var(--green);text-shadow:0 1px 4px rgba(0,0,0,0.85)">#${pl.number||"-"}</div>
+        <div style="position:absolute;top:8px;right:10px;font-size:20px;font-weight:800;color:var(--green);text-shadow:0 0 3px rgba(0,0,0,0.9),0 0 3px rgba(0,0,0,0.9);-webkit-text-stroke:0.5px rgba(0,0,0,0.6)">#${pl.number||"-"}</div>
       </div>
       <div style="padding:14px 14px 16px;flex:1;display:flex;flex-direction:column">
         <div style="font-size:16px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:3px">${fmtName(pl.name||"")}</div>
