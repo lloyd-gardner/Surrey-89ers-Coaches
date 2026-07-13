@@ -3106,6 +3106,86 @@ function computePointStreaks(db, teamName, threshold){
   };
 }
 
+// Crunch Time: last period of the game (handles OT, not just always Q4),
+// clock <=3:00, AND the score margin BEFORE each play was <=5 -- checked
+// fresh at every play, not just once at the 3-minute mark, so a team
+// pulling away past 5 correctly stops counting as crunch time even if
+// there's still time on the clock. Team-level eFG%/FT%/TO Rate are fully
+// reliable with the same techniques used all night. Usage% is NOT
+// included -- it needs on-court substitution tracking (who was actually
+// playing every second of the window) that isn't reliably populated in
+// this data yet, so a "Usage%" here would be fake precision, not a real
+// stat. Individual FT%/eFG%/turnovers are included since those don't
+// need on-court-time data, just each player's own actions in the window.
+function computeCrunchTimeStats(db, teamName){
+  const events = (db.raw.pbp||[]);
+  const byGame = {};
+  events.forEach(function(r){
+    const gid = r["Game id"];
+    if(gid==null) return;
+    if(!byGame[gid]) byGame[gid] = [];
+    byGame[gid].push(r);
+  });
+
+  let teamFgm=0, teamFga=0, teamFg3m=0, teamFtm=0, teamFta=0, teamTov=0;
+  const byPlayer = {};
+
+  Object.keys(byGame).forEach(function(gid){
+    const rows = byGame[gid].slice().sort(function(a,b){ return (a.ActionNum||0)-(b.ActionNum||0); });
+    if(!rows.length) return;
+    const maxQuarter = rows.reduce(function(m,r){ return Math.max(m, r.Quarter||0); }, 0);
+
+    for(let i=0;i<rows.length;i++){
+      const ev = rows[i];
+      if(ev.Quarter!==maxQuarter) continue;
+      const sec = parseClockToSeconds(ev.Time);
+      if(sec==null || sec>180) continue; // last 3:00 of the final period only
+      const prevRow = rows[i-1];
+      const priorMargin = prevRow ? Math.abs((prevRow["Score H"]||0)-(prevRow["Score A"]||0)) : 0;
+      if(priorMargin>5) continue; // game not close at the moment of this play
+      if(ev.Team!==teamName) continue;
+
+      const pname = ev.Player || 'Unknown';
+      if(!byPlayer[pname]) byPlayer[pname] = {fgm:0,fga:0,fg3m:0,ftm:0,fta:0,tov:0};
+      const pl = byPlayer[pname];
+      const prevTotal = ((prevRow&&prevRow["Score H"])||0) + ((prevRow&&prevRow["Score A"])||0);
+      const curTotal = (ev["Score H"]||0) + (ev["Score A"]||0);
+      const made = curTotal>prevTotal;
+
+      if(ev.Action==='2pt' || ev.Action==='3pt'){
+        teamFga++; pl.fga++;
+        if(made){ teamFgm++; pl.fgm++; if(ev.Action==='3pt'){ teamFg3m++; pl.fg3m++; } }
+      } else if(ev.Action==='freethrow'){
+        teamFta++; pl.fta++;
+        if(made){ teamFtm++; pl.ftm++; }
+      } else if(ev.Action==='turnover'){
+        teamTov++; pl.tov++;
+      }
+    }
+  });
+
+  const players = Object.keys(byPlayer).map(function(name){
+    const p = byPlayer[name];
+    const pts = (p.fgm-p.fg3m)*2 + p.fg3m*3 + p.ftm;
+    return {
+      name: name, pts: pts,
+      fgPct: p.fga ? Math.round((p.fgm/p.fga)*100) : null,
+      ftPct: p.fta ? Math.round((p.ftm/p.fta)*100) : null,
+      tov: p.tov, plays: p.fga+p.fta+p.tov,
+    };
+  }).filter(function(p){ return p.plays>0; })
+    .sort(function(a,b){ return b.pts-a.pts; })
+    .slice(0,5);
+
+  return {
+    eFG: teamFga ? ((teamFgm+0.5*teamFg3m)/teamFga*100) : 0,
+    ftPct: teamFta ? (teamFtm/teamFta*100) : 0,
+    toRate: (teamFga+teamTov) ? (teamTov/(teamFga+teamTov)*100) : 0,
+    totalPlays: teamFga+teamFta+teamTov,
+    players: players,
+  };
+}
+
 function showTPSelector(){
   document.getElementById("tp-selector").style.display="block";
   document.getElementById("tp-detail").style.display="none";
@@ -3381,9 +3461,10 @@ async function showTeamProfile(teamName){
   const stopStreaks = computeDefensiveStopStreaks(db, teamName);
   const knockoutsPerGame = stopStreaks.games ? stopStreaks.threeStraightCount/stopStreaks.games : 0;
   const pointStreaks = computePointStreaks(db, teamName, 10);
+  const crunch = computeCrunchTimeStats(db, teamName);
   const advancedMetricsHTML = `
     <div class="section-header"><div class="section-label">Advanced Metrics</div></div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px">
       <div class="card" style="padding:16px;text-align:center">
         <div class="stat-val">${jailbreak.perGame.toFixed(2)}</div>
         <div class="stat-label">Jailbreak Steals/G</div>
@@ -3413,6 +3494,34 @@ async function showTeamProfile(teamName){
         <div class="stat-label">10-0 Runs/G</div>
       </div>
     </div>
+
+    <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:16px 0 10px">
+      Crunch Time (final period, ≤3:00 left, margin ≤5)
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+      <div class="card" style="padding:16px;text-align:center">
+        <div class="stat-val">${crunch.eFG.toFixed(1)}%</div>
+        <div class="stat-label">Crunch eFG%</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center">
+        <div class="stat-val">${crunch.ftPct.toFixed(1)}%</div>
+        <div class="stat-label">Crunch FT%</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center">
+        <div class="stat-val">${crunch.toRate.toFixed(1)}%</div>
+        <div class="stat-label">Crunch TO Rate</div>
+      </div>
+    </div>
+    ${crunch.players.length ? `
+    <div class="card" style="padding:14px;margin-bottom:24px">
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Top Crunch Time Performers</div>
+      ${crunch.players.map(function(p){
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+          <div style="font-size:12px;color:#fff">${fmtName(p.name)}</div>
+          <div style="font-size:11px;color:var(--muted)">${p.pts} pts · FG ${p.fgPct!=null?p.fgPct+'%':'—'} · FT ${p.ftPct!=null?p.ftPct+'%':'—'} · ${p.tov} TO</div>
+        </div>`;
+      }).join("")}
+    </div>` : `<div style="margin-bottom:24px;color:var(--muted);font-size:11px">No crunch-time possessions recorded yet this season.</div>`}
   `;
 
   const h2h=db.raw.ts.filter(r=>r.Team==="SURREY 89ERS"&&(r.Opp||"")=== teamName);
