@@ -1148,6 +1148,7 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       "OREB": r.oreb, "DREB": r.dreb, "REB": r.reb,
       "AST": r.ast, "STL": r.stl, "BLK": r.blk, "PF": r.pf, "TOV": r.tov,
       "Pts Scored": r.pts || 0,
+      "PlusMinus": r.plus_minus || 0,
       "eFG%":     efg,
       "PP40":     r.seconds_played ? ((r.pts || 0) / (r.seconds_played / 60)) * 40 : 0,
       "Usage%":   null,
@@ -1598,7 +1599,7 @@ function renderLeaders(db,tab){
     const s=(p.TEAM||"").includes("SURREY");
     return `<tr class="${s?"surrey-row":""}">
       <td class="td-num" style="color:var(--muted)">${i+1}</td>
-      <td style="font-weight:600">${fmtName(p.PLAYER)}</td>
+      <td style="font-weight:600">${fmtName(p.Player)}</td>
       <td style="color:var(--muted)">${teamShort(p.TEAM||"")}</td>
       <td class="td-num" style="color:var(--muted)">${p.GP||"—"}</td>
       <td class="td-num" style="color:${s?"var(--green)":"var(--offwhite)"}">${cfg.f(parseFloat(p[cfg.col]))}</td>
