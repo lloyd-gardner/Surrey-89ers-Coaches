@@ -1474,11 +1474,17 @@ function showSection(id){
     document.getElementById("section-"+s).classList.toggle("active",s===id);
     document.getElementById("tab-"+s).classList.toggle("active",s===id);
   });
+  if(id==="league-leaders"){
+    // Always refresh -- the opponent highlight depends on NEXT_OPP, which
+    // can change after this tab was first loaded, so a one-time cached
+    // render would show stale highlighting.
+    renderLeagueLeadersStandalone();
+    return;
+  }
   if(!loaded[id]){
     loaded[id]=true;
     ({
       "league":renderLeague,
-      "league-leaders":renderLeagueLeadersStandalone,
       "next-opponent":renderNextOpponent,
       "team-profiles":renderTPSelector,
       "player-slides":renderSlides,
@@ -1593,12 +1599,13 @@ async function renderLeagueLeadersSection(db){
   (db.raw.ps||[]).forEach(r=>{
     if(inactiveNames.has(r.Player)) return;
     const key=r.Player;
-    if(!byPlayer[key]) byPlayer[key]={name:key,team:r.Team,gp:0,pts:0,min:0,oreb:0,ast:0,tov:0,ftm:0,fta:0,tpm:0,tpa:0,fgm:0,fga:0,fg3m:0,pm:0};
+    if(!byPlayer[key]) byPlayer[key]={name:key,team:r.Team,gp:0,pts:0,min:0,oreb:0,ast:0,tov:0,ftm:0,fta:0,tpm:0,tpa:0,fgm:0,fga:0,fg3m:0,pm:0,pip:0,fbp:0};
     const b=byPlayer[key];
     b.gp++;
     b.pts+=r["Pts Scored"]||0; b.min+=r["MIN"]||0; b.oreb+=r["OREB"]||0; b.ast+=r["AST"]||0;
     b.tov+=r["TOV"]||0; b.ftm+=r["FTM"]||0; b.fta+=r["FTA"]||0; b.tpm+=r["3PM"]||0; b.tpa+=r["3PA"]||0;
     b.fgm+=r["FGM"]||0; b.fga+=r["FGA"]||0; b.pm+=r["PlusMinus"]||0;
+    b.pip+=r["PIP"]||0; b.fbp+=r["FBP"]||0;
 
     const t=r.Team;
     if(!byTeam[t]) byTeam[t]={fga:0,fta:0,tov:0,games:0};
@@ -1652,6 +1659,23 @@ async function renderLeagueLeadersSection(db){
   }
   const secondChancePts=compute2ndChancePointsByPlayer();
 
+  // Points Created: real point value of what each player's assists
+  // actually led to (2 for a 2PT assist, 3 for a 3PT assist) rather than
+  // a flat 2-per-assist estimate -- uses the same AssistedBy link already
+  // proven reliable for the Team Profile assist pills.
+  function computePointsCreatedByPlayer(){
+    const result={};
+    (db.raw.shots||[]).forEach(r=>{
+      if(!r.AssistedBy) return;
+      if(!(r.Success==1||r.Success==="1"||r.Success===true)) return;
+      const pts=r.Action==="3pt"?3:r.Action==="2pt"?2:0;
+      if(!pts) return;
+      result[r.AssistedBy]=(result[r.AssistedBy]||0)+pts;
+    });
+    return result;
+  }
+  const pointsCreated=computePointsCreatedByPlayer();
+
   // Dynamic min-games threshold -- same approach as grade_players.py:
   // 25% of the most games anyone in the pool has played, floor of 1, so
   // early-season leaders are still populated instead of empty until 10
@@ -1699,6 +1723,9 @@ async function renderLeagueLeadersSection(db){
     {lbl:"APG",       entries:top10(p=>p.gp?p.ast/p.gp:null)},
     {lbl:"USG%",      entries:top10(p=>usagePct(p),false,p=>p.min>=40),isPct:true},
     {lbl:"2ND CH PTS/G", entries:top10(p=>p.gp?(secondChancePts[p.name]||0)/p.gp:null)},
+    {lbl:"FBP/G",     entries:top10(p=>p.gp?p.fbp/p.gp:null)},
+    {lbl:"PIP/G",     entries:top10(p=>p.gp?p.pip/p.gp:null)},
+    {lbl:"PTS CREATED/G", entries:top10(p=>p.gp?(pointsCreated[p.name]||0)/p.gp:null)},
   ];
 
   function catCardHTML(cat){
@@ -1710,12 +1737,12 @@ async function renderLeagueLeadersSection(db){
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--green);margin-bottom:8px">${cat.lbl}</div>
       ${cat.entries.map((e,i)=>{
         const isOpp=NEXT_OPP&&e.team===NEXT_OPP;
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;margin:0 -6px;${isOpp?'background:rgba(245,158,11,0.12);border-left:2px solid var(--amber);border-radius:4px':''};${i<cat.entries.length-1?'border-bottom:1px solid rgba(255,255,255,0.06)':''}">
-        <div style="font-size:11px;color:${isOpp?'var(--amber)':'#fff'};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:6px">
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;margin:0 -6px;${isOpp?'background:rgba(0,131,72,0.15);border-left:2px solid var(--green);border-radius:4px':''};${i<cat.entries.length-1?'border-bottom:1px solid rgba(255,255,255,0.06)':''}">
+        <div style="font-size:11px;color:${isOpp?'var(--green)':'#fff'};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:6px">
           <span style="color:var(--muted);margin-right:5px">${i+1}</span>${fmtName(e.name)}
           <span style="color:var(--muted);font-size:9px"> · ${teamShort(e.team||"")}</span>
         </div>
-        <div style="font-size:12px;font-weight:700;color:${isOpp?'var(--amber)':'#fff'};flex-shrink:0">${cat.showSign&&e.v>0?"+":""}${e.v.toFixed(1)}${cat.isPct?"%":""}</div>
+        <div style="font-size:12px;font-weight:700;color:${isOpp?'var(--green)':'#fff'};flex-shrink:0">${cat.showSign&&e.v>0?"+":""}${e.v.toFixed(1)}${cat.isPct?"%":""}</div>
       </div>`;
       }).join("")}
     </div>`;
@@ -1724,7 +1751,7 @@ async function renderLeagueLeadersSection(db){
   container.innerHTML=`
     <div class="section-header"><div class="section-label">League Leaders</div></div>
     <div style="font-size:10px;color:var(--muted);margin:-4px 0 12px">
-      Active players only · min ${minGP} games played${NEXT_OPP?` · <span style="color:var(--amber)">●</span> ${teamShort(NEXT_OPP)} players highlighted (current Next Opponent)`:""}
+      Active players only · min ${minGP} games played${NEXT_OPP?` · <span style="color:var(--green)">●</span> ${teamShort(NEXT_OPP)} players highlighted (current Next Opponent)`:""}
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
       ${categories.map(catCardHTML).join("")}
