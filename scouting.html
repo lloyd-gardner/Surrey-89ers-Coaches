@@ -366,27 +366,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
         </div>
       </div>
 
-      <div class="section-header">
-        <div class="section-label">Individual Leaders</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap" id="leader-tabs">
-          <button class="btn btn-green" onclick="showLeaders('ppg')">PPG</button>
-          <button class="btn" onclick="showLeaders('rpg')">RPG</button>
-          <button class="btn" onclick="showLeaders('apg')">APG</button>
-          <button class="btn" onclick="showLeaders('efg')">eFG%</button>
-          <button class="btn" onclick="showLeaders('pm')">+/-</button>
-          <button class="btn" onclick="showLeaders('usage')">USG%</button>
-          <button class="btn" onclick="showLeaders('pp40')">PTS/40</button>
-          <button class="btn" onclick="showLeaders('threepm')">3PM/G</button>
-        </div>
-      </div>
-      <div class="card">
-        <div class="table-scroll">
-          <table class="data-table">
-            <thead><tr><th>#</th><th>Player</th><th>Team</th><th>GP</th><th id="leader-col-hdr">PPG</th></tr></thead>
-            <tbody id="leaders-body"><tr><td colspan="5"><div class="loading-state"><div class="loading-spinner"></div></div></td></tr></tbody>
-          </table>
-        </div>
-      </div>
+      <div id="league-leaders-section"></div>
     </div>
 
     <!-- ── NEXT OPPONENT ── -->
@@ -1511,7 +1491,7 @@ async function renderLeague(){
   const db=await loadData();
   renderStandings(db);
   renderRankings(db);
-  renderLeaders(db,"ppg");
+  renderLeagueLeadersSection(db);
 }
 
 function renderStandings(db){
@@ -1573,38 +1553,171 @@ function doSortRankings(){
   }).join("");
 }
 
-const LEADER_CFG={
-  ppg:{col:"PPG",lbl:"PPG",f:v=>fmt(v)},
-  rpg:{col:"RPG",lbl:"RPG",f:v=>fmt(v)},
-  apg:{col:"APG",lbl:"APG",f:v=>fmt(v)},
-  efg:{col:"eFG%",lbl:"eFG%",f:v=>v?fmtP(v):"—"},
-  pm: {col:"+/-",lbl:"+/-",f:v=>(parseFloat(v)>0?"+":"")+fmt(v)},
-  usage:{col:"USAGE%",lbl:"USG%",f:v=>v?fmtP(v):"—"},
-  pp40:{col:"PP40",lbl:"PTS/40",f:v=>fmt(v)},
-  threepm:{col:"3PM/G",lbl:"3PM/G",f:v=>fmt(v)},
-};
-function showLeaders(tab){
-  currentLeader=tab;
-  document.querySelectorAll("#leader-tabs .btn").forEach(b=>b.classList.remove("btn-green"));
-  event.target.classList.add("btn-green");
-  renderLeaders(DB,tab);
-}
-function renderLeaders(db,tab){
-  if(!db) return;
-  const cfg=LEADER_CFG[tab];
-  document.getElementById("leader-col-hdr").textContent=cfg.lbl;
-  const qual=db.lr.filter(r=>(parseFloat(r.GP)||0)>=10&&r[cfg.col]!=null&&r[cfg.col]!=="");
-  qual.sort((a,b)=>parseFloat(b[cfg.col])-parseFloat(a[cfg.col]));
-  document.getElementById("leaders-body").innerHTML=qual.slice(0,10).map((p,i)=>{
-    const s=(p.TEAM||"").includes("SURREY");
-    return `<tr class="${s?"surrey-row":""}">
-      <td class="td-num" style="color:var(--muted)">${i+1}</td>
-      <td style="font-weight:600">${fmtName(p.Player)}</td>
-      <td style="color:var(--muted)">${teamShort(p.TEAM||"")}</td>
-      <td class="td-num" style="color:var(--muted)">${p.GP||"—"}</td>
-      <td class="td-num" style="color:${s?"var(--green)":"var(--offwhite)"}">${cfg.f(parseFloat(p[cfg.col]))}</td>
-    </tr>`;
-  }).join("");
+// LEAGUE LEADERS -- grid of category cards, matching Team Leaders' style
+// and the "League Leaders" tab layout from Scout_Database_2026.xlsx
+// (multiple categories shown side by side, Top 10 each).
+async function renderLeagueLeadersSection(db){
+  const container=document.getElementById("league-leaders-section");
+  container.innerHTML='<div class="section-header"><div class="section-label">League Leaders</div></div><div class="loading-state"><div class="loading-spinner"></div></div>';
+
+  // Active-only: exclude players explicitly marked inactive (cut/injured/
+  // long-term out) for the current season. Anyone with no scouting row at
+  // all is treated as active by default -- most auto-created rows default
+  // to active=false just because nobody's reviewed them yet, not because
+  // they're actually unavailable, so treating "unreviewed" the same as
+  // "confirmed inactive" would wrongly exclude most of the league.
+  const seasonRow=await sbFetch(`slb_seasons?is_current=eq.true&select=id`);
+  const seasonId=seasonRow[0]?.id;
+  const scoutingRows=seasonId?await sbFetchAll("slb_player_scouting",`season_id=eq.${seasonId}&select=player_id,active`):[];
+  const inactiveIds=new Set(scoutingRows.filter(r=>r.active===false).map(r=>r.player_id));
+  const playersAll=await sbFetchAll("slb_players","select=id,full_name");
+  const inactiveNames=new Set(playersAll.filter(p=>inactiveIds.has(p.id)).map(p=>p.full_name));
+
+  // Aggregate every player's per-game stats league-wide (all teams), and
+  // each TEAM's own season totals + game count alongside it -- the team
+  // side is needed for the standard Usage% formula (which only needs box
+  // score totals, not on-court substitution tracking as I'd wrongly
+  // assumed earlier).
+  const byPlayer={};
+  const byTeam={};
+  const teamGameSeen={};
+  (db.raw.ps||[]).forEach(r=>{
+    if(inactiveNames.has(r.Player)) return;
+    const key=r.Player;
+    if(!byPlayer[key]) byPlayer[key]={name:key,team:r.Team,gp:0,pts:0,min:0,oreb:0,ast:0,tov:0,ftm:0,fta:0,tpm:0,tpa:0,fgm:0,fga:0,fg3m:0,pm:0};
+    const b=byPlayer[key];
+    b.gp++;
+    b.pts+=r["Pts Scored"]||0; b.min+=r["MIN"]||0; b.oreb+=r["OREB"]||0; b.ast+=r["AST"]||0;
+    b.tov+=r["TOV"]||0; b.ftm+=r["FTM"]||0; b.fta+=r["FTA"]||0; b.tpm+=r["3PM"]||0; b.tpa+=r["3PA"]||0;
+    b.fgm+=r["FGM"]||0; b.fga+=r["FGA"]||0; b.pm+=r["PlusMinus"]||0;
+
+    const t=r.Team;
+    if(!byTeam[t]) byTeam[t]={fga:0,fta:0,tov:0,games:0};
+    byTeam[t].fga+=r["FGA"]||0; byTeam[t].fta+=r["FTA"]||0; byTeam[t].tov+=r["TOV"]||0;
+    const gk=t+"||"+r["Game id"];
+    if(!teamGameSeen[gk]){ teamGameSeen[gk]=true; byTeam[t].games++; }
+  });
+  const pool=Object.values(byPlayer);
+
+  // 2nd Chance Points: points scored by the SAME team within 5 real
+  // seconds of an offensive rebound -- same sequencing technique already
+  // proven for Offensive Rebound Outcomes on Team Profiles, but tracking
+  // WHO scored (and how many points) rather than just classifying the
+  // shot type, and run league-wide instead of one team at a time.
+  function compute2ndChancePointsByPlayer(){
+    const byGame={};
+    (db.raw.pbp||[]).forEach(r=>{
+      const gid=r["Game id"]; if(gid==null) return;
+      if(!byGame[gid]) byGame[gid]=[];
+      byGame[gid].push(r);
+    });
+    const result={};
+    Object.keys(byGame).forEach(gid=>{
+      const rows=byGame[gid].slice().sort((a,b)=>(a.ActionNum||0)-(b.ActionNum||0));
+      for(let i=0;i<rows.length;i++){
+        const ev=rows[i];
+        if(ev.Action!=='rebound'||ev["Sub Type"]!=='offensive') continue;
+        const rebTeam=ev.Team;
+        const rebSec=parseClockToSeconds(ev.Time);
+        for(let j=i+1;j<rows.length;j++){
+          const nxt=rows[j];
+          if(nxt.Quarter!==ev.Quarter) break;
+          const nxtSec=parseClockToSeconds(nxt.Time);
+          const elapsed=(rebSec!=null&&nxtSec!=null)?(rebSec-nxtSec):null;
+          if(elapsed==null||elapsed>5) break;
+          if(nxt.Team===rebTeam&&(nxt.Action==='2pt'||nxt.Action==='3pt')){
+            const prevTotal=((rows[j-1]&&rows[j-1]["Score H"])||0)+((rows[j-1]&&rows[j-1]["Score A"])||0);
+            const curTotal=(nxt["Score H"]||0)+(nxt["Score A"]||0);
+            const pts=curTotal-prevTotal;
+            if(pts>0){
+              const scorer=nxt.Player||"Unknown";
+              result[scorer]=(result[scorer]||0)+pts;
+            }
+            break;
+          }
+          if(nxt.Team===rebTeam&&nxt.Action==='turnover') break;
+        }
+      }
+    });
+    return result;
+  }
+  const secondChancePts=compute2ndChancePointsByPlayer();
+
+  // Dynamic min-games threshold -- same approach as grade_players.py:
+  // 25% of the most games anyone in the pool has played, floor of 1, so
+  // early-season leaders are still populated instead of empty until 10
+  // games in (roughly a third of the season).
+  const maxGP=pool.reduce((m,p)=>Math.max(m,p.gp),0);
+  const minGP=Math.max(1,Math.round(maxGP*0.25));
+  const qualified=pool.filter(p=>p.gp>=minGP);
+
+  function top10(valueFn,sortAsc,minAttempts){
+    let list=qualified;
+    if(minAttempts) list=list.filter(minAttempts);
+    return list.map(p=>({name:p.name,team:p.team,v:valueFn(p)}))
+      .filter(x=>x.v!=null&&!isNaN(x.v))
+      .sort((a,b)=>sortAsc?a.v-b.v:b.v-a.v)
+      .slice(0,10);
+  }
+
+  // Standard estimated Usage% -- box-score only, no on-court tracking
+  // needed: share of a team's plays used by this player while they were
+  // on the floor, estimated via team minutes rather than true lineup data.
+  function usagePct(p){
+    const t=byTeam[p.team];
+    if(!t||!p.min||!t.games) return null;
+    const teamMinutes=t.games*40; // 10-min FIBA quarters x4
+    const teamPlays=t.fga+0.44*t.fta+t.tov;
+    if(!teamPlays) return null;
+    const playerPlays=p.fga+0.44*p.fta+p.tov;
+    return 100*(playerPlays*(teamMinutes/5))/(p.min*teamPlays);
+  }
+
+  const categories=[
+    {lbl:"PPG",       entries:top10(p=>p.gp?p.pts/p.gp:null)},
+    {lbl:"PTS/40",    entries:top10(p=>p.min?p.pts/p.min*40:null)},
+    {lbl:"MPG",       entries:top10(p=>p.gp?p.min/p.gp:null)},
+    {lbl:"TOV/G",     entries:top10(p=>p.gp?p.tov/p.gp:null)},
+    {lbl:"3PM/G",     entries:top10(p=>p.gp?p.tpm/p.gp:null)},
+    {lbl:"3P%",       entries:top10(p=>p.tpa?p.tpm/p.tpa*100:null,false,p=>p.tpa>=20),isPct:true},
+    {lbl:"FTM/G",     entries:top10(p=>p.gp?p.ftm/p.gp:null)},
+    {lbl:"FT%",       entries:top10(p=>p.fta?p.ftm/p.fta*100:null,false,p=>p.fta>=20),isPct:true},
+    {lbl:"+/-",       entries:top10(p=>p.gp?p.pm/p.gp:null),showSign:true},
+    {lbl:"3PT RATE",  entries:top10(p=>p.fga?p.tpa/p.fga*100:null,false,p=>p.fga>=20),isPct:true},
+    {lbl:"eFG%",      entries:top10(p=>p.fga?(p.fgm+0.5*p.tpm)/p.fga*100:null,false,p=>p.fga>=20),isPct:true},
+    {lbl:"3PA/G",     entries:top10(p=>p.gp?p.tpa/p.gp:null)},
+    {lbl:"OREB/G",    entries:top10(p=>p.gp?p.oreb/p.gp:null)},
+    {lbl:"APG",       entries:top10(p=>p.gp?p.ast/p.gp:null)},
+    {lbl:"USG%",      entries:top10(p=>usagePct(p),false,p=>p.min>=40),isPct:true},
+    {lbl:"2ND CH PTS/G", entries:top10(p=>p.gp?(secondChancePts[p.name]||0)/p.gp:null)},
+  ];
+
+  function catCardHTML(cat){
+    if(!cat.entries.length) return `<div class="card" style="padding:14px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--green);margin-bottom:8px">${cat.lbl}</div>
+      <div style="color:rgba(255,255,255,0.25);font-size:11px">No qualifying data yet</div>
+    </div>`;
+    return `<div class="card" style="padding:14px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--green);margin-bottom:8px">${cat.lbl}</div>
+      ${cat.entries.map((e,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;${i<cat.entries.length-1?'border-bottom:1px solid rgba(255,255,255,0.06)':''}">
+        <div style="font-size:11px;color:#fff;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:6px">
+          <span style="color:var(--muted);margin-right:5px">${i+1}</span>${fmtName(e.name)}
+          <span style="color:var(--muted);font-size:9px"> · ${teamShort(e.team||"")}</span>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#fff;flex-shrink:0">${cat.showSign&&e.v>0?"+":""}${e.v.toFixed(1)}${cat.isPct?"%":""}</div>
+      </div>`).join("")}
+    </div>`;
+  }
+
+  container.innerHTML=`
+    <div class="section-header"><div class="section-label">League Leaders</div></div>
+    <div style="font-size:10px;color:var(--muted);margin:-4px 0 12px">
+      Active players only · min ${minGP} games played
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+      ${categories.map(catCardHTML).join("")}
+    </div>
+  `;
 }
 
 // ═══════════════════════════════════════════
