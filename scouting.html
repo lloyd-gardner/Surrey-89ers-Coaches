@@ -316,6 +316,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
 
   <div class="section-nav no-print">
     <div class="nav-tab active" id="tab-league" onclick="showSection('league')">🏆 League</div>
+    <div class="nav-tab" id="tab-league-leaders" onclick="showSection('league-leaders')">📊 League Leaders</div>
     <div class="nav-tab" id="tab-next-opponent" onclick="showSection('next-opponent')">📋 Next Opponent</div>
     <div class="nav-tab" id="tab-team-profiles" onclick="showSection('team-profiles')">👥 Team Profiles</div>
     <div class="nav-tab" id="tab-player-slides" onclick="showSection('player-slides')">🃏 Player Slides</div>
@@ -365,7 +366,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
           </table>
         </div>
       </div>
+    </div>
 
+    <!-- ── LEAGUE LEADERS ── -->
+    <div class="section-view" id="section-league-leaders">
+      <div class="page-header"><div class="page-title">League Leaders</div></div>
       <div id="league-leaders-section"></div>
     </div>
 
@@ -1462,7 +1467,7 @@ function playerRowHTML(p, showGrade=true){
 // ═══════════════════════════════════════════
 // SECTION NAV
 // ═══════════════════════════════════════════
-const SECS=["league","next-opponent","team-profiles","player-slides","self-scout"];
+const SECS=["league","league-leaders","next-opponent","team-profiles","player-slides","self-scout"];
 let loaded={};
 function showSection(id){
   SECS.forEach(s=>{
@@ -1473,6 +1478,7 @@ function showSection(id){
     loaded[id]=true;
     ({
       "league":renderLeague,
+      "league-leaders":renderLeagueLeadersStandalone,
       "next-opponent":renderNextOpponent,
       "team-profiles":renderTPSelector,
       "player-slides":renderSlides,
@@ -1491,6 +1497,9 @@ async function renderLeague(){
   const db=await loadData();
   renderStandings(db);
   renderRankings(db);
+}
+async function renderLeagueLeadersStandalone(){
+  const db=await loadData();
   renderLeagueLeadersSection(db);
 }
 
@@ -1699,20 +1708,23 @@ async function renderLeagueLeadersSection(db){
     </div>`;
     return `<div class="card" style="padding:14px">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--green);margin-bottom:8px">${cat.lbl}</div>
-      ${cat.entries.map((e,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;${i<cat.entries.length-1?'border-bottom:1px solid rgba(255,255,255,0.06)':''}">
-        <div style="font-size:11px;color:#fff;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:6px">
+      ${cat.entries.map((e,i)=>{
+        const isOpp=NEXT_OPP&&e.team===NEXT_OPP;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;margin:0 -6px;${isOpp?'background:rgba(245,158,11,0.12);border-left:2px solid var(--amber);border-radius:4px':''};${i<cat.entries.length-1?'border-bottom:1px solid rgba(255,255,255,0.06)':''}">
+        <div style="font-size:11px;color:${isOpp?'var(--amber)':'#fff'};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:6px">
           <span style="color:var(--muted);margin-right:5px">${i+1}</span>${fmtName(e.name)}
           <span style="color:var(--muted);font-size:9px"> · ${teamShort(e.team||"")}</span>
         </div>
-        <div style="font-size:12px;font-weight:700;color:#fff;flex-shrink:0">${cat.showSign&&e.v>0?"+":""}${e.v.toFixed(1)}${cat.isPct?"%":""}</div>
-      </div>`).join("")}
+        <div style="font-size:12px;font-weight:700;color:${isOpp?'var(--amber)':'#fff'};flex-shrink:0">${cat.showSign&&e.v>0?"+":""}${e.v.toFixed(1)}${cat.isPct?"%":""}</div>
+      </div>`;
+      }).join("")}
     </div>`;
   }
 
   container.innerHTML=`
     <div class="section-header"><div class="section-label">League Leaders</div></div>
     <div style="font-size:10px;color:var(--muted);margin:-4px 0 12px">
-      Active players only · min ${minGP} games played
+      Active players only · min ${minGP} games played${NEXT_OPP?` · <span style="color:var(--amber)">●</span> ${teamShort(NEXT_OPP)} players highlighted (current Next Opponent)`:""}
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
       ${categories.map(catCardHTML).join("")}
