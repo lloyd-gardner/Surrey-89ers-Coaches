@@ -549,6 +549,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
     <div class="section-view" id="section-self-scout">
       <div class="page-header"><div class="page-title">Surrey 89ers</div><div class="page-sub">Self scout · 2025-26</div></div>
       <div class="grid-4" id="ss-overview" style="margin-bottom:24px"></div>
+      <div class="section-header"><div class="section-label" style="color:var(--offwhite)">What's Trending</div></div>
+      <div id="ss-trending" style="margin-bottom:24px"></div>
       <div class="section-header"><div class="section-label" style="color:var(--offwhite)">Win / Loss Splits</div></div>
       <div id="ss-winloss" style="margin-bottom:24px"></div>
       <div class="grid-2" style="margin-bottom:24px">
@@ -4818,6 +4820,64 @@ async function renderSelfScout(){
     winAvg:avgField(wins,m.field,m.scale),
     lossAvg:avgField(losses,m.field,m.scale),
   })).filter(m=>m.winAvg!=null&&m.lossAvg!=null);
+
+  // What's Trending: last 5 games vs season average, for a curated set of
+  // key metrics -- only surfaces the ones that have actually moved
+  // meaningfully, as a plain-language headline rather than another full
+  // stat grid. Uses the real Date field on each game row to sort
+  // chronologically (not array order, which isn't guaranteed).
+  const surreyGamesByDate=surreyGames.slice().filter(r=>r.Date).sort((a,b)=>new Date(a.Date)-new Date(b.Date));
+  const last5=surreyGamesByDate.slice(-5);
+  const trendMetrics=[
+    {lbl:"OFF RTG",field:"OFFRTG",scale:100,higherBetter:true,threshold:2,isPct:false},
+    {lbl:"DEF RTG",field:"DEFRTG",scale:100,higherBetter:false,threshold:2,isPct:false},
+    {lbl:"eFG%",field:"eFG%",scale:100,higherBetter:true,threshold:2,isPct:true},
+    {lbl:"3P%",field:"3P%",scale:100,higherBetter:true,threshold:2,isPct:true},
+    {lbl:"TOV%",field:"TOV%",scale:1,higherBetter:false,threshold:2,isPct:true},
+    {lbl:"OREB%",field:"OREB%",scale:1,higherBetter:true,threshold:2,isPct:true},
+    {lbl:"AST%",field:"AST%",scale:1,higherBetter:true,threshold:3,isPct:true},
+    {lbl:"Points in the Paint",field:"PIP",scale:1,higherBetter:true,threshold:2,isPct:false},
+  ];
+  const trends=trendMetrics.map(m=>{
+    const seasonAvg=avgField(surreyGames,m.field,m.scale);
+    const last5Avg=avgField(last5,m.field,m.scale);
+    if(seasonAvg==null||last5Avg==null) return null;
+    const diff=last5Avg-seasonAvg;
+    return {lbl:m.lbl,seasonAvg,last5Avg,diff,isPct:m.isPct,
+      meaningful:Math.abs(diff)>=m.threshold,
+      improving:m.higherBetter?diff>0:diff<0};
+  }).filter(x=>x&&x.meaningful).sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff));
+
+  const trendEl=document.getElementById("ss-trending");
+  if(trendEl){
+    if(last5.length<5){
+      trendEl.innerHTML=`<div class="card" style="padding:16px"><div style="color:var(--muted);font-size:12px">Need at least 5 games played to show a trend.</div></div>`;
+    }else if(!trends.length){
+      trendEl.innerHTML=`<div class="card" style="padding:16px"><div style="color:var(--muted);font-size:12px">No major shifts over the last 5 games -- performance is tracking close to the season average across the board.</div></div>`;
+    }else{
+      const fmtVal=(v,isPct)=>isPct?v.toFixed(1)+"%":v.toFixed(1);
+      trendEl.innerHTML=`
+        <div style="font-size:10px;color:var(--muted);margin-bottom:12px">Last 5 games vs season average</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+          ${trends.map(tr=>{
+            const arrow=tr.diff>0?"▲":"▼";
+            const color=tr.improving?"#4ade80":"#ff8a8a";
+            const word=tr.improving?"Improving":"Slipping";
+            return `<div class="card" style="padding:14px;border-left:3px solid ${color}">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                <div style="font-size:12px;font-weight:800;color:#fff">${tr.lbl}</div>
+                <div style="font-size:11px;font-weight:700;color:${color}">${arrow} ${word}</div>
+              </div>
+              <div style="font-size:11px;color:var(--muted)">
+                ${fmtVal(tr.last5Avg,tr.isPct)} last 5 games <span style="color:rgba(255,255,255,0.3)">vs</span> ${fmtVal(tr.seasonAvg,tr.isPct)} season avg
+                <span style="color:${color};font-weight:700"> (${tr.diff>0?"+":""}${fmtVal(tr.diff,tr.isPct)})</span>
+              </div>
+            </div>`;
+          }).join("")}
+        </div>
+      `;
+    }
+  }
 
   const wlEl=document.getElementById("ss-winloss");
   if(wlEl){
