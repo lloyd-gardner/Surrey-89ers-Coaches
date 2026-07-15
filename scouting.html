@@ -4803,6 +4803,17 @@ async function renderPlayerTrending(db,SURREY){
     return null;
   }
 
+  // Active players only -- same convention as League Leaders: only players
+  // EXPLICITLY marked inactive (active=false) are excluded. A player with
+  // no scouting row at all is treated as active by default, since most
+  // auto-created rows default to active=false just because nobody's
+  // reviewed them yet, not because they're actually cut/injured.
+  const seasonRow=await sbFetch(`slb_seasons?is_current=eq.true&select=id`);
+  const seasonId=seasonRow[0]?.id;
+  const scoutingRows=seasonId?await sbFetchAll("slb_player_scouting",`season_id=eq.${seasonId}&select=player_id,active`):[];
+  const inactiveIds=new Set(scoutingRows.filter(r=>r.active===false).map(r=>r.player_id));
+  const inactiveNames=new Set(rosterPlayers.filter(p=>inactiveIds.has(p.id)).map(p=>p.full_name));
+
   // Opponent OREB/2PA, and Surrey's own FGM, keyed by game -- needed for
   // DREB%/BLK%/AST% below, matched to whichever specific games a player
   // actually appeared in.
@@ -4813,7 +4824,7 @@ async function renderPlayerTrending(db,SURREY){
   });
 
   const bySurreyPlayer={};
-  db.raw.ps.filter(r=>r.Team===SURREY).forEach(r=>{
+  db.raw.ps.filter(r=>r.Team===SURREY&&!inactiveNames.has(r.Player)).forEach(r=>{
     const key=r.Player;
     if(!bySurreyPlayer[key]) bySurreyPlayer[key]=[];
     bySurreyPlayer[key].push(r);
@@ -4872,19 +4883,33 @@ async function renderPlayerTrending(db,SURREY){
     return;
   }
   const fmtVal=(v,isPct)=>isPct?v.toFixed(1)+"%":v.toFixed(1);
-  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-    ${allCallouts.map(c=>{
-      const color=c.improving==null?"var(--muted)":(c.improving?"#4ade80":"#ff8a8a");
-      const word=c.improving==null?"Shifted":(c.improving?"Improving":"Slipping");
-      return `<div class="card" style="padding:12px;border-left:3px solid ${color}">
-        <div style="font-size:12px;font-weight:800;color:#fff;margin-bottom:2px">${fmtName(c.name)}</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <div style="font-size:11px;color:var(--muted)">${c.lbl}</div>
-          <div style="font-size:10px;font-weight:700;color:${color}">${word}</div>
-        </div>
-        <div style="font-size:10px;color:var(--muted)">
-          ${fmtVal(c.last5Val,c.isPct)} last 5 <span style="color:rgba(255,255,255,0.3)">vs</span> ${fmtVal(c.seasonVal,c.isPct)} season
-          <span style="color:${color};font-weight:700"> (${c.diff>0?"+":""}${fmtVal(c.diff,c.isPct)})</span>
+
+  // Group by player so each person's changes read together on one row,
+  // rather than scattered across a grid mixed in with everyone else's.
+  const byPlayerCallouts={};
+  allCallouts.forEach(c=>{
+    if(!byPlayerCallouts[c.name]) byPlayerCallouts[c.name]=[];
+    byPlayerCallouts[c.name].push(c);
+  });
+  const playerNames=Object.keys(byPlayerCallouts).sort((a,b)=>{
+    const maxA=Math.max(...byPlayerCallouts[a].map(c=>Math.abs(c.diff)));
+    const maxB=Math.max(...byPlayerCallouts[b].map(c=>Math.abs(c.diff)));
+    return maxB-maxA;
+  });
+
+  el.innerHTML=`<div class="card" style="padding:8px 16px">
+    ${playerNames.map((name,i)=>{
+      const callouts=byPlayerCallouts[name];
+      return `<div style="display:flex;align-items:center;gap:14px;padding:12px 0;${i<playerNames.length-1?'border-bottom:1px solid rgba(255,255,255,0.06)':''}">
+        <div style="font-size:13px;font-weight:800;color:#fff;min-width:130px;flex-shrink:0">${fmtName(name)}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${callouts.map(c=>{
+            const color=c.improving==null?"var(--muted)":(c.improving?"#4ade80":"#ff8a8a");
+            return `<div style="background:rgba(255,255,255,0.06);border-left:2px solid ${color};border-radius:4px;padding:5px 9px">
+              <span style="font-size:10px;color:var(--muted);margin-right:6px">${c.lbl}</span>
+              <span style="font-size:11px;font-weight:700;color:${color}">${c.diff>0?"+":""}${fmtVal(c.diff,c.isPct)}</span>
+            </div>`;
+          }).join("")}
         </div>
       </div>`;
     }).join("")}
