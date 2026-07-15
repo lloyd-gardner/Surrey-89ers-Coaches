@@ -559,8 +559,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
         <div class="card"><div class="card-header"><div class="card-title">Shot Profile</div></div><div class="card-body" id="ss-shots"></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Season Averages</div></div><div class="card-body" id="ss-avgs"></div></div>
       </div>
-      <div class="section-header"><div class="section-label">Our Roster</div></div>
-      <div class="card" style="margin-bottom:24px"><div id="ss-roster"></div></div>
       <div class="section-header"><div class="section-label">Key Lineups</div></div>
       <div id="ss-lineups" style="margin-bottom:24px"></div>
       <div class="section-header"><div class="section-label">Game Log</div></div>
@@ -1456,9 +1454,9 @@ function playerRowHTML(p, showGrade=true){
   const efgVal=parseFloat(p["eFG%"])||parseFloat(p.efg)||0;
   const grade=p.GRADE||"—";
   return `<div class="player-row">
-    <div class="player-avatar">${initials(p.PLAYER||p.name||"")}</div>
+    <div class="player-avatar">${initials(p.Player||p.name||"")}</div>
     <div class="player-info">
-      <div class="player-name">${fmtName(p.PLAYER||p.name||"")}</div>
+      <div class="player-name">${fmtName(p.Player||p.name||"")}</div>
       <div class="player-meta">${fmt(p.MPG||p.mpg)} MPG · ${p.GP||p.gp||"—"} GP</div>
     </div>
     <div class="player-stats">
@@ -4858,9 +4856,21 @@ async function renderPlayerTrending(db,SURREY){
   };
 
   const allCallouts=[];
+  const seasonStatsByPlayer={};
   Object.keys(bySurreyPlayer).forEach(name=>{
     const rowsAll=bySurreyPlayer[name].slice().filter(r=>r.Date).sort((a,b)=>new Date(a.Date)-new Date(b.Date));
-    if(rowsAll.length<5) return; // need at least 5 games for a "last 5" comparison
+    if(rowsAll.length<5) return; // need at least 5 games to show up here at all
+    const fga=sumF(rowsAll,"FGA");
+    seasonStatsByPlayer[name]={
+      gp:rowsAll.length,
+      ppg:sumF(rowsAll,"Pts Scored")/rowsAll.length,
+      rpg:(sumF(rowsAll,"OREB")+sumF(rowsAll,"DREB"))/rowsAll.length,
+      apg:sumF(rowsAll,"AST")/rowsAll.length,
+      mpg:sumF(rowsAll,"MIN")/rowsAll.length,
+      efg:fga?(sumF(rowsAll,"FGM")+0.5*sumF(rowsAll,"3PM"))/fga*100:0,
+      pm:sumF(rowsAll,"PlusMinus")/rowsAll.length,
+    };
+
     const last5=rowsAll.slice(-5);
     const group=positionGroup(posByName[name]);
     const metricSet=METRICS.universal.concat(group?METRICS[group]:[]);
@@ -4878,38 +4888,51 @@ async function renderPlayerTrending(db,SURREY){
   });
   allCallouts.sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff));
 
-  if(!allCallouts.length){
-    el.innerHTML=`<div class="card" style="padding:16px"><div style="color:var(--muted);font-size:12px">No major individual shifts over the last 5 games yet.</div></div>`;
+  if(!Object.keys(seasonStatsByPlayer).length){
+    el.innerHTML=`<div class="card" style="padding:16px"><div style="color:var(--muted);font-size:12px">Not enough games played yet.</div></div>`;
     return;
   }
   const fmtVal=(v,isPct)=>isPct?v.toFixed(1)+"%":v.toFixed(1);
 
-  // Group by player so each person's changes read together on one row,
-  // rather than scattered across a grid mixed in with everyone else's.
+  // Group trend callouts by player so each person's movement reads
+  // together, rather than scattered across a grid mixed in with
+  // everyone else's.
   const byPlayerCallouts={};
   allCallouts.forEach(c=>{
     if(!byPlayerCallouts[c.name]) byPlayerCallouts[c.name]=[];
     byPlayerCallouts[c.name].push(c);
   });
-  const playerNames=Object.keys(byPlayerCallouts).sort((a,b)=>{
-    const maxA=Math.max(...byPlayerCallouts[a].map(c=>Math.abs(c.diff)));
-    const maxB=Math.max(...byPlayerCallouts[b].map(c=>Math.abs(c.diff)));
-    return maxB-maxA;
-  });
+
+  // Show every qualifying player (not just those with a notable trend),
+  // sorted by minutes per game -- same convention the old separate
+  // roster list used, so your most important rotation players lead.
+  const playerNames=Object.keys(seasonStatsByPlayer).sort((a,b)=>seasonStatsByPlayer[b].mpg-seasonStatsByPlayer[a].mpg);
 
   el.innerHTML=`<div class="card" style="padding:12px 20px">
     ${playerNames.map((name,i)=>{
-      const callouts=byPlayerCallouts[name];
+      const s=seasonStatsByPlayer[name];
+      const callouts=byPlayerCallouts[name]||[];
+      const pmColor=s.pm>0?"#4ade80":s.pm<0?"#ff8a8a":"var(--muted)";
       return `<div style="display:flex;align-items:center;gap:24px;padding:12px 0;${i<playerNames.length-1?'border-bottom:1px solid rgba(255,255,255,0.06)':''}">
-        <div style="font-size:15px;font-weight:800;color:#fff;min-width:150px;flex-shrink:0">${fmtName(name)}</div>
+        <div style="min-width:150px;flex-shrink:0">
+          <div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:3px">${fmtName(name)}</div>
+          <div style="font-size:10px;color:var(--muted)">${s.mpg.toFixed(1)} MPG · ${s.gp} GP</div>
+        </div>
+        <div style="display:flex;gap:14px;flex-shrink:0;padding-right:14px;border-right:1px solid rgba(255,255,255,0.08)">
+          <div style="text-align:center"><div style="font-size:14px;font-weight:800;color:#fff">${s.ppg.toFixed(1)}</div><div style="font-size:9px;color:var(--muted)">PPG</div></div>
+          <div style="text-align:center"><div style="font-size:14px;font-weight:800;color:#fff">${s.rpg.toFixed(1)}</div><div style="font-size:9px;color:var(--muted)">RPG</div></div>
+          <div style="text-align:center"><div style="font-size:14px;font-weight:800;color:#fff">${s.apg.toFixed(1)}</div><div style="font-size:9px;color:var(--muted)">APG</div></div>
+          <div style="text-align:center"><div style="font-size:14px;font-weight:800;color:#fff">${s.efg.toFixed(1)}%</div><div style="font-size:9px;color:var(--muted)">eFG%</div></div>
+          <div style="text-align:center"><div style="font-size:14px;font-weight:800;color:${pmColor}">${s.pm>0?"+":""}${s.pm.toFixed(1)}</div><div style="font-size:9px;color:var(--muted)">+/-</div></div>
+        </div>
         <div style="display:flex;flex-wrap:wrap;gap:12px;flex:1">
-          ${callouts.map(c=>{
+          ${callouts.length?callouts.map(c=>{
             const color=c.improving==null?"var(--muted)":(c.improving?"#4ade80":"#ff8a8a");
             return `<div style="background:rgba(255,255,255,0.06);border-left:3px solid ${color};border-radius:6px;padding:8px 20px;min-width:240px;flex:1 1 240px;max-width:340px">
               <div style="font-size:11px;color:var(--muted);letter-spacing:0.5px;margin-bottom:3px">${c.lbl}</div>
               <div style="font-size:16px;font-weight:800;color:${color}">${c.diff>0?"+":""}${fmtVal(c.diff,c.isPct)}</div>
             </div>`;
-          }).join("")}
+          }).join(""):`<div style="font-size:11px;color:rgba(255,255,255,0.2)">No notable shifts</div>`}
         </div>
       </div>`;
     }).join("")}
@@ -5092,12 +5115,6 @@ async function renderSelfScout(){
     <tr><td style="color:var(--muted)">Home</td><td class="td-num">${t.hw}-${t.hl}</td></tr>
     <tr><td style="color:var(--muted)">Away</td><td class="td-num">${t.aw}-${t.al}</td></tr>
   </table>`;
-
-  const players=db.lr.filter(r=>r.TEAM===SURREY&&(parseFloat(r.GP)||0)>=5&&r.PPG!=null)
-    .sort((a,b)=>(parseFloat(b.MPG)||0)-(parseFloat(a.MPG)||0));
-  document.getElementById("ss-roster").innerHTML=players.length
-    ? players.map(p=>playerRowHTML(p,false)).join("")
-    : "<div class='loading-state'>No data</div>";
 
   const lus=db.raw.lu.filter(r=>matchTeam(r.Team||"",SURREY)&&(parseFloat(r.Poss)||0)>=20)
     .sort((a,b)=>(parseFloat(b.NETRTG)||0)-(parseFloat(a.NETRTG)||0)).slice(0,5);
