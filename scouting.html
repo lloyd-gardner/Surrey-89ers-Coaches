@@ -553,6 +553,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
       <div id="ss-trending" style="margin-bottom:24px"></div>
       <div class="section-header"><div class="section-label" style="color:var(--offwhite)">Win / Loss Splits</div></div>
       <div id="ss-winloss" style="margin-bottom:24px"></div>
+      <div class="section-header"><div class="section-label" style="color:var(--offwhite)">Player Trending</div></div>
+      <div id="ss-player-trending" style="margin-bottom:24px"></div>
       <div class="grid-2" style="margin-bottom:24px">
         <div class="card"><div class="card-header"><div class="card-title">Shot Profile</div></div><div class="card-body" id="ss-shots"></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Season Averages</div></div><div class="card-body" id="ss-avgs"></div></div>
@@ -1098,6 +1100,8 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       r["FTA Against"]     = pair["FTA"];
       r["FT% Against"]     = pair["FT%"];
       r["Opposition TOV%"] = pair["TOV%"];
+      r["OREB Against"]    = pair["OREB"];
+      r["2PA Against"]     = pair["2PA"];
       // Rebound% = this team's rebounds as a share of ALL rebounds available in the game
       r["REB%"] = ((r["REB"]||0) + (pair["REB"]||0)) ? (r["REB"]||0) / ((r["REB"]||0) + (pair["REB"]||0)) * 100 : null;
       // Steal% = steals as a share of the OPPONENT's possessions (not this team's own)
@@ -4774,6 +4778,119 @@ ${doPrint?`<scr"+"ipt>window.onload=()=>window.print()<\/script>`:""}
 // ═══════════════════════════════════════════
 // SELF SCOUT
 // ═══════════════════════════════════════════
+// Individual Player Trending: same "only show what moved" callout format
+// as team-level Trending, but per player and position-aware -- a guard's
+// development is read through different metrics than a big's. All
+// formulas use season/game totals (not minute-weighted precision) for
+// consistency with how Usage% was already built earlier tonight.
+// DREB%/BLK% specifically need the opponent's OREB/2PA matched to the
+// exact games this player appeared in (not just any of Surrey's games),
+// using the same opponent-pairing technique already proven for team
+// defensive stats.
+async function renderPlayerTrending(db,SURREY){
+  const el=document.getElementById("ss-player-trending");
+  if(!el) return;
+  el.innerHTML='<div class="loading-state"><div class="loading-spinner"></div></div>';
+
+  const rosterPlayers=await sbFetchAll("slb_players","select=id,full_name,position");
+  const posByName={};
+  rosterPlayers.forEach(p=>{ posByName[p.full_name]=p.position||""; });
+  function positionGroup(pos){
+    const p=(pos||"").toLowerCase();
+    if(p.includes("guard")) return "guard";
+    if(p.includes("center")) return "big";
+    if(p.includes("forward")) return "wing";
+    return null;
+  }
+
+  // Opponent OREB/2PA, and Surrey's own FGM, keyed by game -- needed for
+  // DREB%/BLK%/AST% below, matched to whichever specific games a player
+  // actually appeared in.
+  const oppByGame={},ownByGame={};
+  db.raw.ts.filter(r=>r.Team===SURREY).forEach(r=>{
+    oppByGame[r["Game id"]]={oreb:r["OREB Against"]||0,twoPa:r["2PA Against"]||0};
+    ownByGame[r["Game id"]]={fgm:r["FGM"]||0};
+  });
+
+  const bySurreyPlayer={};
+  db.raw.ps.filter(r=>r.Team===SURREY).forEach(r=>{
+    const key=r.Player;
+    if(!bySurreyPlayer[key]) bySurreyPlayer[key]=[];
+    bySurreyPlayer[key].push(r);
+  });
+
+  function sumF(rows,field){ return rows.reduce((s,r)=>s+(parseFloat(r[field])||0),0); }
+  function oppSum(rows,field){ return rows.reduce((s,r)=>s+((oppByGame[r["Game id"]]||{})[field]||0),0); }
+  function ownSum(rows,field){ return rows.reduce((s,r)=>s+((ownByGame[r["Game id"]]||{})[field]||0),0); }
+
+  const METRICS={
+    universal:[
+      {lbl:"PPG",       fn:rows=>sumF(rows,"Pts Scored")/rows.length, higherBetter:true, threshold:1.5},
+      {lbl:"MIN/G",     fn:rows=>sumF(rows,"MIN")/rows.length,        higherBetter:null, threshold:3},
+      {lbl:"PIP/G",     fn:rows=>sumF(rows,"PIP")/rows.length,        higherBetter:true, threshold:1},
+    ],
+    guard:[
+      {lbl:"AST%",      fn:rows=>{ const fgm=ownSum(rows,"fgm"); return fgm?sumF(rows,"AST")/fgm*100:null; }, isPct:true, higherBetter:true, threshold:3},
+      {lbl:"TOV%",      fn:rows=>{ const fga=sumF(rows,"FGA"),fta=sumF(rows,"FTA"),tov=sumF(rows,"TOV"); const d=fga+0.44*fta+tov; return d?tov/d*100:null; }, isPct:true, higherBetter:false, threshold:2},
+      {lbl:"3P%",       fn:rows=>{ const a=sumF(rows,"3PA"); return a?sumF(rows,"3PM")/a*100:null; }, isPct:true, higherBetter:true, threshold:4},
+    ],
+    wing:[
+      {lbl:"eFG%",      fn:rows=>{ const a=sumF(rows,"FGA"); return a?(sumF(rows,"FGM")+0.5*sumF(rows,"3PM"))/a*100:null; }, isPct:true, higherBetter:true, threshold:3},
+      {lbl:"REB/G",     fn:rows=>(sumF(rows,"OREB")+sumF(rows,"DREB"))/rows.length, higherBetter:true, threshold:1},
+      {lbl:"STOCKS/G",  fn:rows=>(sumF(rows,"STL")+sumF(rows,"BLK"))/rows.length, higherBetter:true, threshold:0.7},
+    ],
+    big:[
+      {lbl:"DREB%",     fn:rows=>{ const own=sumF(rows,"DREB"),opp=oppSum(rows,"oreb"); const d=own+opp; return d?own/d*100:null; }, isPct:true, higherBetter:true, threshold:3},
+      {lbl:"BLK%",      fn:rows=>{ const opp2pa=oppSum(rows,"twoPa"); return opp2pa?sumF(rows,"BLK")/opp2pa*100:null; }, isPct:true, higherBetter:true, threshold:1},
+      {lbl:"FG%",       fn:rows=>{ const a=sumF(rows,"FGA"); return a?sumF(rows,"FGM")/a*100:null; }, isPct:true, higherBetter:true, threshold:3},
+    ],
+  };
+
+  const allCallouts=[];
+  Object.keys(bySurreyPlayer).forEach(name=>{
+    const rowsAll=bySurreyPlayer[name].slice().filter(r=>r.Date).sort((a,b)=>new Date(a.Date)-new Date(b.Date));
+    if(rowsAll.length<5) return; // need at least 5 games for a "last 5" comparison
+    const last5=rowsAll.slice(-5);
+    const group=positionGroup(posByName[name]);
+    const metricSet=METRICS.universal.concat(group?METRICS[group]:[]);
+    metricSet.forEach(m=>{
+      const seasonVal=m.fn(rowsAll);
+      const last5Val=m.fn(last5);
+      if(seasonVal==null||last5Val==null||isNaN(seasonVal)||isNaN(last5Val)) return;
+      const diff=last5Val-seasonVal;
+      if(Math.abs(diff)<m.threshold) return;
+      allCallouts.push({
+        name,lbl:m.lbl,seasonVal,last5Val,diff,isPct:m.isPct,
+        improving:m.higherBetter==null?null:(m.higherBetter?diff>0:diff<0),
+      });
+    });
+  });
+  allCallouts.sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff));
+
+  if(!allCallouts.length){
+    el.innerHTML=`<div class="card" style="padding:16px"><div style="color:var(--muted);font-size:12px">No major individual shifts over the last 5 games yet.</div></div>`;
+    return;
+  }
+  const fmtVal=(v,isPct)=>isPct?v.toFixed(1)+"%":v.toFixed(1);
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+    ${allCallouts.map(c=>{
+      const color=c.improving==null?"var(--muted)":(c.improving?"#4ade80":"#ff8a8a");
+      const word=c.improving==null?"Shifted":(c.improving?"Improving":"Slipping");
+      return `<div class="card" style="padding:12px;border-left:3px solid ${color}">
+        <div style="font-size:12px;font-weight:800;color:#fff;margin-bottom:2px">${fmtName(c.name)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div style="font-size:11px;color:var(--muted)">${c.lbl}</div>
+          <div style="font-size:10px;font-weight:700;color:${color}">${word}</div>
+        </div>
+        <div style="font-size:10px;color:var(--muted)">
+          ${fmtVal(c.last5Val,c.isPct)} last 5 <span style="color:rgba(255,255,255,0.3)">vs</span> ${fmtVal(c.seasonVal,c.isPct)} season
+          <span style="color:${color};font-weight:700"> (${c.diff>0?"+":""}${fmtVal(c.diff,c.isPct)})</span>
+        </div>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
 async function renderSelfScout(){
   const db=await loadData();
   const SURREY="SURREY 89ERS";
@@ -4810,8 +4927,8 @@ async function renderSelfScout(){
     {lbl:"DREB%",field:"DREB%",scale:1,isPct:true,higherBetter:true},
     {lbl:"AST%",field:"AST%",scale:1,isPct:true,higherBetter:true},
     {lbl:"PIP/G",field:"PIP",scale:1,higherBetter:true},
+    {lbl:"PIP Against/G",field:"PIP Against",scale:1,higherBetter:false},
     {lbl:"FBP/G",field:"FBP",scale:1,higherBetter:true},
-    {lbl:"Bench Pts/G",field:"Bench Pts",scale:1,higherBetter:true},
     {lbl:"2nd Chance Pts/G",field:"2CP",scale:1,higherBetter:true},
     {lbl:"Pace",field:"Tempo",scale:1,higherBetter:null},
   ];
@@ -4837,6 +4954,9 @@ async function renderSelfScout(){
     {lbl:"OREB%",field:"OREB%",scale:1,higherBetter:true,threshold:2,isPct:true},
     {lbl:"AST%",field:"AST%",scale:1,higherBetter:true,threshold:3,isPct:true},
     {lbl:"Points in the Paint",field:"PIP",scale:1,higherBetter:true,threshold:2,isPct:false},
+    {lbl:"3PM/G",field:"3PM",scale:1,higherBetter:true,threshold:1,isPct:false},
+    {lbl:"Fast Break Pts",field:"FBP",scale:1,higherBetter:true,threshold:1.5,isPct:false},
+    {lbl:"Points in the Paint Against",field:"PIP Against",scale:1,higherBetter:false,threshold:2,isPct:false},
   ];
   const trends=trendMetrics.map(m=>{
     const seasonAvg=avgField(surreyGames,m.field,m.scale);
@@ -4878,6 +4998,8 @@ async function renderSelfScout(){
       `;
     }
   }
+
+  await renderPlayerTrending(db,SURREY);
 
   const wlEl=document.getElementById("ss-winloss");
   if(wlEl){
