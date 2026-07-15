@@ -5141,10 +5141,12 @@ async function renderSelfScout(){
     </div>`;
   }
   document.getElementById("ss-lineups").innerHTML=lineupPool.length
-    ? lineupSection("Best Net Rating (Top 3)","var(--green)",topNet,"NETRTG",true)
-      + lineupSection("Best Offense (Top 3)","#60c8fa",topOff,"OFFRTG",false)
-      + lineupSection("Best Defense (Top 3)","#ff8a8a",topDef,"DEFRTG",false)
-      + lineupSection("Most Used (Top 3)","#f59e0b",topUsed,"Poss",false)
+    ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px">
+        ${lineupSection("Best Net Rating (Top 3)","var(--green)",topNet,"NETRTG",true)}
+        ${lineupSection("Best Offense (Top 3)","#60c8fa",topOff,"OFFRTG",false)}
+        ${lineupSection("Best Defense (Top 3)","#ff8a8a",topDef,"DEFRTG",false)}
+        ${lineupSection("Most Used (Top 3)","#f59e0b",topUsed,"Poss",false)}
+      </div>`
     : "<div class='loading-state'>No lineup data</div>";
 
   const games=t.games.sort((a,b)=>new Date(a.Date)-new Date(b.Date));
