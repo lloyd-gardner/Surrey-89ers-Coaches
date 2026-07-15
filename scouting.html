@@ -5116,10 +5116,35 @@ async function renderSelfScout(){
     <tr><td style="color:var(--muted)">Away</td><td class="td-num">${t.aw}-${t.al}</td></tr>
   </table>`;
 
-  const lus=db.raw.lu.filter(r=>matchTeam(r.Team||"",SURREY)&&(parseFloat(r.Poss)||0)>=20)
-    .sort((a,b)=>(parseFloat(b.NETRTG)||0)-(parseFloat(a.NETRTG)||0)).slice(0,5);
-  document.getElementById("ss-lineups").innerHTML=lus.length
-    ? lus.map((l,i)=>lineupHTML(l,i)).join("")
+  function compactLineupHTML(l,statField,color,showSign){
+    const ps=[l.P1,l.P2,l.P3,l.P4,l.P5].filter(Boolean);
+    const val=parseFloat(l[statField])||0;
+    const poss=parseFloat(l.Poss)||0;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 12px;background:rgba(255,255,255,0.03);border-radius:6px;margin-bottom:6px">
+      <div style="display:flex;flex-wrap:wrap;gap:4px;flex:1">
+        ${ps.map(p=>`<span style="font-size:10px;background:rgba(255,255,255,0.06);padding:3px 7px;border-radius:4px;color:#fff">${p}</span>`).join("")}
+      </div>
+      <div style="font-size:9px;color:var(--muted);flex-shrink:0">${fmt(poss,0)} poss</div>
+      <div style="font-size:13px;font-weight:800;color:${color};min-width:50px;text-align:right;flex-shrink:0">${showSign&&val>0?"+":""}${fmt(val)}</div>
+    </div>`;
+  }
+  const lineupPool=db.raw.lu.filter(r=>matchTeam(r.Team||"",SURREY)&&(parseFloat(r.Poss)||0)>=20);
+  const topNet=lineupPool.slice().sort((a,b)=>(parseFloat(b.NETRTG)||0)-(parseFloat(a.NETRTG)||0)).slice(0,3);
+  const topOff=lineupPool.slice().sort((a,b)=>(parseFloat(b.OFFRTG)||0)-(parseFloat(a.OFFRTG)||0)).slice(0,3);
+  const topDef=lineupPool.slice().sort((a,b)=>(parseFloat(a.DEFRTG)||0)-(parseFloat(b.DEFRTG)||0)).slice(0,3);
+  const topUsed=lineupPool.slice().sort((a,b)=>(parseFloat(b.Poss)||0)-(parseFloat(a.Poss)||0)).slice(0,3);
+  function lineupSection(title,color,list,statField,showSign){
+    if(!list.length) return "";
+    return `<div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:${color};margin-bottom:6px">${title}</div>
+      ${list.map(l=>compactLineupHTML(l,statField,color,showSign)).join("")}
+    </div>`;
+  }
+  document.getElementById("ss-lineups").innerHTML=lineupPool.length
+    ? lineupSection("Best Net Rating (Top 3)","var(--green)",topNet,"NETRTG",true)
+      + lineupSection("Best Offense (Top 3)","#60c8fa",topOff,"OFFRTG",false)
+      + lineupSection("Best Defense (Top 3)","#ff8a8a",topDef,"DEFRTG",false)
+      + lineupSection("Most Used (Top 3)","#f59e0b",topUsed,"Poss",false)
     : "<div class='loading-state'>No lineup data</div>";
 
   const games=t.games.sort((a,b)=>new Date(a.Date)-new Date(b.Date));
