@@ -4836,24 +4836,24 @@ async function renderPlayerTrending(db,SURREY){
 
   const METRICS={
     universal:[
-      {lbl:"PPG",       fn:rows=>sumF(rows,"Pts Scored")/rows.length, higherBetter:true, threshold:1.5},
-      {lbl:"MIN/G",     fn:rows=>sumF(rows,"MIN")/rows.length,        higherBetter:null, threshold:3},
-      {lbl:"PIP/G",     fn:rows=>sumF(rows,"PIP")/rows.length,        higherBetter:true, threshold:1},
+      {lbl:"Points Per Game",         fn:rows=>sumF(rows,"Pts Scored")/rows.length, higherBetter:true, threshold:1.5},
+      {lbl:"Minutes Per Game",        fn:rows=>sumF(rows,"MIN")/rows.length,        higherBetter:null, threshold:3},
+      {lbl:"Points in the Paint",     fn:rows=>sumF(rows,"PIP")/rows.length,        higherBetter:true, threshold:1},
     ],
     guard:[
-      {lbl:"AST%",      fn:rows=>{ const fgm=ownSum(rows,"fgm"); return fgm?sumF(rows,"AST")/fgm*100:null; }, isPct:true, higherBetter:true, threshold:3},
-      {lbl:"TOV%",      fn:rows=>{ const fga=sumF(rows,"FGA"),fta=sumF(rows,"FTA"),tov=sumF(rows,"TOV"); const d=fga+0.44*fta+tov; return d?tov/d*100:null; }, isPct:true, higherBetter:false, threshold:2},
-      {lbl:"3P%",       fn:rows=>{ const a=sumF(rows,"3PA"); return a?sumF(rows,"3PM")/a*100:null; }, isPct:true, higherBetter:true, threshold:4},
+      {lbl:"Assist Percentage",       fn:rows=>{ const fgm=ownSum(rows,"fgm"); return fgm?sumF(rows,"AST")/fgm*100:null; }, isPct:true, higherBetter:true, threshold:3},
+      {lbl:"Turnover Percentage",     fn:rows=>{ const fga=sumF(rows,"FGA"),fta=sumF(rows,"FTA"),tov=sumF(rows,"TOV"); const d=fga+0.44*fta+tov; return d?tov/d*100:null; }, isPct:true, higherBetter:false, threshold:2},
+      {lbl:"3-Point Percentage",      fn:rows=>{ const a=sumF(rows,"3PA"); return a?sumF(rows,"3PM")/a*100:null; }, isPct:true, higherBetter:true, threshold:4},
     ],
     wing:[
-      {lbl:"eFG%",      fn:rows=>{ const a=sumF(rows,"FGA"); return a?(sumF(rows,"FGM")+0.5*sumF(rows,"3PM"))/a*100:null; }, isPct:true, higherBetter:true, threshold:3},
-      {lbl:"REB/G",     fn:rows=>(sumF(rows,"OREB")+sumF(rows,"DREB"))/rows.length, higherBetter:true, threshold:1},
-      {lbl:"STOCKS/G",  fn:rows=>(sumF(rows,"STL")+sumF(rows,"BLK"))/rows.length, higherBetter:true, threshold:0.7},
+      {lbl:"Effective FG%",           fn:rows=>{ const a=sumF(rows,"FGA"); return a?(sumF(rows,"FGM")+0.5*sumF(rows,"3PM"))/a*100:null; }, isPct:true, higherBetter:true, threshold:3},
+      {lbl:"Rebounds Per Game",       fn:rows=>(sumF(rows,"OREB")+sumF(rows,"DREB"))/rows.length, higherBetter:true, threshold:1},
+      {lbl:"Steals + Blocks Per Game",fn:rows=>(sumF(rows,"STL")+sumF(rows,"BLK"))/rows.length, higherBetter:true, threshold:0.7},
     ],
     big:[
-      {lbl:"DREB%",     fn:rows=>{ const own=sumF(rows,"DREB"),opp=oppSum(rows,"oreb"); const d=own+opp; return d?own/d*100:null; }, isPct:true, higherBetter:true, threshold:3},
-      {lbl:"BLK%",      fn:rows=>{ const opp2pa=oppSum(rows,"twoPa"); return opp2pa?sumF(rows,"BLK")/opp2pa*100:null; }, isPct:true, higherBetter:true, threshold:1},
-      {lbl:"FG%",       fn:rows=>{ const a=sumF(rows,"FGA"); return a?sumF(rows,"FGM")/a*100:null; }, isPct:true, higherBetter:true, threshold:3},
+      {lbl:"Defensive Rebound %",     fn:rows=>{ const own=sumF(rows,"DREB"),opp=oppSum(rows,"oreb"); const d=own+opp; return d?own/d*100:null; }, isPct:true, higherBetter:true, threshold:3},
+      {lbl:"Block Percentage",        fn:rows=>{ const opp2pa=oppSum(rows,"twoPa"); return opp2pa?sumF(rows,"BLK")/opp2pa*100:null; }, isPct:true, higherBetter:true, threshold:1},
+      {lbl:"Field Goal %",            fn:rows=>{ const a=sumF(rows,"FGA"); return a?sumF(rows,"FGM")/a*100:null; }, isPct:true, higherBetter:true, threshold:3},
     ],
   };
 
@@ -4900,12 +4900,12 @@ async function renderPlayerTrending(db,SURREY){
   el.innerHTML=`<div class="card" style="padding:12px 20px">
     ${playerNames.map((name,i)=>{
       const callouts=byPlayerCallouts[name];
-      return `<div style="display:flex;align-items:center;gap:24px;padding:18px 0;${i<playerNames.length-1?'border-bottom:1px solid rgba(255,255,255,0.06)':''}">
+      return `<div style="display:flex;align-items:center;gap:24px;padding:12px 0;${i<playerNames.length-1?'border-bottom:1px solid rgba(255,255,255,0.06)':''}">
         <div style="font-size:15px;font-weight:800;color:#fff;min-width:150px;flex-shrink:0">${fmtName(name)}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;flex:1">
           ${callouts.map(c=>{
             const color=c.improving==null?"var(--muted)":(c.improving?"#4ade80":"#ff8a8a");
-            return `<div style="background:rgba(255,255,255,0.06);border-left:3px solid ${color};border-radius:6px;padding:10px 18px;min-width:110px">
+            return `<div style="background:rgba(255,255,255,0.06);border-left:3px solid ${color};border-radius:6px;padding:8px 20px;min-width:240px;flex:1 1 240px;max-width:340px">
               <div style="font-size:11px;color:var(--muted);letter-spacing:0.5px;margin-bottom:3px">${c.lbl}</div>
               <div style="font-size:16px;font-weight:800;color:${color}">${c.diff>0?"+":""}${fmtVal(c.diff,c.isPct)}</div>
             </div>`;
