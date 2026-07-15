@@ -370,7 +370,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
 
     <!-- ── LEAGUE LEADERS ── -->
     <div class="section-view" id="section-league-leaders">
-      <div class="page-header"><div class="page-title">League Leaders</div></div>
+      <div class="page-header" style="display:flex;justify-content:space-between;align-items:center">
+        <div class="page-title">League Leaders</div>
+        <button class="btn no-print" onclick="printSection('league-leaders-section','League Leaders')">🖨️ Print</button>
+      </div>
       <div id="league-leaders-section"></div>
     </div>
 
@@ -392,9 +395,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
           </div>
         </div>
 
-        <div class="page-header">
-          <div class="page-title" id="no-title">Next Opponent</div>
-          <div class="page-sub" id="no-sub">Game preparation</div>
+        <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="page-title" id="no-title">Next Opponent</div>
+            <div class="page-sub" id="no-sub">Game preparation</div>
+          </div>
+          <button class="btn no-print" onclick="printSection('no-content','Next Opponent')">🖨️ Print</button>
         </div>
 
         <div class="opp-header">
@@ -4386,6 +4392,52 @@ var SLIDE_PRINT_CSS = [
   '.slide-card, .slide-card * { color:#111!important; }',
   '.slide-card [style] { background:#fff!important; }',
 ].join('\n');
+
+// ── Print CSS for multi-section pages (Next Opponent, League Leaders) --
+// different problem than Player Slides: that prints ONE card sized to
+// fill exactly one page. This needs to let LONG content flow naturally
+// across several pages, while making sure individual cards/rows never
+// get split across a page break. Also converts the dark theme to a
+// print-friendly white background + dark text, same approach already
+// proven for Player Slides.
+var SECTION_PRINT_CSS = [
+  '@page { size: A4 landscape; margin: 12mm; }',
+  'html, body { margin:0; padding:0; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; font-family:Inter,sans-serif; }',
+  'body { color:#111!important; }',
+  '.no-print, .slide-buttons, .nav-tab, #fixture-selector { display:none!important; }',
+  '.card, .lineup-card, [class*="card"] { page-break-inside:avoid; break-inside:avoid; background:#f7f7f5!important; border:1px solid #ddd!important; }',
+  'table tr { page-break-inside:avoid; break-inside:avoid; }',
+  '.section-header, [class*="section-label"] { page-break-after:avoid; break-after:avoid; }',
+  '* { color:#111!important; }',
+  '[style*="color:var(--muted)"], [style*="color:#898781"] { color:#666!important; }',
+  '[style*="background"] { background:#f7f7f5!important; }',
+  '[style*="color:var(--green)"], [style*="color:#4ade80"], [style*="color:#008348"] { color:#006838!important; }',
+  '[style*="color:#ff8a8a"] { color:#c0392b!important; }',
+  'a { color:#111!important; text-decoration:none!important; }',
+].join('\n');
+
+function printSection(containerId, docTitle){
+  const el = document.getElementById(containerId);
+  if(!el){ alert("Nothing to print here yet."); return; }
+  const clone = el.cloneNode(true);
+  const styles = collectPageStyles();
+  const w = window.open('','_blank');
+  w.document.write([
+    '<!DOCTYPE html><html><head>',
+    '<meta charset="UTF-8">',
+    '<title>', docTitle, '</title>',
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">',
+    '<style>', styles, SECTION_PRINT_CSS, '</style>',
+    '</head><body>',
+    '<h2 style="margin:0 0 12px">', docTitle, '</h2>',
+    clone.outerHTML,
+    '<scr'+'ipt>',
+    'document.fonts.ready.then(function(){ setTimeout(function(){ window.print(); }, 500); });',
+    '<'+'/scr'+'ipt>',
+    '</body></html>'
+  ].join('\n'));
+  w.document.close();
+}
 
 // ── Print a single slide in a popup window ────────────────────────────────────
 function printSingleSlide(idx, playerName){
