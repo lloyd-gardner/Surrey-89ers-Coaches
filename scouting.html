@@ -3615,8 +3615,7 @@ async function showTeamProfile(teamName){
   }
 
   const leadersHTML = `
-    <div class="section-header"><div class="section-label">Team Leaders</div></div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+<div class="section-header"><div class="section-label" style="color:var(--offwhite)">Team Leaders</div></div>    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
       ${leaderCardHTML("PPG", leaders["PPG"])}
       ${leaderCardHTML("Minutes/G", leaders["Minutes/G"])}
       ${leaderCardHTML("Off Rebounds/G", leaders["Off Rebounds/G"])}
@@ -3635,8 +3634,7 @@ async function showTeamProfile(teamName){
   const pointStreaks = computePointStreaks(db, teamName, 10);
   const crunch = computeCrunchTimeStats(db, teamName);
   const advancedMetricsHTML = `
-    <div class="section-header"><div class="section-label">Momentum</div></div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+<div class="section-header"><div class="section-label" style="color:var(--offwhite)">Momentum</div></div>    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
       <div class="card" style="padding:16px;text-align:center">
         <div class="stat-val">${jailbreak.perGame.toFixed(2)}</div>
         <div class="stat-label">Jailbreak Steals/G</div>
@@ -3671,8 +3669,7 @@ async function showTeamProfile(teamName){
       </div>
     </div>
 
-    <div class="section-header"><div class="section-label">Crunch Time</div></div>
-    <div style="font-size:10px;color:var(--muted);margin:-4px 0 12px">final period, ≤3:00 left, margin ≤5</div>
+<div class="section-header"><div class="section-label" style="color:var(--offwhite)">Crunch Time</div></div>    <div style="font-size:10px;color:var(--muted);margin:-4px 0 12px">final period, ≤3:00 left, margin ≤5</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
       <div class="card" style="padding:16px;text-align:center">
         <div class="stat-val">${crunch.eFG.toFixed(1)}%</div>
