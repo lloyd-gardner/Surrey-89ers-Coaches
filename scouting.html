@@ -549,6 +549,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
     <div class="section-view" id="section-self-scout">
       <div class="page-header"><div class="page-title">Surrey 89ers</div><div class="page-sub">Self scout · 2025-26</div></div>
       <div class="grid-4" id="ss-overview" style="margin-bottom:24px"></div>
+      <div class="section-header"><div class="section-label" style="color:var(--offwhite)">Win / Loss Splits</div></div>
+      <div id="ss-winloss" style="margin-bottom:24px"></div>
       <div class="grid-2" style="margin-bottom:24px">
         <div class="card"><div class="card-header"><div class="card-title">Shot Profile</div></div><div class="card-body" id="ss-shots"></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Season Averages</div></div><div class="card-body" id="ss-avgs"></div></div>
@@ -3615,7 +3617,8 @@ async function showTeamProfile(teamName){
   }
 
   const leadersHTML = `
-<div class="section-header"><div class="section-label" style="color:var(--offwhite)">Team Leaders</div></div>    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+    <div class="section-header"><div class="section-label">Team Leaders</div></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
       ${leaderCardHTML("PPG", leaders["PPG"])}
       ${leaderCardHTML("Minutes/G", leaders["Minutes/G"])}
       ${leaderCardHTML("Off Rebounds/G", leaders["Off Rebounds/G"])}
@@ -3634,7 +3637,8 @@ async function showTeamProfile(teamName){
   const pointStreaks = computePointStreaks(db, teamName, 10);
   const crunch = computeCrunchTimeStats(db, teamName);
   const advancedMetricsHTML = `
-<div class="section-header"><div class="section-label" style="color:var(--offwhite)">Momentum</div></div>    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+    <div class="section-header"><div class="section-label">Momentum</div></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
       <div class="card" style="padding:16px;text-align:center">
         <div class="stat-val">${jailbreak.perGame.toFixed(2)}</div>
         <div class="stat-label">Jailbreak Steals/G</div>
@@ -3669,7 +3673,8 @@ async function showTeamProfile(teamName){
       </div>
     </div>
 
-<div class="section-header"><div class="section-label" style="color:var(--offwhite)">Crunch Time</div></div>    <div style="font-size:10px;color:var(--muted);margin:-4px 0 12px">final period, ≤3:00 left, margin ≤5</div>
+    <div class="section-header"><div class="section-label">Crunch Time</div></div>
+    <div style="font-size:10px;color:var(--muted);margin:-4px 0 12px">final period, ≤3:00 left, margin ≤5</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
       <div class="card" style="padding:16px;text-align:center">
         <div class="stat-val">${crunch.eFG.toFixed(1)}%</div>
@@ -4777,6 +4782,73 @@ async function renderSelfScout(){
   const defR=getRanks(db.teamAgg,"defrtg",true);
   const efgR=getRanks(db.teamAgg,"efg");
   const tovR=getRanks(db.teamAgg,"tov");
+
+  // Win/Loss splits: what does OUR team's own per-game data actually look
+  // like in wins versus losses -- not a league comparison, a look at what
+  // correlates with winning for this specific team. Built from raw
+  // per-game rows (db.raw.ts), not the pre-aggregated team object, so the
+  // exact same ×100 scaling rules already established for this data have
+  // to be applied by hand here too: eFG%/3P%/FT% are raw fractions at the
+  // per-game level and need ×100; TOV%/OREB%/DREB%/AST% are already
+  // scaled correctly at the source and must NOT be multiplied again.
+  const surreyGames=db.raw.ts.filter(r=>r.Team===SURREY);
+  const wins=surreyGames.filter(r=>(r["Pts Scored"]||0)>(r["Pts Allowed"]||0));
+  const losses=surreyGames.filter(r=>(r["Pts Scored"]||0)<(r["Pts Allowed"]||0));
+  function avgField(list,field,scale){
+    if(!list.length) return null;
+    const sum=list.reduce((s,r)=>s+(parseFloat(r[field])||0),0);
+    return (sum/list.length)*(scale||1);
+  }
+  const wlMetrics=[
+    {lbl:"eFG%",field:"eFG%",scale:100,isPct:true,higherBetter:true},
+    {lbl:"3P%",field:"3P%",scale:100,isPct:true,higherBetter:true},
+    {lbl:"FT%",field:"FT%",scale:100,isPct:true,higherBetter:true},
+    {lbl:"TOV%",field:"TOV%",scale:1,isPct:true,higherBetter:false},
+    {lbl:"OREB%",field:"OREB%",scale:1,isPct:true,higherBetter:true},
+    {lbl:"DREB%",field:"DREB%",scale:1,isPct:true,higherBetter:true},
+    {lbl:"AST%",field:"AST%",scale:1,isPct:true,higherBetter:true},
+    {lbl:"PIP/G",field:"PIP",scale:1,higherBetter:true},
+    {lbl:"FBP/G",field:"FBP",scale:1,higherBetter:true},
+    {lbl:"Bench Pts/G",field:"Bench Pts",scale:1,higherBetter:true},
+    {lbl:"2nd Chance Pts/G",field:"2CP",scale:1,higherBetter:true},
+    {lbl:"Pace",field:"Tempo",scale:1,higherBetter:null},
+  ];
+  const wlResults=wlMetrics.map(m=>({
+    lbl:m.lbl,isPct:m.isPct,higherBetter:m.higherBetter,
+    winAvg:avgField(wins,m.field,m.scale),
+    lossAvg:avgField(losses,m.field,m.scale),
+  })).filter(m=>m.winAvg!=null&&m.lossAvg!=null);
+
+  const wlEl=document.getElementById("ss-winloss");
+  if(wlEl){
+    if(!wins.length||!losses.length){
+      wlEl.innerHTML=`<div class="card" style="padding:16px"><div style="color:var(--muted);font-size:12px">Need at least one win and one loss recorded to show a comparison.</div></div>`;
+    }else{
+      wlEl.innerHTML=`
+        <div style="font-size:10px;color:var(--muted);margin-bottom:12px">${wins.length} wins · ${losses.length} losses</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+          ${wlResults.map(m=>{
+            const diff=m.winAvg-m.lossAvg;
+            const goodDirection=m.higherBetter==null?null:(m.higherBetter?diff>0:diff<0);
+            const diffColor=goodDirection==null?"var(--muted)":(goodDirection?"#4ade80":"#ff8a8a");
+            const fmtVal=v=>m.isPct?v.toFixed(1)+"%":v.toFixed(1);
+            return `<div class="card" style="padding:14px">
+              <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--green);margin-bottom:10px">${m.lbl}</div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+                <span style="font-size:10px;color:var(--muted)">Wins</span>
+                <span style="font-size:15px;font-weight:800;color:#fff">${fmtVal(m.winAvg)}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+                <span style="font-size:10px;color:var(--muted)">Losses</span>
+                <span style="font-size:15px;font-weight:800;color:#fff">${fmtVal(m.lossAvg)}</span>
+              </div>
+              <div style="font-size:11px;font-weight:700;color:${diffColor}">${diff>0?"+":""}${fmtVal(diff)} diff</div>
+            </div>`;
+          }).join("")}
+        </div>
+      `;
+    }
+  }
 
   document.getElementById("ss-overview").innerHTML=[
     {v:`${t.w}-${t.l}`,l:"Record"},
