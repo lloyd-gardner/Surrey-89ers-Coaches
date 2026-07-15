@@ -1659,22 +1659,28 @@ async function renderLeagueLeadersSection(db){
   }
   const secondChancePts=compute2ndChancePointsByPlayer();
 
-  // Points Created: real point value of what each player's assists
-  // actually led to (2 for a 2PT assist, 3 for a 3PT assist) rather than
-  // a flat 2-per-assist estimate -- uses the same AssistedBy link already
-  // proven reliable for the Team Profile assist pills.
-  function computePointsCreatedByPlayer(){
+  // Pts Assisted: real point value of what each player's assists actually
+  // led to. Made 2PT/3PT field goals credit 2 or 3 points as normal. Per
+  // FIBA rules (confirmed against real data: free throw rows carry a
+  // Sub Type like "1of2"/"2of2" AND their own AssistedBy link), a player
+  // fouled in the act of shooting who makes at least one resulting free
+  // throw still credits the passer with an assist -- so made free throws
+  // with an AssistedBy link count too, at 1 point each. This also
+  // correctly handles and-1s: if both the original shot AND the bonus
+  // free throw are separately linked to the same assister, both get
+  // credited (2 or 3 for the shot, +1 for the made bonus FT).
+  function computePtsAssistedByPlayer(){
     const result={};
     (db.raw.shots||[]).forEach(r=>{
       if(!r.AssistedBy) return;
       if(!(r.Success==1||r.Success==="1"||r.Success===true)) return;
-      const pts=r.Action==="3pt"?3:r.Action==="2pt"?2:0;
+      const pts=r.Action==="3pt"?3:r.Action==="2pt"?2:r.Action==="freethrow"?1:0;
       if(!pts) return;
       result[r.AssistedBy]=(result[r.AssistedBy]||0)+pts;
     });
     return result;
   }
-  const pointsCreated=computePointsCreatedByPlayer();
+  const ptsAssisted=computePtsAssistedByPlayer();
 
   // Dynamic min-games threshold -- same approach as grade_players.py:
   // 25% of the most games anyone in the pool has played, floor of 1, so
@@ -1725,7 +1731,8 @@ async function renderLeagueLeadersSection(db){
     {lbl:"2ND CH PTS/G", entries:top10(p=>p.gp?(secondChancePts[p.name]||0)/p.gp:null)},
     {lbl:"FBP/G",     entries:top10(p=>p.gp?p.fbp/p.gp:null)},
     {lbl:"PIP/G",     entries:top10(p=>p.gp?p.pip/p.gp:null)},
-    {lbl:"PTS CREATED/G", entries:top10(p=>p.gp?(pointsCreated[p.name]||0)/p.gp:null)},
+    {lbl:"PTS ASSISTED/G", entries:top10(p=>p.gp?(ptsAssisted[p.name]||0)/p.gp:null)},
+    {lbl:"PTS CREATED/G",  entries:top10(p=>p.gp?(p.pts+(ptsAssisted[p.name]||0))/p.gp:null)},
   ];
 
   function catCardHTML(cat){
@@ -3529,7 +3536,7 @@ async function showTeamProfile(teamName){
     return `<div style="background:var(--card2);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 2px 8px rgba(0,0,0,0.25)">
       <div style="height:190px;background:var(--card3);position:relative;flex-shrink:0">
         ${photo}
-        <div style="position:absolute;top:8px;right:10px;font-size:20px;font-weight:800;color:var(--green);text-shadow:0 0 3px rgba(0,0,0,0.9),0 0 3px rgba(0,0,0,0.9);-webkit-text-stroke:0.5px rgba(0,0,0,0.6)">#${pl.number||"-"}</div>
+        <div style="position:absolute;top:8px;right:8px;background:rgba(8,15,11,0.85);border-radius:6px;padding:3px 8px;font-size:18px;font-weight:800;color:var(--green);line-height:1.2">#${pl.number||"-"}</div>
       </div>
       <div style="padding:14px 14px 16px;flex:1;display:flex;flex-direction:column">
         <div style="font-size:16px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:3px">${fmtName(pl.name||"")}</div>
