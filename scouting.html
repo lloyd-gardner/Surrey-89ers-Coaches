@@ -2447,6 +2447,12 @@ async function fillNextOpponent(){
   const orebLabel    = t.oreb > la.oreb+4 ? "Strong offensive rebounding" : t.oreb < la.oreb-4 ? "Poor offensive rebounding" : "Average offensive rebounding";
   const ftLabel      = t.ft > la.ft+5 ? "Strong free throw shooting" : t.ft < la.ft-5 ? "Poor free throw shooting" : "Average from the line";
   const transLabel   = t.fbp > la.fbp+3 ? "Transition-heavy offence" : t.fbp < la.fbp-3 ? "Half-court focused" : "Balanced transition/half-court";
+  // Possessions: does this team generate extra scoring chances through
+  // offensive rebounding and taking care of the ball, or lose them --
+  // same underlying idea as the Net Shot Attempts metric on Self Scout,
+  // just expressed as a tendency label here instead of a precise number.
+  const possScore = (t.oreb - la.oreb) - (t.tov - la.tov);
+  const possLabel = possScore > 4 ? "Generates Extra Shots" : possScore < -4 ? "Loses Shot Chances" : "Average Possession Game";
 
   function stmtPill(title, value){
     return '<div style="background:var(--card2);border:1px solid var(--border-soft);border-radius:8px;padding:10px 14px;min-width:110px;flex:1">'
@@ -2485,7 +2491,13 @@ async function fillNextOpponent(){
       .replace('Average defensive rebounding','Average')
       .replace('Reckless fouling','Reckless')
       .replace('Disciplined, low foul rate','Disciplined')
-      .replace('Average fouling','Average');
+      .replace('Average fouling','Average')
+      .replace('Generates Extra Shots','Extra Shots')
+      .replace('Loses Shot Chances','Limited')
+      .replace('Average Possession Game','Average')
+      .replace('Sends Opponents to Line','Foul-Prone')
+      .replace('Keeps Opponents Off Line','Stingy')
+      .replace('Average FT Defense','Average');
   }
   document.getElementById("no-off-bars").innerHTML=
     '<div style="display:flex;gap:8px;flex-wrap:wrap">'
@@ -2494,6 +2506,7 @@ async function fillNextOpponent(){
       +stmtPill('Off Rebound', shortLabel(orebLabel))
       +stmtPill('Free Throws', shortLabel(ftLabel))
       +stmtPill('Scoring',     t.pip>40?'Interior':t.threeRate>45?'3PT Heavy':'Balanced')
+      +stmtPill('Possessions', shortLabel(possLabel))
     +'</div>';
 
   // Def profile
@@ -2504,6 +2517,10 @@ async function fillNextOpponent(){
   const exteriorLabel  = (t.oppThreeP||34) < 33 ? "Strong perimeter defence" : (t.oppThreeP||34) > 37 ? "Vulnerable to 3s" : "Average perimeter";
   const defRebLabel    = t.dreb > 74 ? "Elite defensive rebounding" : t.dreb < 68 ? "Poor defensive rebounding" : "Average defensive rebounding";
   const foulingLabel   = t.pf > 21 ? "Reckless fouling" : t.pf < 17 ? "Disciplined, low foul rate" : "Average fouling";
+  // Free Throw Defense: distinct from Fouling above -- Fouling measures
+  // total fouls committed, this measures whether those fouls are actually
+  // putting opponents on the line, which isn't the same thing.
+  const ftDefLabel     = t.ftaAgainst > 20 ? "Sends Opponents to Line" : t.ftaAgainst < 15 ? "Keeps Opponents Off Line" : "Average FT Defense";
 
   document.getElementById("no-def-bars").innerHTML=
     '<div style="display:flex;gap:8px;flex-wrap:wrap">'
@@ -2512,6 +2529,7 @@ async function fillNextOpponent(){
       +stmtPill('Def Rebound',  shortLabel(defRebLabel))
       +stmtPill('Perimeter Def',shortLabel(exteriorLabel))
       +stmtPill('Fouling',      shortLabel(foulingLabel))
+      +stmtPill('FT Defense',   shortLabel(ftDefLabel))
     +'</div>';
 
   // Team rating tags removed — statements shown in profile cards instead
@@ -2688,7 +2706,7 @@ async function fillNextOpponent(){
         <td class="td-num">${fmtPR((parseFloat(g["FG%"])||0)*100)}</td>
         <td class="td-num">${fmtPR((parseFloat(g["3P%"])||0)*100)}</td>
         <td class="td-num">${fmtPR((parseFloat(g["eFG%"])||0)*100)}</td>
-        <td class="td-num">${fmtPR((parseFloat(g["TOV%"])||0)*100)}</td>
+        <td class="td-num">${fmtPR((parseFloat(g["TOV%"])||0))}</td>
       </tr>`;
     }).join("") : "<tr><td colspan='13' style='text-align:center;padding:16px;color:var(--muted)'>No recent game data</td></tr>";
   }
@@ -3006,7 +3024,7 @@ if(topCombos.length){
         <td class="td-num">${fmtPR((parseFloat(g["FG%"])||0)*100)}</td>
         <td class="td-num">${fmtPR((parseFloat(g["3P%"])||0)*100)}</td>
         <td class="td-num">${fmtPR((parseFloat(g["eFG%"])||0)*100)}</td>
-        <td class="td-num">${fmtPR((parseFloat(g["TOV%"])||0)*100)}</td>
+        <td class="td-num">${fmtPR((parseFloat(g["TOV%"])||0))}</td>
       </tr>`).join("")
     : "<tr><td colspan='13' style='text-align:center;padding:20px;color:var(--muted)'>No H2H games recorded</td></tr>";
 }
@@ -3492,7 +3510,7 @@ async function showTeamProfile(teamName){
         <td class="td-num">${fmtPR((parseFloat(g["FG%"])||0)*100)}</td>
         <td class="td-num">${fmtPR((parseFloat(g["3P%"])||0)*100)}</td>
         <td class="td-num">${fmtPR((parseFloat(g["eFG%"])||0)*100)}</td>
-        <td class="td-num">${fmtPR((parseFloat(g["TOV%"])||0)*100)}</td>
+        <td class="td-num">${fmtPR((parseFloat(g["TOV%"])||0))}</td>
       </tr>`;
     }).join("") : "<tr><td colspan='13' style='text-align:center;padding:16px;color:var(--muted)'>No recent game data</td></tr>";
   }
@@ -4401,7 +4419,7 @@ var SLIDE_PRINT_CSS = [
 // print-friendly white background + dark text, same approach already
 // proven for Player Slides.
 var SECTION_PRINT_CSS = [
-  '@page { size: A4 landscape; margin: 12mm; }',
+  '@page { size: A4 portrait; margin: 12mm; }',
   'html, body { margin:0; padding:0; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; font-family:Inter,sans-serif; }',
   'body { color:#111!important; }',
   '.no-print, .slide-buttons, .nav-tab, #fixture-selector { display:none!important; }',
@@ -4411,6 +4429,7 @@ var SECTION_PRINT_CSS = [
   '* { color:#111!important; }',
   '[style*="color:var(--muted)"], [style*="color:#898781"] { color:#666!important; }',
   '[style*="background"] { background:#f7f7f5!important; }',
+  '[style*="repeat(4,1fr)"], [style*="repeat(5,1fr)"] { grid-template-columns:repeat(2,1fr)!important; }',
   '[style*="color:var(--green)"], [style*="color:#4ade80"], [style*="color:#008348"] { color:#006838!important; }',
   '[style*="color:#ff8a8a"] { color:#c0392b!important; }',
   'a { color:#111!important; text-decoration:none!important; }',
@@ -5215,7 +5234,7 @@ async function renderSelfScout(){
       <td class="td-num ${net>0?"td-green":"td-red"}">${net>0?"+":""}${fmt(net)}</td>
       <td class="td-num">${fmt(g.Tempo)}</td>
       <td class="td-num">${fmtPR((parseFloat(g["eFG%"])||0)*100)}</td>
-      <td class="td-num">${fmtPR((parseFloat(g["TOV%"])||0)*100)}</td>
+      <td class="td-num">${fmtPR((parseFloat(g["TOV%"])||0))}</td>
       <td class="td-num">${fmt(parseFloat(g.PIP)||0)}</td>
     </tr>`;
   }).join("");
