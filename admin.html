@@ -221,6 +221,31 @@
   </div>
 </div>
 
+
+<!-- SYNERGY UPLOAD MODAL -->
+<div class="modal-overlay hidden" id="synergy-modal">
+  <div class="modal">
+    <h2>Synergy Opponent Report</h2>
+    <div class="modal-sub">Upload the last 3-5 Synergy CSV playlist exports for an upcoming opponent. This is kept separate from the LiveStats data — it's tendency scouting from Synergy tagging, shown on the Next Opponent page once generated.</div>
+    <div class="form-group">
+      <label>Opponent</label>
+      <select id="synergy-team">
+        <option value="">— Select opponent —</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Synergy CSV export(s)</label>
+      <input type="file" id="synergy-files" accept=".csv" multiple>
+    </div>
+    <div class="modal-err" id="synergy-err"></div>
+    <div id="synergy-status" style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.6"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeSynergyModal()">Close</button>
+      <button class="btn btn-green" id="synergy-generate-btn" onclick="generateSynergyReport()">Generate Report</button>
+    </div>
+  </div>
+</div>
+
 <!-- APP -->
 <div id="app" class="visible">
   <header>
@@ -230,6 +255,7 @@
       <div class="sub">Surrey 89ers &middot; 2024-25</div>
     </div>
    <div class="hdr-right"><span class="save-status" id="save-status"></span>
+      <button class="btn btn-ghost" onclick="openSynergyModal()" style="font-size:12px;padding:7px 14px">Synergy Reports</button>
       <a class="btn btn-ghost" href="scouting.html" style="font-size:12px;padding:7px 14px">Scouting</a>
 <a class="btn btn-ghost" href="index.html" style="font-size:12px;padding:7px 14px">← Coaches Hub</a>    </div>
       
@@ -682,6 +708,208 @@ function openMergeModal(){
   renderMergePreview();
 }
 function closeMergeModal(){ document.getElementById("merge-modal").classList.add("hidden"); }
+
+// ── SYNERGY OPPONENT REPORTS ──
+// Populates from the same TEAMS list used for player scouting; stores
+// opponent_name in CAPS format (team.caps) so it matches NEXT_OPP on the
+// Next Opponent page directly.
+function openSynergyModal(){
+  const sel = document.getElementById("synergy-team");
+  if (sel.options.length <= 1) {
+    TEAMS.forEach(t=>{
+      const opt = document.createElement("option");
+      opt.value = t.caps; opt.textContent = t.name;
+      sel.appendChild(opt);
+    });
+  }
+  document.getElementById("synergy-status").textContent = "";
+  document.getElementById("synergy-err").textContent = "";
+  document.getElementById("synergy-modal").classList.remove("hidden");
+}
+function closeSynergyModal(){ document.getElementById("synergy-modal").classList.add("hidden"); }
+
+// Minimal RFC4180 CSV parser — handles quoted fields containing commas
+// (e.g. "Kedrian Johnson, Victor Ndoukou" and "P&R BH, Spot Up" columns).
+function parseSynergyCsvRows(text){
+  const rows=[]; let row=[], field="", inQuotes=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQuotes){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else inQuotes=false; }
+      else field+=c;
+    } else {
+      if(c==='"') inQuotes=true;
+      else if(c===','){ row.push(field); field=""; }
+      else if(c==='\n'||c==='\r'){
+        if(c==='\r'&&text[i+1]==='\n') i++;
+        row.push(field); field="";
+        if(row.length>1||row[0]!=="") rows.push(row);
+        row=[];
+      } else field+=c;
+    }
+  }
+  if(field!==""||row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+const SYNERGY_COLUMNS=["#","Title","Notes","Chat","TextOverlay","UserTags","SynergyTags","Result","Duration","InPoint","OutPoint","MediaInPoint","MediaOutPoint","Team","Game","Date","Pd","Clock","Player","PlayType","PlayCall","Group","SynergyString"];
+function synergyToRecords(text){
+  const rows=parseSynergyCsvRows(text).slice(1); // drop header row, fixed column order used instead
+  return rows.filter(r=>r.length>1).map(r=>{
+    const obj={}; SYNERGY_COLUMNS.forEach((col,i)=>{ obj[col]=r[i]||""; }); return obj;
+  });
+}
+function synergyDurationToSeconds(d){
+  const m=(d||"").match(/^(\d+):(\d+(?:\.\d+)?)$/);
+  if(!m) return null;
+  return parseInt(m[1],10)*60+parseFloat(m[2]);
+}
+function synergyPointsForResult(result,tags){
+  const r=(result||"").trim(); const t=(tags||"").toLowerCase();
+  if(r==="Make 3 Pts") return 3;
+  if(r==="Make 2 Pts") return 2;
+  if(r==="1 Pts") return 1;
+  if(r==="Free Throw") return t.includes("ftm")?1:0;
+  return 0;
+}
+const SYNERGY_TERMINAL=new Set(["Make 2 Pts","Make 3 Pts","Miss 2 Pts","Miss 3 Pts","Turnover","1 Pts","0 Pts","Shot Clock Violation"]);
+function synergyNormalizeDate(d){
+  const m=(d||"").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(!m) return null;
+  const [,dd,mm,yyyy]=m;
+  return `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
+}
+function parseSynergyCsvToPlays(text, opponentCaps){
+  const records=synergyToRecords(text);
+  let gameLabel="", gameDate=null; const plays=[];
+  for(const row of records){
+    if(row.Game) gameLabel=row.Game;
+    if(row.Date) gameDate=synergyNormalizeDate(row.Date);
+    // Team column in the CSV export is the plain team name (e.g. "Leicester Riders").
+    // Match loosely against the opponent's caps name / TEAMS entry.
+    const teamEntry = TEAMS.find(t=>t.caps===opponentCaps);
+    const teamPlain = teamEntry ? teamEntry.name : opponentCaps;
+    if((row.Team||"").trim().toLowerCase() !== teamPlain.trim().toLowerCase()) continue;
+    plays.push({
+      player: row.Player||"",
+      playTypes: (row.PlayType||"").split(",").map(x=>x.trim()).filter(Boolean),
+      result: row.Result||"",
+      synergyTags: row.SynergyTags||"",
+      synergyString: row.SynergyString||"",
+      period: row.Pd?parseInt(row.Pd,10):null,
+      clock: row.Clock||null,
+      durationSeconds: synergyDurationToSeconds(row.Duration),
+      gameLabel, gameDate,
+    });
+  }
+  return {plays, gameLabel, gameDate};
+}
+function buildSynergySummary(allPlays){
+  const byPlayType={}, byPlayer={};
+  let totalPossessions=0, totalPoints=0;
+  for(const p of allPlays){
+    const types = p.playTypes.length ? p.playTypes : ["Unclassified"];
+    const terminal = SYNERGY_TERMINAL.has((p.result||"").trim());
+    const pts = synergyPointsForResult(p.result, p.synergyTags);
+    for(const t of types){
+      byPlayType[t] = byPlayType[t] || {possessions:0,points:0,makes:0,misses:0,turnovers:0};
+      if(terminal){ byPlayType[t].possessions++; byPlayType[t].points+=pts; totalPossessions++; totalPoints+=pts; }
+      if(p.result==="Make 2 Pts"||p.result==="Make 3 Pts") byPlayType[t].makes++;
+      if(p.result==="Miss 2 Pts"||p.result==="Miss 3 Pts") byPlayType[t].misses++;
+      if(p.result==="Turnover") byPlayType[t].turnovers++;
+      byPlayer[p.player] = byPlayer[p.player] || {};
+      byPlayer[p.player][t] = byPlayer[p.player][t] || {possessions:0,points:0};
+      if(terminal){ byPlayer[p.player][t].possessions++; byPlayer[p.player][t].points+=pts; }
+    }
+  }
+  const playTypeTable = Object.entries(byPlayType).map(([type,s])=>({
+    type, possessions:s.possessions,
+    frequencyPct: totalPossessions? +(100*s.possessions/totalPossessions).toFixed(1) : 0,
+    ppp: s.possessions? +(s.points/s.possessions).toFixed(2) : 0,
+    makes:s.makes, misses:s.misses, turnovers:s.turnovers,
+  })).sort((a,b)=>b.possessions-a.possessions);
+  const playerTable = Object.entries(byPlayer).map(([player,types])=>({
+    player,
+    types: Object.entries(types).map(([type,s])=>({
+      type, possessions:s.possessions, ppp: s.possessions? +(s.points/s.possessions).toFixed(2):0,
+    })).sort((a,b)=>b.possessions-a.possessions),
+  })).sort((a,b)=> b.types.reduce((n,t)=>n+t.possessions,0) - a.types.reduce((n,t)=>n+t.possessions,0));
+  return {
+    totalPossessions, totalPoints,
+    overallPpp: totalPossessions? +(totalPoints/totalPossessions).toFixed(2):0,
+    playTypeTable, playerTable, generatedAt: new Date().toISOString(),
+  };
+}
+async function generateSynergyReport(){
+  const opponentCaps = document.getElementById("synergy-team").value;
+  const fileInput = document.getElementById("synergy-files");
+  const errEl = document.getElementById("synergy-err");
+  const statusEl = document.getElementById("synergy-status");
+  const btn = document.getElementById("synergy-generate-btn");
+  errEl.textContent = ""; statusEl.textContent = "";
+  if(!opponentCaps){ errEl.textContent = "Choose an opponent."; return; }
+  if(!fileInput.files || !fileInput.files.length){ errEl.textContent = "Choose at least one Synergy CSV export."; return; }
+
+  btn.disabled = true; statusEl.textContent = "Reading files…";
+  try{
+    const files = Array.from(fileInput.files);
+    const allPlays = [];
+    const gamesMeta = [];
+    for(const file of files){
+      const text = await file.text();
+      const {plays, gameLabel, gameDate} = parseSynergyCsvToPlays(text, opponentCaps);
+      allPlays.push(...plays);
+      gamesMeta.push({gameLabel, gameDate, rowCount: plays.length});
+    }
+    if(!allPlays.length){
+      errEl.textContent = "No matching rows found — check the opponent name matches the CSV's Team column exactly (e.g. \"Leicester Riders\").";
+      btn.disabled = false; statusEl.textContent = "";
+      return;
+    }
+
+    statusEl.textContent = "Saving report…";
+    const summary = buildSynergySummary(allPlays);
+    const dates = gamesMeta.map(g=>g.gameDate).filter(Boolean).sort();
+
+    const report = await sbPost("synergy_reports", {
+      opponent_name: opponentCaps,
+      games_included: files.length,
+      date_range_start: dates[0] || null,
+      date_range_end: dates[dates.length-1] || null,
+      summary,
+    }, true);
+
+    for(const g of gamesMeta){
+      const gameRow = await sbPost("synergy_games", {
+        report_id: report.id, game_label: g.gameLabel, game_date: g.gameDate,
+        opponent_team_name: opponentCaps, raw_row_count: g.rowCount,
+      }, true);
+
+      const rowsForGame = allPlays
+        .filter(p=>p.gameLabel===g.gameLabel && p.gameDate===g.gameDate)
+        .map(p=>({
+          game_id: gameRow.id, report_id: report.id, player: p.player, play_types: p.playTypes,
+          result: p.result, synergy_tags: p.synergyTags, synergy_string: p.synergyString,
+          period: p.period, clock: p.clock, duration_seconds: p.durationSeconds,
+        }));
+      if(rowsForGame.length){
+        // sbPost only handles single-row bodies elsewhere in this file, so post the array directly.
+        await fetch(`${SUPABASE_URL}/rest/v1/synergy_plays`,{
+          method:"POST",
+          headers:{"apikey":SUPABASE_SERVICE,"Authorization":`Bearer ${SUPABASE_SERVICE}`,"Content-Type":"application/json","Prefer":"return=minimal"},
+          body: JSON.stringify(rowsForGame),
+        });
+      }
+    }
+
+    statusEl.textContent = `Done — ${summary.totalPossessions} possessions across ${files.length} games. View it on the Next Opponent page for ${opponentCaps}.`;
+  } catch(e){
+    console.error(e);
+    errEl.textContent = "Something went wrong: " + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 
 function renderMergePreview(){
   const aId=document.getElementById("merge-a").value;

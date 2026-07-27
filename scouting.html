@@ -463,6 +463,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
           <div id="no-roster"><div class="loading-state"><div class="loading-spinner"></div></div></div>
         </div>
 
+        <!-- Synergy Tendencies -->
+        <div class="section-header">
+          <div class="section-label">Synergy Tendencies (Last 3-5 Games)</div>
+          <button class="btn no-print" id="no-synergy-export-btn" style="display:none" onclick="exportSynergyReport()">⬇ Export to Excel</button>
+        </div>
+        <div class="card" style="margin-bottom:24px" id="no-synergy-card">
+          <div class="card-body" id="no-synergy-body">
+            <div class="loading-state">Loading Synergy report…</div>
+          </div>
+        </div>
+
         <!-- Key Lineups -->
         <div class="section-header"><div class="section-label">Key Lineup Units</div></div>
         <div id="no-lineups" style="margin-bottom:24px"><div class="loading-state"><div class="loading-spinner"></div></div></div>
@@ -1894,6 +1905,85 @@ async function renderNextOpponent(){
   if(FIXTURES.length === 0) await loadFixtures();
   renderFixtureSelector();
   fillNextOpponent();
+  renderSynergyTendencies(NEXT_OPP);
+}
+
+// ── SYNERGY TENDENCIES CARD ──
+// Reads the latest synergy_reports row for this opponent (written from
+// admin.html's "Synergy Reports" upload). Read-only here, matching the
+// existing pattern where scouting.html only ever reads via sbFetch.
+let CURRENT_SYNERGY_REPORT = null;
+
+async function renderSynergyTendencies(opponentCaps){
+  const body = document.getElementById("no-synergy-body");
+  const exportBtn = document.getElementById("no-synergy-export-btn");
+  if(!body) return;
+  exportBtn.style.display = "none";
+  CURRENT_SYNERGY_REPORT = null;
+  body.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
+
+  try{
+    const rows = await sbFetch(`synergy_reports?opponent_name=eq.${encodeURIComponent(opponentCaps)}&order=created_at.desc&limit=1`);
+    const report = rows && rows[0];
+    if(!report){
+      body.innerHTML = '<div class="loading-state">No Synergy report uploaded yet for '+teamShort(opponentCaps)+' — generate one from the Admin panel (Synergy Reports button).</div>';
+      return;
+    }
+    CURRENT_SYNERGY_REPORT = report;
+    exportBtn.style.display = "inline-block";
+    const s = report.summary || {};
+    const playTypeRows = (s.playTypeTable||[]).map(r=>`
+      <tr>
+        <td>${r.type}</td>
+        <td>${r.frequencyPct}%</td>
+        <td>${r.possessions}</td>
+        <td style="font-weight:700;color:${r.ppp>=1?'var(--green)':'var(--red)'}">${r.ppp}</td>
+        <td>${r.makes}</td>
+        <td>${r.misses}</td>
+        <td>${r.turnovers}</td>
+      </tr>`).join("");
+    const playerRows = (s.playerTable||[]).map(p=>`
+      <div style="padding:8px 0;border-top:1px solid var(--border-soft)">
+        <div style="font-weight:600">${p.player}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${p.types.map(t=>`${t.type} (${t.possessions} poss, ${t.ppp} PPP)`).join(" · ")}</div>
+      </div>`).join("");
+
+    body.innerHTML = `
+      <div style="font-size:11px;color:var(--muted);margin-bottom:14px">
+        ${report.games_included} games · ${report.date_range_start||"?"} → ${report.date_range_end||"?"} ·
+        ${s.totalPossessions||0} possessions · Overall <b style="color:var(--offwhite)">${s.overallPpp||0} PPP</b>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Play Type</th><th>Freq %</th><th>Poss</th><th>PPP</th><th>Makes</th><th>Misses</th><th>TOs</th></tr></thead>
+          <tbody>${playTypeRows}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:16px">
+        <div class="section-label" style="font-size:10px;margin-bottom:4px">Player Breakdown</div>
+        ${playerRows}
+      </div>
+    `;
+  } catch(e){
+    console.error("renderSynergyTendencies error:", e);
+    body.innerHTML = '<div class="loading-state">Could not load Synergy report.</div>';
+  }
+}
+
+function exportSynergyReport(){
+  const report = CURRENT_SYNERGY_REPORT;
+  if(!report || typeof XLSX === "undefined") return;
+  const s = report.summary || {};
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+    { Opponent: report.opponent_name, Games: report.games_included,
+      From: report.date_range_start, To: report.date_range_end, "Overall PPP": s.overallPpp }
+  ]), "Overview");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.playTypeTable||[]), "Play Types");
+  const playerRows = (s.playerTable||[]).flatMap(p=>
+    p.types.map(t=>({ Player:p.player, "Play Type":t.type, Possessions:t.possessions, PPP:t.ppp })));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(playerRows), "Player Breakdown");
+  XLSX.writeFile(wb, `${report.opponent_name.replace(/\s+/g,"_")}_synergy_report.xlsx`);
 }
 
 function renderShotChart(db, teamName, canvasId){
