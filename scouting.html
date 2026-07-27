@@ -5312,60 +5312,127 @@ async function loadSynergyReportFor(opponentCaps){
   content.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
   try{
     const rows = await sbFetch(`synergy_reports?opponent_name=eq.${encodeURIComponent(opponentCaps)}&order=created_at.desc&limit=1`);
-    const report = rows && rows[0];
-    if(!report){
+    const rpt = rows && rows[0];
+    if(!rpt){
       content.innerHTML = '<div class="loading-state">No Synergy report uploaded yet for '+teamShort(opponentCaps)+' — generate one from the Admin panel (Synergy Reports button).</div>';
       return;
     }
-    CURRENT_SYNERGY_REPORT = report;
+    CURRENT_SYNERGY_REPORT = rpt;
+    const s = rpt.summary || {};
+    const r = s.report;
+    if(!r){
+      content.innerHTML = '<div class="loading-state">This report was generated with an older version of the tool — re-upload the same CSVs from the Admin panel to refresh it.</div>';
+      return;
+    }
     exportBtn.style.display = "inline-block";
-    const s = report.summary || {};
 
-    const insightsHtml = (s.insights||[]).map(line=>`
-      <div style="display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--border-soft)">
-        <div style="color:var(--green);flex-shrink:0">●</div>
-        <div style="font-size:14px;line-height:1.5">${line}</div>
-      </div>`).join("");
+    const teamLabel = fullNameMap[opponentCaps] || teamShort(opponentCaps);
+    const bullets = arr => (arr||[]).map(x=>`<li style="margin-bottom:4px">${x}</li>`).join("");
 
-    const offTableRows = (s.playTypeTable||[]).map(r=>`
-      <tr><td>${r.type}</td><td>${r.frequencyPct}%</td><td>${r.possessions}</td>
-        <td style="font-weight:700;color:${r.ppp>=1?'var(--green)':'var(--red)'}">${r.ppp}</td></tr>`).join("");
-    const defTableRows = (s.defensePlayTypeTable||[]).map(r=>`
-      <tr><td>${r.type}</td><td>${r.possessions}</td>
-        <td style="font-weight:700;color:${r.ppp>=1?'var(--red)':'var(--green)'}">${r.ppp} allowed</td></tr>`).join("");
+    const topActionsRows = (r.topActions||[]).map(t=>`
+      <tr><td>${t.type}</td><td>${t.frequencyPct}%</td><td>${t.possessions}</td>
+        <td style="font-weight:700;color:${t.ppp>=1?'var(--green)':'var(--red)'}">${t.ppp}</td></tr>`).join("");
+
+    const playerCardsHtml = (r.playerCards||[]).map(pc=>`
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-header"><div class="card-title">${pc.player}</div><span class="pill pill-blue">${pc.role}</span></div>
+        <div class="card-body">
+          <ul style="padding-left:18px;font-size:13px;line-height:1.5">${bullets(pc.bullets)}</ul>
+        </div>
+      </div>`).join("") || '<div style="color:var(--muted);font-size:13px">Not enough per-player volume yet.</div>';
+
+    const prCreatorsHtml = (r.prReport.creators||[]).slice(0,6).map(c=>
+      `<li>${c.player} — ${c.stat.possessions} reps, ${c.stat.ppp} PPP</li>`).join("");
+    const prSidesHtml = (r.prReport.sideBreakdown||[]).map(l=>`<li>${l.label}: ${l.count}</li>`).join("");
+
+    const transThreatsHtml = (r.transitionReport.threats||[]).slice(0,6).map(t=>
+      `<li>${t.player} — ${t.stat.possessions} reps, ${t.stat.ppp} PPP</li>`).join("");
+    const transSubtypesHtml = (r.transitionReport.subtypes||[]).map(l=>`<li>${l.label}: ${l.count}</li>`).join("");
+
+    const postThreatsHtml = (r.postUpReport.threats||[]).slice(0,6).map(t=>
+      `<li>${t.player} — ${t.stat.possessions} reps, ${t.stat.ppp} PPP${t.locs&&t.locs.length?` (mostly ${t.locs[0].label})`:""}</li>`).join("");
+
+    const mostEffHtml = bullets((r.mostEffective||[]).map(t=>`${t.type} — ${t.ppp} PPP over ${t.possessions} reps`));
+    const leastEffHtml = bullets((r.leastEffective||[]).map(t=>`${t.type} — ${t.ppp} PPP over ${t.possessions} reps`));
+
+    const weakDefHtml = bullets((r.weakDefense||[]).map(t=>`${t.type} — opponents scored ${t.ppp} PPP against it (${t.possessions} reps)`));
+    const strongDefHtml = bullets((r.strongDefense||[]).map(t=>`${t.type} — opponents held to ${t.ppp} PPP (${t.possessions} reps)`));
 
     content.innerHTML = `
       <div style="font-size:11px;color:var(--muted);margin-bottom:16px">
-        ${report.games_included} games · ${report.date_range_start||"?"} → ${report.date_range_end||"?"} ·
-        ${s.totalPossessions||0} possessions tracked
+        ${rpt.games_included} games · ${rpt.date_range_start||"?"} → ${rpt.date_range_end||"?"} · ${s.totalPossessions||0} possessions tracked
       </div>
 
       <div class="card" style="margin-bottom:24px">
-        <div class="card-header"><div class="card-title">Scouting Notes</div></div>
-        <div class="card-body">
-          ${insightsHtml || '<div style="color:var(--muted);font-size:13px">Not enough tagged possessions yet to generate notes — upload more games.</div>'}
+        <div class="card-header"><div class="card-title">Offensive Identity</div></div>
+        <div class="card-body" style="font-size:14px;line-height:1.6">${r.identityLine}</div>
+      </div>
+
+      <div class="section-header"><div class="section-label">Top Offensive Actions</div></div>
+      <div class="card" style="margin-bottom:24px">
+        <table class="data-table">
+          <thead><tr><th>Action</th><th>Freq %</th><th>Poss</th><th>PPP</th></tr></thead>
+          <tbody>${topActionsRows}</tbody>
+        </table>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:24px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Most Effective</div></div>
+          <div class="card-body"><ul style="padding-left:18px;font-size:13px;line-height:1.6">${mostEffHtml || '<li style="color:var(--muted)">Not enough data yet</li>'}</ul></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Least Effective / Live With It</div></div>
+          <div class="card-body"><ul style="padding-left:18px;font-size:13px;line-height:1.6">${leastEffHtml || '<li style="color:var(--muted)">Not enough data yet</li>'}</ul></div>
         </div>
       </div>
 
-      <div class="grid-2">
+      <div class="section-header"><div class="section-label">Player Tendency Cards</div></div>
+      <div style="margin-bottom:8px">${playerCardsHtml}</div>
+
+      <div class="grid-2" style="margin-bottom:24px;margin-top:16px">
         <div class="card">
-          <div class="card-header"><div class="card-title">Offense — Play Type Mix</div></div>
-          <div class="card-body">
-            <table class="data-table">
-              <thead><tr><th>Play Type</th><th>Freq %</th><th>Poss</th><th>PPP</th></tr></thead>
-              <tbody>${offTableRows}</tbody>
-            </table>
+          <div class="card-header"><div class="card-title">P&amp;R Report</div></div>
+          <div class="card-body" style="font-size:13px">
+            <div style="font-weight:700;margin-bottom:4px">Main Creators</div>
+            <ul style="padding-left:18px;line-height:1.6;margin-bottom:12px">${prCreatorsHtml || '<li style="color:var(--muted)">—</li>'}</ul>
+            <div style="font-weight:700;margin-bottom:4px">Side Breakdown</div>
+            <ul style="padding-left:18px;line-height:1.6">${prSidesHtml || '<li style="color:var(--muted)">—</li>'}</ul>
           </div>
         </div>
         <div class="card">
-          <div class="card-header"><div class="card-title">Defense — What Hurts Them</div></div>
-          <div class="card-body">
-            <table class="data-table">
-              <thead><tr><th>Play Type</th><th>Poss Faced</th><th>PPP Allowed</th></tr></thead>
-              <tbody>${defTableRows}</tbody>
-            </table>
+          <div class="card-header"><div class="card-title">Transition Report</div></div>
+          <div class="card-body" style="font-size:13px">
+            <div style="font-weight:700;margin-bottom:4px">Threats</div>
+            <ul style="padding-left:18px;line-height:1.6;margin-bottom:12px">${transThreatsHtml || '<li style="color:var(--muted)">—</li>'}</ul>
+            <div style="font-weight:700;margin-bottom:4px">Common Looks</div>
+            <ul style="padding-left:18px;line-height:1.6">${transSubtypesHtml || '<li style="color:var(--muted)">—</li>'}</ul>
           </div>
         </div>
+      </div>
+
+      <div class="card" style="margin-bottom:24px">
+        <div class="card-header"><div class="card-title">Post-Up Report</div></div>
+        <div class="card-body" style="font-size:13px">
+          <ul style="padding-left:18px;line-height:1.6">${postThreatsHtml || '<li style="color:var(--muted)">No significant post-up volume</li>'}</ul>
+        </div>
+      </div>
+
+      <div class="section-header"><div class="section-label">Defensive Game Plan</div></div>
+      <div class="grid-2" style="margin-bottom:24px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">What We Cannot Give Up</div></div>
+          <div class="card-body"><ul style="padding-left:18px;font-size:13px;line-height:1.6">${weakDefHtml || '<li style="color:var(--muted)">Not enough data yet</li>'}</ul></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">They Defend This Well</div></div>
+          <div class="card-body"><ul style="padding-left:18px;font-size:13px;line-height:1.6">${strongDefHtml || '<li style="color:var(--muted)">Not enough data yet</li>'}</ul></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">One-Line Scout Summary</div></div>
+        <div class="card-body" style="font-size:14px;line-height:1.6;font-weight:600">${r.oneLiner || "—"}</div>
       </div>
     `;
   } catch(e){
@@ -5375,23 +5442,21 @@ async function loadSynergyReportFor(opponentCaps){
 }
 
 function exportSynergyReport(){
-  const report = CURRENT_SYNERGY_REPORT;
-  if(!report || typeof XLSX === "undefined") return;
-  const s = report.summary || {};
+  const rpt = CURRENT_SYNERGY_REPORT;
+  if(!rpt || typeof XLSX === "undefined") return;
+  const s = rpt.summary || {};
+  const r = s.report || {};
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
-    { Opponent: report.opponent_name, Games: report.games_included,
-      From: report.date_range_start, To: report.date_range_end, "Overall PPP": s.overallPpp }
+    { Opponent: rpt.opponent_name, Games: rpt.games_included,
+      From: rpt.date_range_start, To: rpt.date_range_end, "Overall PPP": s.overallPpp,
+      "One-Line Summary": r.oneLiner || "" }
   ]), "Overview");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
-    ...(s.insights||[]).map(line=>({Note:line}))
-  ]), "Scouting Notes");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.playTypeTable||[]), "Offense Play Types");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.defensePlayTypeTable||[]), "Defense Play Types");
-  const playerRows = (s.playerTable||[]).flatMap(p=>
-    p.types.map(t=>({ Player:p.player, "Play Type":t.type, Possessions:t.possessions, PPP:t.ppp })));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(playerRows), "Player Breakdown");
-  XLSX.writeFile(wb, `${report.opponent_name.replace(/\s+/g,"_")}_synergy_report.xlsx`);
+  const playerRows = (r.playerCards||[]).map(pc=>({ Player:pc.player, Role:pc.role, Possessions:pc.totalPossessions, Notes:pc.bullets.join(" | ") }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(playerRows), "Player Cards");
+  XLSX.writeFile(wb, `${rpt.opponent_name.replace(/\s+/g,"_")}_synergy_report.xlsx`);
 }
 
 </script>

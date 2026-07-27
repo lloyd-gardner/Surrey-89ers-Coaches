@@ -840,7 +840,10 @@ function buildSynergySide(plays){
       byPlayer[player][t] = byPlayer[player][t] || {possessions:0,points:0};
       if(terminal){ byPlayer[player][t].possessions++; byPlayer[player][t].points+=pts; }
 
-      if(t==="P&R BH" || t==="Post Up" || t==="Off Screen" || t==="Iso"){
+      // Set location/side: 2nd token in the chain, e.g. P&R BH -> "High P&R"/
+      // "Left P&R"/"Right P&R" (+ side "Side"/"Baseline"), Post Up -> "Left
+      // Block"/"Right Block", Transition -> "Right Wing"/"Trailer"/etc.
+      if(["P&R BH","Post Up","Transition","Off Screen","Iso"].includes(t)){
         const segs=parseSynergySegments(p.synergyString);
         const loc = segs[0] && segs[0].actions[1];
         if(loc){
@@ -882,73 +885,128 @@ function buildSynergySide(plays){
   };
 }
 
-function topLocation(locObj){
-  const entries=Object.entries(locObj||{});
-  if(!entries.length) return null;
-  entries.sort((a,b)=>b[1]-a[1]);
-  return {label:entries[0][0], count:entries[0][1]};
+function topLocations(locObj, n){
+  const entries=Object.entries(locObj||{}).sort((a,b)=>b[1]-a[1]);
+  return entries.slice(0, n||entries.length).map(([label,count])=>({label,count}));
 }
+function pct(part,total){ return total? Math.round(100*part/total) : 0; }
 
-function buildSynergyInsights(offense, defense){
-  const insights=[];
-  const MIN_SAMPLE = 3;
+// Builds the full structured report — mirrors the sections of a written
+// scout report (identity, top actions, player cards, P&R/transition/post-up
+// breakdowns, defensive plan) using only what the tags can support:
+// frequency, efficiency, side/location, and who the ball moves to.
+// It intentionally does NOT invent qualitative reads (e.g. "can reject
+// screens") that the tagging can't back up — those still need a human/video
+// pass. What it CAN say: what they run, who runs it, from where, how well
+// it works, and what hurts them on D.
+function buildSynergyReport(offense, defense, teamCapsLabel){
+  const MIN = 3;
+  const sig = t => t.possessions >= MIN;
 
-  offense.playTypeTable.slice(0,3).forEach(pt=>{
-    if(pt.possessions < MIN_SAMPLE) return;
-    const efficiency = pt.ppp>=1.0 ? "efficient" : pt.ppp<0.8 ? "inefficient" : "average";
-    insights.push(`${pt.type} is ${pt.type===offense.playTypeTable[0].type?"their most-used action":"a frequent action"} — ${pt.frequencyPct}% of possessions, ${pt.ppp} PPP (${efficiency}).`);
-  });
+  // ── Offensive identity ──
+  const topActions = offense.playTypeTable.filter(sig).slice(0,5);
+  const identityLine = topActions.length
+    ? `${teamCapsLabel} lean heavily on ${topActions.slice(0,2).map(t=>t.type).join(" and ")}` +
+      (topActions[0].ppp>=1.0 ? ", and it's working — " : topActions[0].ppp<0.8 ? ", though it hasn't been efficient — " : " — ") +
+      `${topActions[0].type} is their most-used action at ${topActions[0].frequencyPct}% of possessions (${topActions[0].ppp} PPP).`
+    : "Not enough tagged possessions yet to describe their offensive identity.";
 
-  offense.playTypeTable.slice(0,3).forEach(pt=>{
-    if(pt.possessions < MIN_SAMPLE) return;
-    const candidates = offense.playerTable
-      .map(p=>({player:p.player, stat:(p.types.find(t=>t.type===pt.type))}))
-      .filter(x=>x.stat && x.stat.possessions>=2)
-      .sort((a,b)=>b.stat.possessions-a.stat.possessions);
-    if(candidates.length){
-      const top=candidates[0];
-      insights.push(`${top.player} is their primary option in ${pt.type} (${top.stat.possessions} possessions, ${top.stat.ppp} PPP).`);
-    }
-  });
+  // ── Player cards: role = the play type each player has the most reps in ──
+  const playerCards = offense.playerTable
+    .map(p=>{
+      const totalPoss = p.types.reduce((n,t)=>n+t.possessions,0);
+      if(totalPoss < MIN) return null;
+      const primary = p.types[0];
+      const bullets = [];
+      bullets.push(`Primary action: ${primary.type} (${primary.possessions} possessions, ${primary.ppp} PPP${primary.ppp>=1.0?" — efficient":primary.ppp<0.75?" — inefficient, live with it":""}).`);
 
-  const creatorList = Object.entries(offense.creators)
-    .filter(([,c])=>c.createdPlays>=MIN_SAMPLE)
-    .sort((a,b)=>b[1].createdPlays-a[1].createdPlays)
-    .slice(0,2);
-  creatorList.forEach(([player,c])=>{
-    const topVia = Object.entries(c.viaTypes).sort((a,b)=>b[1]-a[1])[0];
-    const viaLabel = topVia ? topVia[0] : "their actions";
-    insights.push(`${player} creates offense for others — ${c.createdPlays} plays where the ball moved on to a teammate (mostly out of ${viaLabel}), generating ${c.createdPoints} points for the team.`);
-  });
-
-  Object.entries(offense.locations).forEach(([player, byType])=>{
-    Object.entries(byType).forEach(([type, locs])=>{
-      const top = topLocation(locs);
-      const totalReps = Object.values(locs).reduce((a,b)=>a+b,0);
-      if(top && totalReps>=MIN_SAMPLE){
-        if(type==="Post Up") insights.push(`${player} is posted up primarily on the ${top.label} (${top.count} of ${totalReps} post-ups).`);
-        else if(type==="P&R BH") insights.push(`${player}'s ball screens are mostly ${top.label} (${top.count} of ${totalReps} reps) — worth knowing which side to funnel him.`);
+      const locs = (offense.locations[p.player]||{})[primary.type];
+      if(locs){
+        const top = topLocations(locs,2);
+        if(top.length===1) bullets.push(`Almost exclusively ${top[0].label} (${top[0].count} of ${Object.values(locs).reduce((a,b)=>a+b,0)} reps).`);
+        else if(top.length>1) bullets.push(`Mixes locations — mostly ${top[0].label} (${top[0].count}), also ${top[1].label} (${top[1].count}).`);
       }
-    });
-  });
 
-  const weakDefense = defense.playTypeTable
-    .filter(pt=>pt.possessions>=MIN_SAMPLE)
-    .sort((a,b)=>b.ppp-a.ppp)
-    .slice(0,2);
-  weakDefense.forEach(pt=>{
-    if(pt.ppp>=0.9){
-      insights.push(`They've struggled defensively against ${pt.type} — opponents scored ${pt.ppp} PPP against them on this action (${pt.possessions} reps).`);
-    }
-  });
-  const strongDefense = defense.playTypeTable
-    .filter(pt=>pt.possessions>=MIN_SAMPLE)
-    .sort((a,b)=>a.ppp-b.ppp)[0];
-  if(strongDefense && strongDefense.ppp<=0.75){
-    insights.push(`They defend ${strongDefense.type} well — opponents managed only ${strongDefense.ppp} PPP against it (${strongDefense.possessions} reps).`);
-  }
+      const creator = offense.creators[p.player];
+      if(creator && creator.createdPlays>=MIN){
+        const topVia = Object.entries(creator.viaTypes).sort((a,b)=>b[1]-a[1])[0];
+        bullets.push(`Creates for others — ${creator.createdPlays} plays where the ball moved to a teammate off his ${topVia?topVia[0]:"actions"}, generating ${creator.createdPoints} points for the team.`);
+      }
 
-  return insights;
+      p.types.slice(1,3).forEach(t=>{
+        if(t.possessions>=MIN) bullets.push(`Also used in ${t.type} (${t.possessions} poss, ${t.ppp} PPP).`);
+      });
+
+      return { player:p.player, role:primary.type, totalPossessions:totalPoss, bullets };
+    })
+    .filter(Boolean)
+    .sort((a,b)=>b.totalPossessions-a.totalPossessions)
+    .slice(0,10);
+
+  // ── P&R report ──
+  const prTeam = {};
+  Object.entries(offense.locations).forEach(([player,byType])=>{
+    if(!byType["P&R BH"]) return;
+    Object.entries(byType["P&R BH"]).forEach(([loc,count])=>{ prTeam[loc]=(prTeam[loc]||0)+count; });
+  });
+  const prCreators = offense.playerTable
+    .filter(p=>p.types.some(t=>t.type==="P&R BH" && t.possessions>=MIN))
+    .map(p=>({player:p.player, stat:p.types.find(t=>t.type==="P&R BH")}))
+    .sort((a,b)=>b.stat.possessions-a.stat.possessions);
+  const prReport = {
+    sideBreakdown: topLocations(prTeam),
+    creators: prCreators,
+  };
+
+  // ── Transition report ──
+  const transTeam = {};
+  Object.entries(offense.locations).forEach(([player,byType])=>{
+    if(!byType["Transition"]) return;
+    Object.entries(byType["Transition"]).forEach(([loc,count])=>{ transTeam[loc]=(transTeam[loc]||0)+count; });
+  });
+  const transitionStat = offense.playTypeTable.find(t=>t.type==="Transition");
+  const transitionThreats = offense.playerTable
+    .filter(p=>p.types.some(t=>t.type==="Transition" && t.possessions>=2))
+    .map(p=>({player:p.player, stat:p.types.find(t=>t.type==="Transition")}))
+    .sort((a,b)=>b.stat.possessions-a.stat.possessions);
+  const transitionReport = { stat: transitionStat, subtypes: topLocations(transTeam), threats: transitionThreats };
+
+  // ── Post-up report ──
+  const postTeam = {};
+  Object.entries(offense.locations).forEach(([player,byType])=>{
+    if(!byType["Post Up"]) return;
+    Object.entries(byType["Post Up"]).forEach(([loc,count])=>{ postTeam[loc]=(postTeam[loc]||0)+count; });
+  });
+  const postStat = offense.playTypeTable.find(t=>t.type==="Post Up");
+  const postThreats = offense.playerTable
+    .filter(p=>p.types.some(t=>t.type==="Post Up" && t.possessions>=2))
+    .map(p=>({player:p.player, stat:p.types.find(t=>t.type==="Post Up"),
+      locs: topLocations((offense.locations[p.player]||{})["Post Up"],2)}))
+    .sort((a,b)=>b.stat.possessions-a.stat.possessions);
+  const postUpReport = { stat: postStat, subtypes: topLocations(postTeam), threats: postThreats };
+
+  // ── Effectiveness split ──
+  const bySig = offense.playTypeTable.filter(sig).slice().sort((a,b)=>b.ppp-a.ppp);
+  const mostEffective = bySig.slice(0,3);
+  const leastEffective = bySig.slice(-3).reverse();
+
+  // ── Defensive game plan (from the OTHER team's possessions in the same games) ──
+  const defSig = defense.playTypeTable.filter(sig);
+  const weakDefense = defSig.slice().sort((a,b)=>b.ppp-a.ppp).slice(0,3);
+  const strongDefense = defSig.slice().sort((a,b)=>a.ppp-b.ppp).slice(0,2);
+
+  // ── One-line summary ──
+  const topType = topActions[0];
+  const topCreator = Object.entries(offense.creators).sort((a,b)=>b[1].createdPlays-a[1].createdPlays)[0];
+  const topWeak = weakDefense[0];
+  let oneLiner = topType ? `Their offense runs through ${topType.type} (${topType.frequencyPct}% usage, ${topType.ppp} PPP).` : "";
+  if(topCreator) oneLiner += ` ${topCreator[0]} is their primary connector, setting up teammates ${topCreator[1].createdPlays} times.`;
+  if(topWeak && topWeak.ppp>=0.9) oneLiner += ` Defensively, they're most exploitable against ${topWeak.type} (${topWeak.ppp} PPP allowed).`;
+
+  return {
+    identityLine, topActions, playerCards, prReport, transitionReport, postUpReport,
+    mostEffective, leastEffective, weakDefense, strongDefense, oneLiner,
+  };
 }
 
 async function generateSynergyReport(){
@@ -987,14 +1045,14 @@ async function generateSynergyReport(){
     statusEl.textContent = "Saving report…";
     const offense = buildSynergySide(offensePlays);
     const defense = buildSynergySide(defensePlays);
-    const insights = buildSynergyInsights(offense, defense);
+    const report_ = buildSynergyReport(offense, defense, teamEntry ? teamEntry.name : opponentCaps);
     const summary = {
       totalPossessions: offense.totalPossessions,
       overallPpp: offense.overallPpp,
       playTypeTable: offense.playTypeTable,
       playerTable: offense.playerTable,
       defensePlayTypeTable: defense.playTypeTable,
-      insights,
+      report: report_,
       generatedAt: new Date().toISOString(),
     };
     const dates = gamesMeta.map(g=>g.gameDate).filter(Boolean).sort();
