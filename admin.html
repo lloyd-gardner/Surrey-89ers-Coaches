@@ -226,7 +226,7 @@
 <div class="modal-overlay hidden" id="synergy-modal">
   <div class="modal">
     <h2>Synergy Opponent Report</h2>
-    <div class="modal-sub">Upload the last 3-5 Synergy CSV playlist exports for an upcoming opponent. This is kept separate from the LiveStats data — it's tendency scouting from Synergy tagging, shown on the Next Opponent page once generated.</div>
+    <div class="modal-sub">Upload the last 3-5 Synergy CSV playlist exports for an upcoming opponent. This is kept separate from the LiveStats data — it's tendency scouting from Synergy tagging, shown in its own Synergy Scouting tab (not mixed with the LiveStats Next Opponent page) once generated.</div>
     <div class="form-group">
       <label>Opponent</label>
       <select id="synergy-team">
@@ -712,7 +712,7 @@ function closeMergeModal(){ document.getElementById("merge-modal").classList.add
 // ── SYNERGY OPPONENT REPORTS ──
 // Populates from the same TEAMS list used for player scouting; stores
 // opponent_name in CAPS format (team.caps) so it matches NEXT_OPP on the
-// Next Opponent page directly.
+// the Synergy Scouting tab directly.
 function openSynergyModal(){
   const sel = document.getElementById("synergy-team");
   if (sel.options.length <= 1) {
@@ -771,26 +771,22 @@ function synergyPointsForResult(result,tags){
   if(r==="Free Throw") return t.includes("ftm")?1:0;
   return 0;
 }
-const SYNERGY_TERMINAL=new Set(["Make 2 Pts","Make 3 Pts","Miss 2 Pts","Miss 3 Pts","Turnover","1 Pts","0 Pts","Shot Clock Violation"]);
 function synergyNormalizeDate(d){
   const m=(d||"").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if(!m) return null;
   const [,dd,mm,yyyy]=m;
   return `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
 }
-function parseSynergyCsvToPlays(text, opponentCaps){
+function parseSynergyCsvToPlays(text){
   const records=synergyToRecords(text);
   let gameLabel="", gameDate=null; const plays=[];
   for(const row of records){
     if(row.Game) gameLabel=row.Game;
     if(row.Date) gameDate=synergyNormalizeDate(row.Date);
-    // Team column in the CSV export is the plain team name (e.g. "Leicester Riders").
-    // Match loosely against the opponent's caps name / TEAMS entry.
-    const teamEntry = TEAMS.find(t=>t.caps===opponentCaps);
-    const teamPlain = teamEntry ? teamEntry.name : opponentCaps;
-    if((row.Team||"").trim().toLowerCase() !== teamPlain.trim().toLowerCase()) continue;
+    if(!row.Team) continue;
     plays.push({
-      player: row.Player||"",
+      team: (row.Team||"").trim(),
+      rawPlayer: row.Player||"",
       playTypes: (row.PlayType||"").split(",").map(x=>x.trim()).filter(Boolean),
       result: row.Result||"",
       synergyTags: row.SynergyTags||"",
@@ -803,42 +799,158 @@ function parseSynergyCsvToPlays(text, opponentCaps){
   }
   return {plays, gameLabel, gameDate};
 }
-function buildSynergySummary(allPlays){
-  const byPlayType={}, byPlayer={};
+
+function parseSynergySegments(str){
+  const tokens=(str||"").split(">").map(t=>t.trim()).filter(Boolean);
+  const segments=[]; let current=null;
+  for(const tok of tokens){
+    const m=tok.match(/^\d+\s+(.+)$/);
+    if(m){ if(current) segments.push(current); current={player:m[1].trim(), actions:[]}; }
+    else if(current) current.actions.push(tok);
+  }
+  if(current) segments.push(current);
+  return segments;
+}
+function synergyPrimaryPlayer(play){
+  const segs=parseSynergySegments(play.synergyString);
+  if(segs.length) return segs[0].player;
+  return (play.rawPlayer||"").split(",")[0].trim();
+}
+
+const SYNERGY_TERMINAL=new Set(["Make 2 Pts","Make 3 Pts","Miss 2 Pts","Miss 3 Pts","Turnover","1 Pts","0 Pts","Shot Clock Violation"]);
+
+function buildSynergySide(plays){
+  const byPlayType={}, byPlayer={}, creators={}, locations={};
   let totalPossessions=0, totalPoints=0;
-  for(const p of allPlays){
+
+  for(const p of plays){
+    const player = synergyPrimaryPlayer(p);
     const types = p.playTypes.length ? p.playTypes : ["Unclassified"];
     const terminal = SYNERGY_TERMINAL.has((p.result||"").trim());
     const pts = synergyPointsForResult(p.result, p.synergyTags);
+
     for(const t of types){
       byPlayType[t] = byPlayType[t] || {possessions:0,points:0,makes:0,misses:0,turnovers:0};
       if(terminal){ byPlayType[t].possessions++; byPlayType[t].points+=pts; totalPossessions++; totalPoints+=pts; }
       if(p.result==="Make 2 Pts"||p.result==="Make 3 Pts") byPlayType[t].makes++;
       if(p.result==="Miss 2 Pts"||p.result==="Miss 3 Pts") byPlayType[t].misses++;
       if(p.result==="Turnover") byPlayType[t].turnovers++;
-      byPlayer[p.player] = byPlayer[p.player] || {};
-      byPlayer[p.player][t] = byPlayer[p.player][t] || {possessions:0,points:0};
-      if(terminal){ byPlayer[p.player][t].possessions++; byPlayer[p.player][t].points+=pts; }
+
+      byPlayer[player] = byPlayer[player] || {};
+      byPlayer[player][t] = byPlayer[player][t] || {possessions:0,points:0};
+      if(terminal){ byPlayer[player][t].possessions++; byPlayer[player][t].points+=pts; }
+
+      if(t==="P&R BH" || t==="Post Up" || t==="Off Screen" || t==="Iso"){
+        const segs=parseSynergySegments(p.synergyString);
+        const loc = segs[0] && segs[0].actions[1];
+        if(loc){
+          locations[player]=locations[player]||{};
+          locations[player][t]=locations[player][t]||{};
+          locations[player][t][loc]=(locations[player][t][loc]||0)+1;
+        }
+      }
+    }
+
+    const segs=parseSynergySegments(p.synergyString);
+    if(segs.length>=2 && segs[0].player!==segs[segs.length-1].player){
+      creators[segs[0].player] = creators[segs[0].player] || {createdPlays:0, createdPoints:0, viaTypes:{}};
+      creators[segs[0].player].createdPlays++;
+      creators[segs[0].player].createdPoints += pts;
+      const via = types[0]||"Unclassified";
+      creators[segs[0].player].viaTypes[via] = (creators[segs[0].player].viaTypes[via]||0)+1;
     }
   }
+
   const playTypeTable = Object.entries(byPlayType).map(([type,s])=>({
     type, possessions:s.possessions,
     frequencyPct: totalPossessions? +(100*s.possessions/totalPossessions).toFixed(1) : 0,
     ppp: s.possessions? +(s.points/s.possessions).toFixed(2) : 0,
     makes:s.makes, misses:s.misses, turnovers:s.turnovers,
   })).sort((a,b)=>b.possessions-a.possessions);
+
   const playerTable = Object.entries(byPlayer).map(([player,types])=>({
     player,
     types: Object.entries(types).map(([type,s])=>({
       type, possessions:s.possessions, ppp: s.possessions? +(s.points/s.possessions).toFixed(2):0,
     })).sort((a,b)=>b.possessions-a.possessions),
   })).sort((a,b)=> b.types.reduce((n,t)=>n+t.possessions,0) - a.types.reduce((n,t)=>n+t.possessions,0));
+
   return {
     totalPossessions, totalPoints,
     overallPpp: totalPossessions? +(totalPoints/totalPossessions).toFixed(2):0,
-    playTypeTable, playerTable, generatedAt: new Date().toISOString(),
+    playTypeTable, playerTable, creators, locations,
   };
 }
+
+function topLocation(locObj){
+  const entries=Object.entries(locObj||{});
+  if(!entries.length) return null;
+  entries.sort((a,b)=>b[1]-a[1]);
+  return {label:entries[0][0], count:entries[0][1]};
+}
+
+function buildSynergyInsights(offense, defense){
+  const insights=[];
+  const MIN_SAMPLE = 3;
+
+  offense.playTypeTable.slice(0,3).forEach(pt=>{
+    if(pt.possessions < MIN_SAMPLE) return;
+    const efficiency = pt.ppp>=1.0 ? "efficient" : pt.ppp<0.8 ? "inefficient" : "average";
+    insights.push(`${pt.type} is ${pt.type===offense.playTypeTable[0].type?"their most-used action":"a frequent action"} — ${pt.frequencyPct}% of possessions, ${pt.ppp} PPP (${efficiency}).`);
+  });
+
+  offense.playTypeTable.slice(0,3).forEach(pt=>{
+    if(pt.possessions < MIN_SAMPLE) return;
+    const candidates = offense.playerTable
+      .map(p=>({player:p.player, stat:(p.types.find(t=>t.type===pt.type))}))
+      .filter(x=>x.stat && x.stat.possessions>=2)
+      .sort((a,b)=>b.stat.possessions-a.stat.possessions);
+    if(candidates.length){
+      const top=candidates[0];
+      insights.push(`${top.player} is their primary option in ${pt.type} (${top.stat.possessions} possessions, ${top.stat.ppp} PPP).`);
+    }
+  });
+
+  const creatorList = Object.entries(offense.creators)
+    .filter(([,c])=>c.createdPlays>=MIN_SAMPLE)
+    .sort((a,b)=>b[1].createdPlays-a[1].createdPlays)
+    .slice(0,2);
+  creatorList.forEach(([player,c])=>{
+    const topVia = Object.entries(c.viaTypes).sort((a,b)=>b[1]-a[1])[0];
+    const viaLabel = topVia ? topVia[0] : "their actions";
+    insights.push(`${player} creates offense for others — ${c.createdPlays} plays where the ball moved on to a teammate (mostly out of ${viaLabel}), generating ${c.createdPoints} points for the team.`);
+  });
+
+  Object.entries(offense.locations).forEach(([player, byType])=>{
+    Object.entries(byType).forEach(([type, locs])=>{
+      const top = topLocation(locs);
+      const totalReps = Object.values(locs).reduce((a,b)=>a+b,0);
+      if(top && totalReps>=MIN_SAMPLE){
+        if(type==="Post Up") insights.push(`${player} is posted up primarily on the ${top.label} (${top.count} of ${totalReps} post-ups).`);
+        else if(type==="P&R BH") insights.push(`${player}'s ball screens are mostly ${top.label} (${top.count} of ${totalReps} reps) — worth knowing which side to funnel him.`);
+      }
+    });
+  });
+
+  const weakDefense = defense.playTypeTable
+    .filter(pt=>pt.possessions>=MIN_SAMPLE)
+    .sort((a,b)=>b.ppp-a.ppp)
+    .slice(0,2);
+  weakDefense.forEach(pt=>{
+    if(pt.ppp>=0.9){
+      insights.push(`They've struggled defensively against ${pt.type} — opponents scored ${pt.ppp} PPP against them on this action (${pt.possessions} reps).`);
+    }
+  });
+  const strongDefense = defense.playTypeTable
+    .filter(pt=>pt.possessions>=MIN_SAMPLE)
+    .sort((a,b)=>a.ppp-b.ppp)[0];
+  if(strongDefense && strongDefense.ppp<=0.75){
+    insights.push(`They defend ${strongDefense.type} well — opponents managed only ${strongDefense.ppp} PPP against it (${strongDefense.possessions} reps).`);
+  }
+
+  return insights;
+}
+
 async function generateSynergyReport(){
   const opponentCaps = document.getElementById("synergy-team").value;
   const fileInput = document.getElementById("synergy-files");
@@ -856,18 +968,35 @@ async function generateSynergyReport(){
     const gamesMeta = [];
     for(const file of files){
       const text = await file.text();
-      const {plays, gameLabel, gameDate} = parseSynergyCsvToPlays(text, opponentCaps);
+      const {plays, gameLabel, gameDate} = parseSynergyCsvToPlays(text);
       allPlays.push(...plays);
       gamesMeta.push({gameLabel, gameDate, rowCount: plays.length});
     }
-    if(!allPlays.length){
+
+    const teamEntry = TEAMS.find(t=>t.caps===opponentCaps);
+    const teamPlain = (teamEntry ? teamEntry.name : opponentCaps).trim().toLowerCase();
+    const offensePlays = allPlays.filter(p=>p.team.toLowerCase()===teamPlain);
+    const defensePlays = allPlays.filter(p=>p.team.toLowerCase()!==teamPlain);
+
+    if(!offensePlays.length){
       errEl.textContent = "No matching rows found — check the opponent name matches the CSV's Team column exactly (e.g. \"Leicester Riders\").";
       btn.disabled = false; statusEl.textContent = "";
       return;
     }
 
     statusEl.textContent = "Saving report…";
-    const summary = buildSynergySummary(allPlays);
+    const offense = buildSynergySide(offensePlays);
+    const defense = buildSynergySide(defensePlays);
+    const insights = buildSynergyInsights(offense, defense);
+    const summary = {
+      totalPossessions: offense.totalPossessions,
+      overallPpp: offense.overallPpp,
+      playTypeTable: offense.playTypeTable,
+      playerTable: offense.playerTable,
+      defensePlayTypeTable: defense.playTypeTable,
+      insights,
+      generatedAt: new Date().toISOString(),
+    };
     const dates = gamesMeta.map(g=>g.gameDate).filter(Boolean).sort();
 
     const report = await sbPost("synergy_reports", {
@@ -884,15 +1013,14 @@ async function generateSynergyReport(){
         opponent_team_name: opponentCaps, raw_row_count: g.rowCount,
       }, true);
 
-      const rowsForGame = allPlays
+      const rowsForGame = offensePlays
         .filter(p=>p.gameLabel===g.gameLabel && p.gameDate===g.gameDate)
         .map(p=>({
-          game_id: gameRow.id, report_id: report.id, player: p.player, play_types: p.playTypes,
+          game_id: gameRow.id, report_id: report.id, player: synergyPrimaryPlayer(p), play_types: p.playTypes,
           result: p.result, synergy_tags: p.synergyTags, synergy_string: p.synergyString,
           period: p.period, clock: p.clock, duration_seconds: p.durationSeconds,
         }));
       if(rowsForGame.length){
-        // sbPost only handles single-row bodies elsewhere in this file, so post the array directly.
         await fetch(`${SUPABASE_URL}/rest/v1/synergy_plays`,{
           method:"POST",
           headers:{"apikey":SUPABASE_SERVICE,"Authorization":`Bearer ${SUPABASE_SERVICE}`,"Content-Type":"application/json","Prefer":"return=minimal"},
@@ -901,7 +1029,7 @@ async function generateSynergyReport(){
       }
     }
 
-    statusEl.textContent = `Done — ${summary.totalPossessions} possessions across ${files.length} games. View it on the Next Opponent page for ${opponentCaps}.`;
+    statusEl.textContent = `Done — ${summary.totalPossessions} possessions across ${files.length} games. View it under the Synergy Scouting tab for ${opponentCaps}.`;
   } catch(e){
     console.error(e);
     errEl.textContent = "Something went wrong: " + e.message;

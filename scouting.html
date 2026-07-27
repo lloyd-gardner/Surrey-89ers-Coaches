@@ -321,6 +321,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
     <div class="nav-tab" id="tab-team-profiles" onclick="showSection('team-profiles')">👥 Team Profiles</div>
     <div class="nav-tab" id="tab-player-slides" onclick="showSection('player-slides')">🃏 Player Slides</div>
     <div class="nav-tab" id="tab-self-scout" onclick="showSection('self-scout')">🟢 Surrey 89ers</div>
+    <div class="nav-tab" id="tab-synergy-scouting" onclick="showSection('synergy-scouting')">🎯 Synergy Scouting</div>
   </div>
 
   <div class="page-content">
@@ -463,17 +464,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
           <div id="no-roster"><div class="loading-state"><div class="loading-spinner"></div></div></div>
         </div>
 
-        <!-- Synergy Tendencies -->
-        <div class="section-header">
-          <div class="section-label">Synergy Tendencies (Last 3-5 Games)</div>
-          <button class="btn no-print" id="no-synergy-export-btn" style="display:none" onclick="exportSynergyReport()">⬇ Export to Excel</button>
-        </div>
-        <div class="card" style="margin-bottom:24px" id="no-synergy-card">
-          <div class="card-body" id="no-synergy-body">
-            <div class="loading-state">Loading Synergy report…</div>
-          </div>
-        </div>
-
         <!-- Key Lineups -->
         <div class="section-header"><div class="section-label">Key Lineup Units</div></div>
         <div id="no-lineups" style="margin-bottom:24px"><div class="loading-state"><div class="loading-spinner"></div></div></div>
@@ -545,6 +535,28 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
       </div>
 
     <!-- ── TEAM PROFILES ── -->
+    <!-- ── SYNERGY SCOUTING (separate from LiveStats data) ── -->
+    <div class="section-view" id="section-synergy-scouting">
+      <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <div class="page-title">Synergy Scouting</div>
+          <div class="page-sub">Tendency reports from manually-uploaded Synergy clip exports — kept separate from LiveStats data. Upload new reports from the Admin panel.</div>
+        </div>
+        <button class="btn no-print" id="syn-export-btn" style="display:none" onclick="exportSynergyReport()">⬇ Export to Excel</button>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Opponent</div>
+        <select id="syn-opponent-select" class="btn" style="min-width:240px" onchange="loadSynergyReportFor(this.value)">
+          <option value="">Select an opponent…</option>
+        </select>
+      </div>
+
+      <div id="syn-content">
+        <div class="loading-state">Choose an opponent above to view their Synergy scouting report.</div>
+      </div>
+    </div>
+
     <div class="section-view" id="section-team-profiles">
       <div id="tp-selector">
         <div class="page-header"><div class="page-title">Team Profiles</div><div class="page-sub">Select a team</div></div>
@@ -1490,7 +1502,7 @@ function playerRowHTML(p, showGrade=true){
 // ═══════════════════════════════════════════
 // SECTION NAV
 // ═══════════════════════════════════════════
-const SECS=["league","league-leaders","next-opponent","team-profiles","player-slides","self-scout"];
+const SECS=["league","league-leaders","next-opponent","team-profiles","player-slides","self-scout","synergy-scouting"];
 let loaded={};
 function showSection(id){
   SECS.forEach(s=>{
@@ -1509,6 +1521,7 @@ function showSection(id){
     ({
       "league":renderLeague,
       "next-opponent":renderNextOpponent,
+      "synergy-scouting":renderSynergyScoutingTab,
       "team-profiles":renderTPSelector,
       "player-slides":renderSlides,
       "self-scout":renderSelfScout,
@@ -1905,86 +1918,9 @@ async function renderNextOpponent(){
   if(FIXTURES.length === 0) await loadFixtures();
   renderFixtureSelector();
   fillNextOpponent();
-  renderSynergyTendencies(NEXT_OPP);
 }
 
-// ── SYNERGY TENDENCIES CARD ──
-// Reads the latest synergy_reports row for this opponent (written from
-// admin.html's "Synergy Reports" upload). Read-only here, matching the
-// existing pattern where scouting.html only ever reads via sbFetch.
-let CURRENT_SYNERGY_REPORT = null;
 
-async function renderSynergyTendencies(opponentCaps){
-  const body = document.getElementById("no-synergy-body");
-  const exportBtn = document.getElementById("no-synergy-export-btn");
-  if(!body) return;
-  exportBtn.style.display = "none";
-  CURRENT_SYNERGY_REPORT = null;
-  body.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
-
-  try{
-    const rows = await sbFetch(`synergy_reports?opponent_name=eq.${encodeURIComponent(opponentCaps)}&order=created_at.desc&limit=1`);
-    const report = rows && rows[0];
-    if(!report){
-      body.innerHTML = '<div class="loading-state">No Synergy report uploaded yet for '+teamShort(opponentCaps)+' — generate one from the Admin panel (Synergy Reports button).</div>';
-      return;
-    }
-    CURRENT_SYNERGY_REPORT = report;
-    exportBtn.style.display = "inline-block";
-    const s = report.summary || {};
-    const playTypeRows = (s.playTypeTable||[]).map(r=>`
-      <tr>
-        <td>${r.type}</td>
-        <td>${r.frequencyPct}%</td>
-        <td>${r.possessions}</td>
-        <td style="font-weight:700;color:${r.ppp>=1?'var(--green)':'var(--red)'}">${r.ppp}</td>
-        <td>${r.makes}</td>
-        <td>${r.misses}</td>
-        <td>${r.turnovers}</td>
-      </tr>`).join("");
-    const playerRows = (s.playerTable||[]).map(p=>`
-      <div style="padding:8px 0;border-top:1px solid var(--border-soft)">
-        <div style="font-weight:600">${p.player}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">${p.types.map(t=>`${t.type} (${t.possessions} poss, ${t.ppp} PPP)`).join(" · ")}</div>
-      </div>`).join("");
-
-    body.innerHTML = `
-      <div style="font-size:11px;color:var(--muted);margin-bottom:14px">
-        ${report.games_included} games · ${report.date_range_start||"?"} → ${report.date_range_end||"?"} ·
-        ${s.totalPossessions||0} possessions · Overall <b style="color:var(--offwhite)">${s.overallPpp||0} PPP</b>
-      </div>
-      <div class="table-scroll">
-        <table class="data-table">
-          <thead><tr><th>Play Type</th><th>Freq %</th><th>Poss</th><th>PPP</th><th>Makes</th><th>Misses</th><th>TOs</th></tr></thead>
-          <tbody>${playTypeRows}</tbody>
-        </table>
-      </div>
-      <div style="margin-top:16px">
-        <div class="section-label" style="font-size:10px;margin-bottom:4px">Player Breakdown</div>
-        ${playerRows}
-      </div>
-    `;
-  } catch(e){
-    console.error("renderSynergyTendencies error:", e);
-    body.innerHTML = '<div class="loading-state">Could not load Synergy report.</div>';
-  }
-}
-
-function exportSynergyReport(){
-  const report = CURRENT_SYNERGY_REPORT;
-  if(!report || typeof XLSX === "undefined") return;
-  const s = report.summary || {};
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
-    { Opponent: report.opponent_name, Games: report.games_included,
-      From: report.date_range_start, To: report.date_range_end, "Overall PPP": s.overallPpp }
-  ]), "Overview");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.playTypeTable||[]), "Play Types");
-  const playerRows = (s.playerTable||[]).flatMap(p=>
-    p.types.map(t=>({ Player:p.player, "Play Type":t.type, Possessions:t.possessions, PPP:t.ppp })));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(playerRows), "Player Breakdown");
-  XLSX.writeFile(wb, `${report.opponent_name.replace(/\s+/g,"_")}_synergy_report.xlsx`);
-}
 
 function renderShotChart(db, teamName, canvasId){
   const canvas = document.getElementById(canvasId);
@@ -5337,6 +5273,127 @@ async function init(){
   loaded["league"]=true;
   renderLeague();
 }
+// ── SYNERGY SCOUTING TAB (separate from LiveStats/Next Opponent) ──
+// Read-only here — reports are generated and written from admin.html.
+let CURRENT_SYNERGY_REPORT = null;
+let SYNERGY_OPPONENTS_LOADED = false;
+
+async function renderSynergyScoutingTab(){
+  if(!SYNERGY_OPPONENTS_LOADED){
+    const reports = await sbFetch("synergy_reports?select=opponent_name,created_at&order=created_at.desc");
+    const seen = new Set();
+    const sel = document.getElementById("syn-opponent-select");
+    (reports||[]).forEach(r=>{
+      if(seen.has(r.opponent_name)) return;
+      seen.add(r.opponent_name);
+      const opt = document.createElement("option");
+      opt.value = r.opponent_name;
+      opt.textContent = fullNameMap[r.opponent_name] || teamShort(r.opponent_name);
+      sel.appendChild(opt);
+    });
+    SYNERGY_OPPONENTS_LOADED = true;
+    // Default to the current Next Opponent if they have a report
+    if(NEXT_OPP && seen.has(NEXT_OPP)){
+      sel.value = NEXT_OPP;
+      loadSynergyReportFor(NEXT_OPP);
+    }
+  }
+}
+
+async function loadSynergyReportFor(opponentCaps){
+  const content = document.getElementById("syn-content");
+  const exportBtn = document.getElementById("syn-export-btn");
+  exportBtn.style.display = "none";
+  CURRENT_SYNERGY_REPORT = null;
+  if(!opponentCaps){
+    content.innerHTML = '<div class="loading-state">Choose an opponent above to view their Synergy scouting report.</div>';
+    return;
+  }
+  content.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
+  try{
+    const rows = await sbFetch(`synergy_reports?opponent_name=eq.${encodeURIComponent(opponentCaps)}&order=created_at.desc&limit=1`);
+    const report = rows && rows[0];
+    if(!report){
+      content.innerHTML = '<div class="loading-state">No Synergy report uploaded yet for '+teamShort(opponentCaps)+' — generate one from the Admin panel (Synergy Reports button).</div>';
+      return;
+    }
+    CURRENT_SYNERGY_REPORT = report;
+    exportBtn.style.display = "inline-block";
+    const s = report.summary || {};
+
+    const insightsHtml = (s.insights||[]).map(line=>`
+      <div style="display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--border-soft)">
+        <div style="color:var(--green);flex-shrink:0">●</div>
+        <div style="font-size:14px;line-height:1.5">${line}</div>
+      </div>`).join("");
+
+    const offTableRows = (s.playTypeTable||[]).map(r=>`
+      <tr><td>${r.type}</td><td>${r.frequencyPct}%</td><td>${r.possessions}</td>
+        <td style="font-weight:700;color:${r.ppp>=1?'var(--green)':'var(--red)'}">${r.ppp}</td></tr>`).join("");
+    const defTableRows = (s.defensePlayTypeTable||[]).map(r=>`
+      <tr><td>${r.type}</td><td>${r.possessions}</td>
+        <td style="font-weight:700;color:${r.ppp>=1?'var(--red)':'var(--green)'}">${r.ppp} allowed</td></tr>`).join("");
+
+    content.innerHTML = `
+      <div style="font-size:11px;color:var(--muted);margin-bottom:16px">
+        ${report.games_included} games · ${report.date_range_start||"?"} → ${report.date_range_end||"?"} ·
+        ${s.totalPossessions||0} possessions tracked
+      </div>
+
+      <div class="card" style="margin-bottom:24px">
+        <div class="card-header"><div class="card-title">Scouting Notes</div></div>
+        <div class="card-body">
+          ${insightsHtml || '<div style="color:var(--muted);font-size:13px">Not enough tagged possessions yet to generate notes — upload more games.</div>'}
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Offense — Play Type Mix</div></div>
+          <div class="card-body">
+            <table class="data-table">
+              <thead><tr><th>Play Type</th><th>Freq %</th><th>Poss</th><th>PPP</th></tr></thead>
+              <tbody>${offTableRows}</tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Defense — What Hurts Them</div></div>
+          <div class="card-body">
+            <table class="data-table">
+              <thead><tr><th>Play Type</th><th>Poss Faced</th><th>PPP Allowed</th></tr></thead>
+              <tbody>${defTableRows}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  } catch(e){
+    console.error("loadSynergyReportFor error:", e);
+    content.innerHTML = '<div class="loading-state">Could not load Synergy report.</div>';
+  }
+}
+
+function exportSynergyReport(){
+  const report = CURRENT_SYNERGY_REPORT;
+  if(!report || typeof XLSX === "undefined") return;
+  const s = report.summary || {};
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+    { Opponent: report.opponent_name, Games: report.games_included,
+      From: report.date_range_start, To: report.date_range_end, "Overall PPP": s.overallPpp }
+  ]), "Overview");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+    ...(s.insights||[]).map(line=>({Note:line}))
+  ]), "Scouting Notes");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.playTypeTable||[]), "Offense Play Types");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.defensePlayTypeTable||[]), "Defense Play Types");
+  const playerRows = (s.playerTable||[]).flatMap(p=>
+    p.types.map(t=>({ Player:p.player, "Play Type":t.type, Possessions:t.possessions, PPP:t.ppp })));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(playerRows), "Player Breakdown");
+  XLSX.writeFile(wb, `${report.opponent_name.replace(/\s+/g,"_")}_synergy_report.xlsx`);
+}
+
 </script>
 
 <script>
