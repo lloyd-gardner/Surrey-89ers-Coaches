@@ -1825,6 +1825,26 @@ function selectFixture(idx){
 
 
 
+function compactLineupHTML(l,statField,color,showSign){
+  const ps=[l.P1,l.P2,l.P3,l.P4,l.P5].filter(Boolean);
+  const val=parseFloat(l[statField])||0;
+  const poss=parseFloat(l.Poss)||0;
+  return `<div style="display:flex;align-items:center;gap:10px;padding:7px 12px;background:rgba(255,255,255,0.03);border-radius:6px;margin-bottom:6px">
+    <div style="display:flex;flex-wrap:wrap;gap:4px;flex:1">
+      ${ps.map(p=>`<span style="font-size:10px;background:rgba(255,255,255,0.06);padding:3px 7px;border-radius:4px;color:#fff">${p}</span>`).join("")}
+    </div>
+    <div style="font-size:9px;color:var(--muted);flex-shrink:0">${fmt(poss,0)} poss</div>
+    <div style="font-size:13px;font-weight:800;color:${color};min-width:50px;text-align:right;flex-shrink:0">${showSign&&val>0?"+":""}${fmt(val)}</div>
+  </div>`;
+}
+function lineupSection(title,color,list,statField,showSign){
+  if(!list.length) return "";
+  return `<div style="margin-bottom:14px">
+    <div style="font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:${color};margin-bottom:6px">${title}</div>
+    ${list.map(l=>compactLineupHTML(l,statField,color,showSign)).join("")}
+  </div>`;
+}
+
 function renderDepthChart(depthData, db){
   const container = document.getElementById("no-roster");
   const POS_LABELS = {1:"PG",2:"SG",3:"SF",4:"PF",5:"C",6:"PG",7:"SG",8:"SF",9:"PF",10:"C"};
@@ -1849,6 +1869,7 @@ function renderDepthChart(depthData, db){
 
   container.innerHTML = `
     <div style="padding:14px 16px">
+      <div style="font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:8px">STARTERS</div>
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:16px">
         ${starterSlots.map(({pos, player}) => `
           <div>
@@ -1860,7 +1881,6 @@ function renderDepthChart(depthData, db){
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
         ${benchSlots.map(({pos, player}) => `
           <div>
-            <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);text-align:center;margin-bottom:5px">${POS_LABELS[pos]}</div>
             ${playerPill(player)}
           </div>`).join("")}
       </div>
@@ -2500,7 +2520,7 @@ async function fillNextOpponent(){
       .replace('Average FT Defense','Average');
   }
   document.getElementById("no-off-bars").innerHTML=
-    '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'
       +stmtPill('Tempo',       shortLabel(tempoLabel))
       +stmtPill('Shooting',    shortLabel(shootLabel))
       +stmtPill('Off Rebound', shortLabel(orebLabel))
@@ -2523,7 +2543,7 @@ async function fillNextOpponent(){
   const ftDefLabel     = t.ftaAgainst > 20 ? "Sends Opponents to Line" : t.ftaAgainst < 15 ? "Keeps Opponents Off Line" : "Average FT Defense";
 
   document.getElementById("no-def-bars").innerHTML=
-    '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'
       +stmtPill('Pressure',     shortLabel(pressureLabel))
       +stmtPill('Interior Def', shortLabel(interiorLabel))
       +stmtPill('Def Rebound',  shortLabel(defRebLabel))
@@ -2567,51 +2587,21 @@ async function fillNextOpponent(){
       : "<div class='loading-state'>No player data</div>";
   }
 
-  // Lineups — filter 20+ possessions then show best/worst
-  const allLus = db.raw.lu
-    .filter(r=>matchTeam(r.Team||"",NEXT_OPP) && (parseFloat(r.Poss)||0)>=20)
-    .map(r=>({
-      ...r,
-      _off: parseFloat(r.OFFRTG)||0,
-      _def: parseFloat(r.DEFRTG)||0,
-      _net: parseFloat(r.NETRTG)||0,
-      _poss: parseFloat(r.Poss)||0,
-    }));
-
-  const bestNet  = allLus.length ? [allLus.reduce((a,b)=>b._net>a._net?b:a)] : [];
-  const worstNet = allLus.length ? [allLus.reduce((a,b)=>b._net<a._net?b:a)] : [];
-  const bestOff  = allLus.length ? [allLus.reduce((a,b)=>b._off>a._off?b:a)] : [];
-  const bestDef  = allLus.length ? [allLus.reduce((a,b)=>b._def<a._def?b:a)] : [];
-
-  // Deduplicate (same lineup could appear in multiple categories)
-  const seen = new Set();
-  const lineupGroups = [
-    { label:"🏆 Best Net Rating", color:"pill-green", items:bestNet },
-    { label:"⚔️ Best Offence",    color:"pill-blue",  items:bestOff },
-    { label:"🛡️ Best Defence",    color:"pill-green", items:bestDef },
-    { label:"⚠️ Worst Net Rating",color:"pill-red",   items:worstNet },
-  ];
-
+  // Lineups -- same compact format as Self Scout: 4 categories, top 3 each
+  const lineupPool = db.raw.lu.filter(r=>matchTeam(r.Team||"",NEXT_OPP)&&(parseFloat(r.Poss)||0)>=20);
+  const topNet=lineupPool.slice().sort((a,b)=>(parseFloat(b.NETRTG)||0)-(parseFloat(a.NETRTG)||0)).slice(0,3);
+  const topOff=lineupPool.slice().sort((a,b)=>(parseFloat(b.OFFRTG)||0)-(parseFloat(a.OFFRTG)||0)).slice(0,3);
+  const topDef=lineupPool.slice().sort((a,b)=>(parseFloat(a.DEFRTG)||0)-(parseFloat(b.DEFRTG)||0)).slice(0,3);
+  const topUsed=lineupPool.slice().sort((a,b)=>(parseFloat(b.Poss)||0)-(parseFloat(a.Poss)||0)).slice(0,3);
   const lineupContainer = document.getElementById("no-lineups");
-  if(!allLus.length){
-    lineupContainer.innerHTML = "<div class='loading-state'>No lineup data with 20+ possessions</div>";
-  } else {
-    const lineupItems = lineupGroups.map(group=>{
-      const item = group.items[0];
-      if(!item) return "";
-      const key = [item.P1,item.P2,item.P3,item.P4,item.P5].sort().join("|");
-      const isDuplicate = seen.has(key);
-      if(!isDuplicate) seen.add(key);
-      return `<div>
-        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:8px">
-          ${group.label}
-          ${isDuplicate?'<span style="font-size:9px;color:var(--muted)">(same lineup)</span>':''}
-        </div>
-        ${lineupHTML(item, 0, group.color)}
-      </div>`;
-    }).filter(Boolean);
-    lineupContainer.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${lineupItems.join("")}</div>`;
-  }
+  lineupContainer.innerHTML = lineupPool.length
+    ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px">
+        ${lineupSection("Best Net Rating (Top 3)","var(--green)",topNet,"NETRTG",true)}
+        ${lineupSection("Best Offense (Top 3)","#60c8fa",topOff,"OFFRTG",false)}
+        ${lineupSection("Best Defense (Top 3)","#ff8a8a",topDef,"DEFRTG",false)}
+        ${lineupSection("Most Used (Top 3)","#f59e0b",topUsed,"Poss",false)}
+      </div>`
+    : "<div class='loading-state'>No lineup data with 20+ possessions</div>";
 
   // Key stats
   // Pre-compute all ranks
@@ -2664,23 +2654,41 @@ async function fillNextOpponent(){
     ]},
   ];
 
-  document.getElementById("no-key-stats").innerHTML = statSections.map(section=>`
-    <div style="grid-column:1/-1;margin-bottom:0">
-      <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${section.color};margin-bottom:10px;display:flex;align-items:center;gap:6px">
-        <span style="width:3px;height:12px;background:${section.color};border-radius:2px;display:inline-block"></span>
-        ${section.label}
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px">
-        ${section.stats.map(s=>`
-          <div class="card">
-            <div class="card-body" style="text-align:center;padding:12px 8px">
-              <div style="font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700">${s.val}</div>
-              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-top:4px">${s.lbl}</div>
-              ${s.rank?`<div style="margin-top:6px">${rankBadge(s.rank,total)}</div>`:""}
-            </div>
-          </div>`).join("")}
-      </div>
-    </div>`).join("");
+  // Sort each section by how extreme the rank is (closest to #1 or last)
+  // so the most notable things surface first regardless of category,
+  // rather than being scattered wherever they land in a fixed grid.
+  function sortByExtremity(stats){
+    return stats.slice().sort((a,b)=>{
+      const da = a.rank ? Math.min(a.rank, total-a.rank+1) : 999;
+      const db_ = b.rank ? Math.min(b.rank, total-b.rank+1) : 999;
+      return da-db_;
+    });
+  }
+  function statRow(s,i,isLast){
+    const isTop3 = s.rank && s.rank<=3;
+    const isBottom3 = s.rank && s.rank>=total-2;
+    const bg = isTop3?"rgba(0,131,72,0.12)":isBottom3?"rgba(226,75,74,0.12)":"transparent";
+    const valColor = isTop3?"var(--green)":isBottom3?"#ff8a8a":"#fff";
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:${bg};border-radius:6px;${!isLast?'border-bottom:1px solid rgba(255,255,255,0.05)':''}">
+      <span style="font-size:12px;color:var(--muted)">${s.lbl}</span>
+      <span style="font-size:14px;font-weight:800;color:${valColor}">${s.val}${s.rank?` <span style="font-size:10px;font-weight:400;color:var(--muted)">#${s.rank}</span>`:''}</span>
+    </div>`;
+  }
+  document.getElementById("no-key-stats").innerHTML = `
+    <div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      ${statSections.map(section=>{
+        const sorted=sortByExtremity(section.stats);
+        return `<div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${section.color};margin-bottom:10px;display:flex;align-items:center;gap:6px">
+            <span style="width:3px;height:12px;background:${section.color};border-radius:2px;display:inline-block"></span>
+            ${section.label}
+          </div>
+          <div class="card" style="padding:4px 8px">
+            ${sorted.map((s,i)=>statRow(s,i,i===sorted.length-1)).join("")}
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`;
  
   // H2H
   // Last 5 games for this team (their own results)
@@ -5187,30 +5195,11 @@ async function renderSelfScout(){
     <tr><td style="color:var(--muted)">Away</td><td class="td-num">${t.aw}-${t.al}</td></tr>
   </table>`;
 
-  function compactLineupHTML(l,statField,color,showSign){
-    const ps=[l.P1,l.P2,l.P3,l.P4,l.P5].filter(Boolean);
-    const val=parseFloat(l[statField])||0;
-    const poss=parseFloat(l.Poss)||0;
-    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 12px;background:rgba(255,255,255,0.03);border-radius:6px;margin-bottom:6px">
-      <div style="display:flex;flex-wrap:wrap;gap:4px;flex:1">
-        ${ps.map(p=>`<span style="font-size:10px;background:rgba(255,255,255,0.06);padding:3px 7px;border-radius:4px;color:#fff">${p}</span>`).join("")}
-      </div>
-      <div style="font-size:9px;color:var(--muted);flex-shrink:0">${fmt(poss,0)} poss</div>
-      <div style="font-size:13px;font-weight:800;color:${color};min-width:50px;text-align:right;flex-shrink:0">${showSign&&val>0?"+":""}${fmt(val)}</div>
-    </div>`;
-  }
   const lineupPool=db.raw.lu.filter(r=>matchTeam(r.Team||"",SURREY)&&(parseFloat(r.Poss)||0)>=20);
   const topNet=lineupPool.slice().sort((a,b)=>(parseFloat(b.NETRTG)||0)-(parseFloat(a.NETRTG)||0)).slice(0,3);
   const topOff=lineupPool.slice().sort((a,b)=>(parseFloat(b.OFFRTG)||0)-(parseFloat(a.OFFRTG)||0)).slice(0,3);
   const topDef=lineupPool.slice().sort((a,b)=>(parseFloat(a.DEFRTG)||0)-(parseFloat(b.DEFRTG)||0)).slice(0,3);
   const topUsed=lineupPool.slice().sort((a,b)=>(parseFloat(b.Poss)||0)-(parseFloat(a.Poss)||0)).slice(0,3);
-  function lineupSection(title,color,list,statField,showSign){
-    if(!list.length) return "";
-    return `<div style="margin-bottom:14px">
-      <div style="font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:${color};margin-bottom:6px">${title}</div>
-      ${list.map(l=>compactLineupHTML(l,statField,color,showSign)).join("")}
-    </div>`;
-  }
   document.getElementById("ss-lineups").innerHTML=lineupPool.length
     ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px">
         ${lineupSection("Best Net Rating (Top 3)","var(--green)",topNet,"NETRTG",true)}
