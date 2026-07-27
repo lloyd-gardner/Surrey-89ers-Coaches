@@ -235,7 +235,11 @@
     </div>
     <div class="form-group">
       <label>Synergy CSV export(s)</label>
-      <input type="file" id="synergy-files" accept=".csv" multiple>
+      <input type="file" id="synergy-files" accept=".csv" multiple onchange="addSynergyFiles(this.files)">
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">
+        Since each game's export downloads as "Export.csv" in its own folder, add them one game-folder at a time — each pick adds to the list below rather than replacing it.
+      </div>
+      <div id="synergy-file-list" style="margin-top:8px"></div>
     </div>
     <div class="modal-err" id="synergy-err"></div>
     <div id="synergy-status" style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.6"></div>
@@ -713,6 +717,8 @@ function closeMergeModal(){ document.getElementById("merge-modal").classList.add
 // Populates from the same TEAMS list used for player scouting; stores
 // opponent_name in CAPS format (team.caps) so it matches NEXT_OPP on the
 // the Synergy Scouting tab directly.
+let synergyQueuedFiles = [];
+
 function openSynergyModal(){
   const sel = document.getElementById("synergy-team");
   if (sel.options.length <= 1) {
@@ -722,11 +728,39 @@ function openSynergyModal(){
       sel.appendChild(opt);
     });
   }
+  synergyQueuedFiles = [];
+  renderSynergyFileList();
   document.getElementById("synergy-status").textContent = "";
   document.getElementById("synergy-err").textContent = "";
   document.getElementById("synergy-modal").classList.remove("hidden");
 }
 function closeSynergyModal(){ document.getElementById("synergy-modal").classList.add("hidden"); }
+
+// Every game's export downloads as "Export.csv" in its own folder, so the
+// browser can't multi-select across folders in one go. Each file picker use
+// ADDS to the queue instead of replacing it — that's the actual fix here.
+function addSynergyFiles(fileList){
+  Array.from(fileList||[]).forEach(f=>{
+    const dup = synergyQueuedFiles.some(q=>q.name===f.name && q.size===f.size && q.lastModified===f.lastModified);
+    if(!dup) synergyQueuedFiles.push(f);
+  });
+  document.getElementById("synergy-files").value = ""; // allow re-picking a same-named file later
+  renderSynergyFileList();
+}
+function removeSynergyFile(idx){
+  synergyQueuedFiles.splice(idx,1);
+  renderSynergyFileList();
+}
+function renderSynergyFileList(){
+  const el = document.getElementById("synergy-file-list");
+  if(!synergyQueuedFiles.length){ el.innerHTML = '<div style="font-size:12px;color:var(--muted)">No games added yet.</div>'; return; }
+  el.innerHTML = `<div style="font-size:11px;color:var(--muted);margin-bottom:4px">${synergyQueuedFiles.length} game file(s) queued:</div>` +
+    synergyQueuedFiles.map((f,i)=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:12px">
+        <span>${f.name} <span style="color:var(--muted)">(${Math.round(f.size/1024)} KB)</span></span>
+        <span onclick="removeSynergyFile(${i})" style="cursor:pointer;color:var(--red)">✕</span>
+      </div>`).join("");
+}
 
 // Minimal RFC4180 CSV parser — handles quoted fields containing commas
 // (e.g. "Kedrian Johnson, Victor Ndoukou" and "P&R BH, Spot Up" columns).
@@ -990,10 +1024,52 @@ function buildSynergyReport(offense, defense, teamCapsLabel){
   const mostEffective = bySig.slice(0,3);
   const leastEffective = bySig.slice(-3).reverse();
 
-  // ── Defensive game plan (from the OTHER team's possessions in the same games) ──
+  // ── Defensive game plan (from the OTHER team's possessions in the same games,
+  //    i.e. what opponents did WHILE this team was on defense) ──
+  function locationsForType(sideLocations, type){
+    const tally={};
+    Object.values(sideLocations).forEach(byType=>{
+      if(byType[type]) Object.entries(byType[type]).forEach(([loc,c])=>{ tally[loc]=(tally[loc]||0)+c; });
+    });
+    return topLocations(tally,3);
+  }
+  function enrichDefenseEntry(t){
+    const toRate = t.possessions ? Math.round(100*t.turnovers/t.possessions) : 0;
+    return {
+      ...t,
+      topLocations: locationsForType(defense.locations, t.type),
+      turnoverRatePct: toRate,
+    };
+  }
   const defSig = defense.playTypeTable.filter(sig);
-  const weakDefense = defSig.slice().sort((a,b)=>b.ppp-a.ppp).slice(0,3);
-  const strongDefense = defSig.slice().sort((a,b)=>a.ppp-b.ppp).slice(0,2);
+  const weakDefense = defSig.slice().sort((a,b)=>b.ppp-a.ppp).slice(0,4).map(enrichDefenseEntry);
+  const strongDefense = defSig.slice().sort((a,b)=>a.ppp-b.ppp).slice(0,3).map(enrichDefenseEntry);
+
+  // Discipline: how much pressure this team generates on defense overall
+  // (possession-weighted turnover rate forced across all significant actions).
+  const defTotalPoss = defSig.reduce((n,t)=>n+t.possessions,0);
+  const defTotalTOs = defSig.reduce((n,t)=>n+t.turnovers,0);
+  const overallForcedTORatePct = defTotalPoss ? Math.round(100*defTotalTOs/defTotalPoss) : 0;
+
+  // Offensive rebounds conceded — "Off Reb" tagged on the OTHER team's side
+  // means this team allowed a second-chance opportunity.
+  const orebConceded = defense.playTypeTable.find(t=>t.type==="Off Reb");
+
+  const defenseNotes = [];
+  weakDefense.forEach(t=>{
+    if(t.ppp < 0.9) return;
+    const locNote = t.topLocations.length ? ` — most often from ${t.topLocations[0].label}` : "";
+    const toNote = t.turnoverRatePct>0 ? `; forces turnovers only ${t.turnoverRatePct}% of the time here` : `; generates almost no turnovers on this action`;
+    defenseNotes.push(`${t.type} hurts them defensively${locNote} — opponents scored ${t.ppp} PPP over ${t.possessions} reps${toNote}.`);
+  });
+  strongDefense.forEach(t=>{
+    if(t.ppp > 0.8) return;
+    defenseNotes.push(`They defend ${t.type} well — opponents managed only ${t.ppp} PPP over ${t.possessions} reps.`);
+  });
+  if(orebConceded && orebConceded.possessions>=3){
+    defenseNotes.push(`They concede offensive rebounds at a notable rate (${orebConceded.possessions} second-chance opportunities allowed across these games).`);
+  }
+  defenseNotes.push(`Overall, they force a turnover on ${overallForcedTORatePct}% of possessions defended — ${overallForcedTORatePct>=15?"active hands, worth attacking with simple decisions":"not a high-pressure defense, live-ball turnovers are unlikely to bail you out"}.`);
 
   // ── One-line summary ──
   const topType = topActions[0];
@@ -1001,27 +1077,27 @@ function buildSynergyReport(offense, defense, teamCapsLabel){
   const topWeak = weakDefense[0];
   let oneLiner = topType ? `Their offense runs through ${topType.type} (${topType.frequencyPct}% usage, ${topType.ppp} PPP).` : "";
   if(topCreator) oneLiner += ` ${topCreator[0]} is their primary connector, setting up teammates ${topCreator[1].createdPlays} times.`;
-  if(topWeak && topWeak.ppp>=0.9) oneLiner += ` Defensively, they're most exploitable against ${topWeak.type} (${topWeak.ppp} PPP allowed).`;
+  if(topWeak && topWeak.ppp>=0.9) oneLiner += ` Defensively, they're most exploitable against ${topWeak.type}${topWeak.topLocations.length?` (especially ${topWeak.topLocations[0].label})`:""} at ${topWeak.ppp} PPP allowed.`;
 
   return {
     identityLine, topActions, playerCards, prReport, transitionReport, postUpReport,
-    mostEffective, leastEffective, weakDefense, strongDefense, oneLiner,
+    mostEffective, leastEffective, weakDefense, strongDefense, defenseNotes,
+    overallForcedTORatePct, orebConceded, oneLiner,
   };
 }
 
 async function generateSynergyReport(){
   const opponentCaps = document.getElementById("synergy-team").value;
-  const fileInput = document.getElementById("synergy-files");
   const errEl = document.getElementById("synergy-err");
   const statusEl = document.getElementById("synergy-status");
   const btn = document.getElementById("synergy-generate-btn");
   errEl.textContent = ""; statusEl.textContent = "";
   if(!opponentCaps){ errEl.textContent = "Choose an opponent."; return; }
-  if(!fileInput.files || !fileInput.files.length){ errEl.textContent = "Choose at least one Synergy CSV export."; return; }
+  if(!synergyQueuedFiles.length){ errEl.textContent = "Add at least one Synergy CSV export."; return; }
 
   btn.disabled = true; statusEl.textContent = "Reading files…";
   try{
-    const files = Array.from(fileInput.files);
+    const files = synergyQueuedFiles.slice();
     const allPlays = [];
     const gamesMeta = [];
     for(const file of files){
@@ -1087,6 +1163,8 @@ async function generateSynergyReport(){
       }
     }
 
+    synergyQueuedFiles = [];
+    renderSynergyFileList();
     statusEl.textContent = `Done — ${summary.totalPossessions} possessions across ${files.length} games. View it under the Synergy Scouting tab for ${opponentCaps}.`;
   } catch(e){
     console.error(e);
