@@ -321,7 +321,7 @@ function photoURL(p){
 }
 function avatarImg(p){
   if(!p||!p.slug) return "";
-  return `<img class="av-img" src="${photoURL(p)}" alt="" loading="lazy" onerror="this.remove()">`;
+  return `<img class="av-img" src="${photoURL(p)}" alt="" onerror="this.remove()">`;
 }
 
 function ini(name){return name.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase();}
