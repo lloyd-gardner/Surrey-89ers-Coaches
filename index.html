@@ -70,7 +70,9 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .wellness-grid-dash{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .wcard{background:var(--card2);border:1px solid var(--border-soft);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:border-color 0.15s}
 .wcard:hover{border-color:var(--green)}
-.wcard-av{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;flex-shrink:0}
+.wcard-av{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;flex-shrink:0;position:relative;overflow:hidden}
+.av-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 8%;border-radius:50%}
+
 .wcard-info{flex:1;min-width:0}
 .wcard-name{font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wcard-status{font-size:9.5px;margin-top:2px;display:flex;align-items:center;gap:4px}
@@ -259,7 +261,7 @@ async function loadRoster(){
     const rows=rosterParseCSV(await res.text()).filter(r=>r.some(c=>c!==""));
     if(!rows.length) throw new Error("roster empty");
 
-    const DEF=["slug","name","number","position","tab","active"];
+    const DEF=["slug","name","number","position","tab","active","photo"];
     const head=rows[0].map(h=>h.toLowerCase().replace(/[^a-z]/g,""));
     const hasHeader=head.includes("slug");
     const col={};DEF.forEach((k,i)=>{const f=hasHeader?head.indexOf(k):-1;col[k]=f>=0?f:i;});
@@ -270,7 +272,8 @@ async function loadRoster(){
       num:r[col.number]||"",
       pos:r[col.position]||"",
       tab:r[col.tab]||r[col.name]||"",
-      active:String(r[col.active]||"TRUE").toUpperCase()!=="FALSE"
+      active:String(r[col.active]||"TRUE").toUpperCase()!=="FALSE",
+      photo:r[col.photo]||""
     })).filter(p=>p.slug&&p.slug!=="slug"&&p.active);
 
     if(!out.length) throw new Error("no active players");
@@ -306,6 +309,21 @@ function parseCSV(text){
   return rows.filter(r=>r.length>1||r[0]!=="").map(r=>r.map(c=>c.trim()));
 }
 function val(rows,key){const r=rows.find(r=>clean(r[0])===key);return r?clean(r[1]):"";}
+
+/* Player cut-outs are hosted on the players site as /photos/<slug>.png.
+   A ROSTER "photo" column overrides that with any full URL.
+   If the file is missing the <img> removes itself and the initials show through. */
+const PHOTO_BASE="https://surrey-89ers-players.vercel.app/photos/";
+function photoURL(p){
+  const custom=(p.photo||"").trim();
+  if(/^https?:\/\//i.test(custom)) return custom;
+  return PHOTO_BASE+(p.slug||"")+".png";
+}
+function avatarImg(p){
+  if(!p||!p.slug) return "";
+  return `<img class="av-img" src="${photoURL(p)}" alt="" loading="lazy" onerror="this.remove()">`;
+}
+
 function ini(name){return name.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase();}
 
 function tryLogin(){
@@ -374,7 +392,7 @@ async function init(){
     const avg=scores.reduce((a,b)=>a+b,0)/scores.length;
     const cls=dotClass(avg);
     cards.push(`<div class="wcard" onclick="window.open('https://surrey-89ers-players.vercel.app/${info.slug}','_blank')">
-      <div class="wcard-av">${ini(name)}</div>
+      <div class="wcard-av">${ini(name)}${avatarImg(info)}</div>
       <div class="wcard-info"><div class="wcard-name">${name}</div>
       <div class="wcard-status"><div class="wdot wdot-${cls}"></div><span class="wlabel-${cls}">${statusLabel(avg)}</span></div></div>
       <div class="wcard-arrow">→</div>
@@ -383,7 +401,7 @@ async function init(){
 
   for(const p of OTHER_PLAYERS){
     cards.push(`<div class="wcard" onclick="window.open('https://surrey-89ers-players.vercel.app/${p.slug}','_blank')">
-      <div class="wcard-av">${ini(p.name)}</div>
+      <div class="wcard-av">${ini(p.name)}${avatarImg(p)}</div>
       <div class="wcard-info"><div class="wcard-name">${p.name}</div>
       <div class="wcard-status"><div class="wdot wdot-gray"></div><span class="wlabel-gray">No data yet</span></div></div>
       <div class="wcard-arrow">→</div>

@@ -108,7 +108,9 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .player-link-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .player-link-card{background:var(--card);border:1px solid var(--border-soft);border-radius:10px;padding:14px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:border-color 0.15s;text-decoration:none;color:inherit}
 .player-link-card:hover{border-color:var(--green)}
-.pl-av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;flex-shrink:0}
+.pl-av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;flex-shrink:0;position:relative;overflow:hidden}
+.av-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 8%;border-radius:50%}
+
 .pl-info{flex:1;min-width:0}
 .pl-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pl-meta{font-size:10.5px;color:var(--muted)}
@@ -200,7 +202,7 @@ async function loadRoster(){
     const rows=rosterParseCSV(await res.text()).filter(r=>r.some(c=>c!==""));
     if(!rows.length) throw new Error("roster empty");
 
-    const DEF=["slug","name","number","position","tab","active"];
+    const DEF=["slug","name","number","position","tab","active","photo"];
     const head=rows[0].map(h=>h.toLowerCase().replace(/[^a-z]/g,""));
     const hasHeader=head.includes("slug");
     const col={};DEF.forEach((k,i)=>{const f=hasHeader?head.indexOf(k):-1;col[k]=f>=0?f:i;});
@@ -211,7 +213,8 @@ async function loadRoster(){
       num:r[col.number]||"",
       pos:r[col.position]||"",
       tab:r[col.tab]||r[col.name]||"",
-      active:String(r[col.active]||"TRUE").toUpperCase()!=="FALSE"
+      active:String(r[col.active]||"TRUE").toUpperCase()!=="FALSE",
+      photo:r[col.photo]||""
     })).filter(p=>p.slug&&p.slug!=="slug"&&p.active);
 
     if(!out.length) throw new Error("no active players");
@@ -252,6 +255,21 @@ if(sessionStorage.getItem("89ers_auth")==="1"){
   }
 }
 
+
+/* Player cut-outs are hosted on the players site as /photos/<slug>.png.
+   A ROSTER "photo" column overrides that with any full URL.
+   If the file is missing the <img> removes itself and the initials show through. */
+const PHOTO_BASE="https://surrey-89ers-players.vercel.app/photos/";
+function photoURL(p){
+  const custom=(p.photo||"").trim();
+  if(/^https?:\/\//i.test(custom)) return custom;
+  return PHOTO_BASE+(p.slug||"")+".png";
+}
+function avatarImg(p){
+  if(!p||!p.slug) return "";
+  return `<img class="av-img" src="${photoURL(p)}" alt="" loading="lazy" onerror="this.remove()">`;
+}
+
 function ini(name){return name.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase();}
 
 async function init(){
@@ -259,7 +277,7 @@ async function init(){
   if(live) PLAYERS=live;
   document.getElementById("player-grid").innerHTML=PLAYERS.map(p=>`
     <a class="player-link-card" href="https://surrey-89ers-players.vercel.app/${p.slug}" target="_blank">
-      <div class="pl-av">${ini(p.name)}</div>
+      <div class="pl-av">${ini(p.name)}${avatarImg(p)}</div>
       <div class="pl-info"><div class="pl-name">${p.name}</div><div class="pl-meta">${p.pos} · #${p.num}</div></div>
       <div class="pl-arrow">→</div>
     </a>`).join("");
