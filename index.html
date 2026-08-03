@@ -224,7 +224,63 @@ const PASSWORD="89ers2627";
 
 const SCHEDULE_CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vTxFit7jrGqaHcbBTuK15aBvfn4AVsd5MWK4tMLgDyoQdCJSHvQM7F4cRFK-3w91n65RlfMlNISYFD8/pub?gid=0&single=true&output=csv";
 const PLAYER_PORTAL_GIDS={"Kareem Queeley": {"gid": "1632339033", "slug": "kareem-queeley"}, "Ollie Bishop": {"gid": "1821311777", "slug": "ollie-bishop"}};
-const OTHER_PLAYERS=[{"name": "DJ Parkinson", "num": "5", "pos": "Guard", "slug": "dj-parkinson"}, {"name": "Kino Lilly", "num": "3", "pos": "Guard", "slug": "kino-lilly"}, {"name": "Tayo Ogedengbe", "num": "24", "pos": "Forward", "slug": "tayo-ogedengbe"}, {"name": "Tim Nwankwo", "num": "20", "pos": "Big", "slug": "tim-nwankwo"}, {"name": "Haydn Ling", "num": "8", "pos": "Guard", "slug": "haydn-ling"}, {"name": "Mike Graham", "num": "14", "pos": "Big", "slug": "mike-graham"}, {"name": "Andrew Lawrence", "num": "22", "pos": "Guard", "slug": "andrew-lawrence"}, {"name": "Ronald Polite", "num": "10", "pos": "Forward", "slug": "ronald-polite"}, {"name": "Nedas Cholevinskas", "num": "9", "pos": "Big", "slug": "nedas-cholevinskas"}];
+
+/* ============================================================
+   SHARED ROSTER — single source of truth is the Google Sheet.
+   Add / remove / rename a player in the ROSTER tab of
+   "Surrey 89ers - Player Portals" and every page here updates.
+   No code change needed.
+   ============================================================ */
+const ROSTER_SHEET_ID="1NqYAMc7L_yzaiTlms6SpjvhhoJqg19n5XYtj7IGcJqg";
+function rosterTabURL(tab){
+  return "https://docs.google.com/spreadsheets/d/"+ROSTER_SHEET_ID+
+         "/gviz/tq?tqx=out:csv&headers=0&sheet="+encodeURIComponent(tab)+
+         "&cachebust="+Date.now();
+}
+function rosterClean(s){return(s||"").replace(/^"|"$/g,"").trim();}
+function rosterParseCSV(text){
+  return text.trim().split("\n").map(line=>{
+    const cols=[];let cur="",inQ=false;
+    for(let i=0;i<line.length;i++){
+      if(line[i]==='"'){inQ=!inQ;}
+      else if(line[i]===","&&!inQ){cols.push(rosterClean(cur));cur="";}
+      else{cur+=line[i];}
+    }
+    cols.push(rosterClean(cur));return cols;
+  });
+}
+/* Returns [{name,num,pos,slug,tab,active}] from the ROSTER tab.
+   Falls back to whatever PLAYERS already holds if the sheet is unreachable. */
+async function loadRoster(){
+  try{
+    const res=await fetch(rosterTabURL("ROSTER"));
+    if(!res.ok) throw new Error("roster http "+res.status);
+    const rows=rosterParseCSV(await res.text()).filter(r=>r.some(c=>c!==""));
+    if(!rows.length) throw new Error("roster empty");
+
+    const DEF=["slug","name","number","position","tab","active"];
+    const head=rows[0].map(h=>h.toLowerCase().replace(/[^a-z]/g,""));
+    const hasHeader=head.includes("slug");
+    const col={};DEF.forEach((k,i)=>{const f=hasHeader?head.indexOf(k):-1;col[k]=f>=0?f:i;});
+
+    const out=(hasHeader?rows.slice(1):rows).map(r=>({
+      slug:(r[col.slug]||"").toLowerCase().trim(),
+      name:r[col.name]||"",
+      num:r[col.number]||"",
+      pos:r[col.position]||"",
+      tab:r[col.tab]||r[col.name]||"",
+      active:String(r[col.active]||"TRUE").toUpperCase()!=="FALSE"
+    })).filter(p=>p.slug&&p.slug!=="slug"&&p.active);
+
+    if(!out.length) throw new Error("no active players");
+    return out;
+  }catch(e){
+    console.error("ROSTER tab unreachable, using built-in fallback list:",e);
+    return null;
+  }
+}
+
+let OTHER_PLAYERS=[{"name": "DJ Parkinson", "num": "5", "pos": "Guard", "slug": "dj-parkinson"}, {"name": "Kino Lilly", "num": "3", "pos": "Guard", "slug": "kino-lilly"}, {"name": "Tayo Ogedengbe", "num": "24", "pos": "Forward", "slug": "tayo-ogedengbe"}, {"name": "Tim Nwankwo", "num": "20", "pos": "Big", "slug": "tim-nwankwo"}, {"name": "Haydn Ling", "num": "8", "pos": "Guard", "slug": "haydn-ling"}, {"name": "Mike Graham", "num": "14", "pos": "Big", "slug": "mike-graham"}, {"name": "Andrew Lawrence", "num": "22", "pos": "Guard", "slug": "andrew-lawrence"}, {"name": "Ronald Polite", "num": "10", "pos": "Forward", "slug": "ronald-polite"}, {"name": "Nedas Cholevinskas", "num": "9", "pos": "Big", "slug": "nedas-cholevinskas"}];
 const PLAYER_PORTAL_BASE="https://docs.google.com/spreadsheets/d/e/2PACX-1vR8A808exKxTx7Ez2BKmezBFV4NDcPiDGpuTsnltGNsPXL7-CGJUX-VQzKpjd5zbRjFHPhe6cFcPNfP/pub?single=true&output=csv&gid=";
 const PRACTICE_URLS={"practices": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQKRFsRCVYbEDikkCWXUjHub2GdNPv3MjlRabHOffhhKixskBbM-L265fHu8j1LH1nEGPYTngmhWe7k/pub?single=true&output=csv&gid=798917355", "drills": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQKRFsRCVYbEDikkCWXUjHub2GdNPv3MjlRabHOffhhKixskBbM-L265fHu8j1LH1nEGPYTngmhWe7k/pub?single=true&output=csv&gid=1203589648", "tags": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQKRFsRCVYbEDikkCWXUjHub2GdNPv3MjlRabHOffhhKixskBbM-L265fHu8j1LH1nEGPYTngmhWe7k/pub?single=true&output=csv&gid=1237659212", "roster": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQKRFsRCVYbEDikkCWXUjHub2GdNPv3MjlRabHOffhhKixskBbM-L265fHu8j1LH1nEGPYTngmhWe7k/pub?single=true&output=csv&gid=1608493875", "drill_library": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQKRFsRCVYbEDikkCWXUjHub2GdNPv3MjlRabHOffhhKixskBbM-L265fHu8j1LH1nEGPYTngmhWe7k/pub?single=true&output=csv&gid=677594456"};
 
@@ -292,8 +348,19 @@ async function init(){
   const grid=document.getElementById("wellness-grid");
   let cards=[];
 
-  for(const [name,info] of Object.entries(PLAYER_PORTAL_GIDS)){
-    const url=PLAYER_PORTAL_BASE+info.gid;
+  /* Build the wellness list from the ROSTER tab so every player appears,
+     falling back to the old hardcoded pair if the sheet is unreachable. */
+  const live=await loadRoster();
+  let wellnessList;
+  if(live){
+    wellnessList=live.map(p=>[p.name,{slug:p.slug,tab:p.tab}]);
+    OTHER_PLAYERS=[];
+  }else{
+    wellnessList=Object.entries(PLAYER_PORTAL_GIDS);
+  }
+
+  for(const [name,info] of wellnessList){
+    const url=info.tab?rosterTabURL(info.tab):PLAYER_PORTAL_BASE+info.gid;
     const rows=await fetchCSV(url);
     const scores=[
       parseFloat(val(rows,"sleep_quality")||0),
