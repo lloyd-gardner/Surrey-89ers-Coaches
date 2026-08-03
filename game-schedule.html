@@ -133,6 +133,64 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .wsd-ev-meta{font-size:10px;color:var(--muted);margin-top:1px}
 .wsd-empty{font-size:10px;color:var(--muted);padding:5px 14px 8px;font-style:italic}
 
+
+/* ===== GAME SCHEDULE ===== */
+.gs-wrap{max-width:1000px;margin:0 auto;padding:24px 22px 60px}
+
+.next-card{background:linear-gradient(135deg,rgba(0,131,72,0.18),rgba(0,131,72,0.03));
+  border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:16px;
+  display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
+.next-lab{font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--green);margin-bottom:7px}
+.next-opp{font-family:'Space Grotesk',sans-serif;font-size:25px;font-weight:700;line-height:1.15}
+.next-meta{font-size:12.5px;color:var(--offwhite-mid);margin-top:7px;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.next-when{text-align:right}
+.next-days{font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:700;line-height:1}
+.next-days-lab{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:3px}
+
+.sumrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px;margin-bottom:18px}
+.sum{background:var(--card);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px}
+.sum-v{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;line-height:1}
+.sum-l{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:5px}
+
+.gs-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.gs-chip{background:var(--card);border:1px solid var(--border-soft);color:var(--offwhite-mid);
+  border-radius:7px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:.12s}
+.gs-chip:hover{border-color:var(--green);color:var(--offwhite)}
+.gs-chip.on{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+
+.mo{margin-top:22px}
+.mo-h{font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.4px;
+  text-transform:uppercase;color:var(--muted);padding-bottom:7px;border-bottom:1px solid var(--border-soft);margin-bottom:2px}
+
+.gm{display:flex;align-items:center;gap:14px;padding:12px 8px 12px 4px;border-bottom:1px solid var(--border-soft)}
+.gm:last-child{border-bottom:0}
+.gm.past{opacity:.42}
+.gm.next{background:linear-gradient(90deg,var(--green-dim),transparent);border-radius:8px;
+  padding-left:10px;margin-left:-6px}
+.gm-date{width:50px;flex-shrink:0;text-align:center}
+.gm-dow{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.gm-dom{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:700;line-height:1.15}
+.gm-ha{width:30px;flex-shrink:0;font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;
+  text-align:center;border-radius:5px;padding:3px 0;letter-spacing:.5px}
+.ha-H{background:rgba(0,131,72,.22);color:#4ade80}
+.ha-A{background:rgba(96,200,250,.14);color:#8fd8fb}
+.ha-N{background:rgba(250,249,246,.08);color:var(--muted)}
+.gm-body{flex:1;min-width:0}
+.gm-opp{font-size:14px;font-weight:600}
+.gm-meta{font-size:11.5px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap;margin-top:2px}
+.gm-comp{font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:3px 7px;
+  border-radius:4px;flex-shrink:0;border:1px solid transparent}
+.c-League{background:rgba(0,131,72,.18);color:#4ade80;border-color:rgba(0,131,72,.3)}
+.c-Cup{background:rgba(245,158,11,.14);color:#f9c467;border-color:rgba(245,158,11,.25)}
+.c-Playoffs{background:rgba(224,85,85,.16);color:#ff8a8a;border-color:rgba(224,85,85,.3)}
+.c-Preseason{background:rgba(167,139,250,.14);color:#c4b1fc;border-color:rgba(167,139,250,.25)}
+.c-Other{background:rgba(250,249,246,.07);color:var(--offwhite-mid)}
+
+.gs-note{background:var(--card);border:1px dashed var(--border);border-radius:10px;padding:24px;
+  text-align:center;color:var(--muted);font-size:13px;line-height:1.7;margin-top:20px}
+.gs-load{text-align:center;color:var(--muted);font-size:13px;padding:50px 0}
+.gs-foot{font-size:11px;color:var(--muted);margin-top:22px;line-height:1.7}
+
 </style>
 </head>
 <body>
@@ -157,14 +215,19 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
     <button class="btn" onclick="logout()">Sign out</button>
   </div>
 </div>
-<div style="max-width:900px;margin:0 auto;padding:24px">
+<div class="gs-wrap">
   <div class="page-title">Game Schedule</div>
-  <div class="page-sub">Super League Basketball · Season 2026-27</div>
-  <div style="margin-top:40px;text-align:center;padding:60px 24px;background:var(--card);border:1px dashed var(--border);border-radius:12px">
-    <div style="font-size:32px;margin-bottom:14px">🏀</div>
-    <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:var(--offwhite-mid);margin-bottom:8px">Game Schedule Coming Soon</div>
-    <div style="font-size:12px;color:var(--muted);line-height:1.6;max-width:360px;margin:0 auto">The SLB fixture list for 2026-27 hasn't been released yet. Once fixtures are confirmed, add them to the Master Schedule sheet with category set to <strong style="color:var(--offwhite)">Game</strong> — they'll appear here automatically.</div>
-  </div>
+  <div class="page-sub" id="gs-sub">Loading fixtures…</div>
+
+  <div id="gs-next"></div>
+  <div id="gs-summary"></div>
+
+  <div class="gs-filters" id="gs-comp"></div>
+  <div class="gs-filters" id="gs-venue" style="margin-bottom:14px"></div>
+
+  <div id="gs-list"><div class="gs-load">Loading the fixture list…</div></div>
+
+  <div class="gs-foot" id="gs-foot"></div>
 </div>
 </div>
 <script>
@@ -176,10 +239,227 @@ function tryLogin(){
 }
 document.getElementById("login-pass").addEventListener("keydown",e=>{if(e.key==="Enter")tryLogin();});
 function logout(){sessionStorage.removeItem("89ers_auth");location.reload();}
-function showApp(){document.getElementById("login-screen").style.display="none";document.getElementById("app").style.display="block";}
+function showApp(){document.getElementById("login-screen").style.display="none";document.getElementById("app").style.display="block";initGames();}
 if(sessionStorage.getItem("89ers_auth")==="1"){
   if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",showApp);}else{showApp();}
 }
+
+/* ============================================================
+   GAME SCHEDULE
+   Everything comes from the master schedule sheet — every row
+   with category "Game". Nothing is stored in this page.
+   ============================================================ */
+const SCHEDULE_CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vTxFit7jrGqaHcbBTuK15aBvfn4AVsd5MWK4tMLgDyoQdCJSHvQM7F4cRFK-3w91n65RlfMlNISYFD8/pub?gid=0&single=true&output=csv";
+const HOME_VENUE="Surrey Sports Park";
+const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function gsClean(v){return(v||"").replace(/^"|"$/g,"").replace(/\r/g,"").trim();}
+function gsCSV(text){
+  return text.replace(/\r/g,"").trim().split("\n").map(line=>{
+    const c=[];let cur="",q=false;
+    for(const ch of line){
+      if(ch==='"')q=!q;
+      else if(ch===","&&!q){c.push(gsClean(cur));cur="";}
+      else cur+=ch;
+    }
+    c.push(gsClean(cur));return c;
+  });
+}
+function gsDate(v){const p=String(v).split("/");if(p.length!==3)return null;
+  const d=new Date(+p[2],+p[1]-1,+p[0]);return isNaN(d.getTime())?null:d;}
+function today0(){const d=new Date();d.setHours(0,0,0,0);return d;}
+
+/* Which competition, from the notes column */
+function competitionOf(notes,title){
+  const n=(notes||"").toLowerCase(), t=(title||"").toLowerCase();
+  if(n.includes("cup"))return "Cup";
+  if(n.includes("playoff")||t.includes("playoff"))return "Playoffs";
+  if(n.includes("preseason")||n.includes("portugal")||t.includes("preseason"))return "Preseason";
+  if(n.includes("championship")||/^rs\s*\d/i.test(notes||""))return "League";
+  return "Other";
+}
+
+/* Home, Away or Neutral. The venue is the fact; the vs/@ prefix is the
+   fallback. A "vs" game played in Portugal is not a home game. */
+function venueOf(title,location){
+  const t=(title||"").trim();
+  const atHome=(location||"").toLowerCase().includes(HOME_VENUE.toLowerCase());
+  let opp=t, ha, guessed=false;
+  if(/^vs\s+/i.test(t)){
+    opp=t.replace(/^vs\s+/i,"").trim();
+    ha=atHome?"H":"N";                    /* a "vs" played elsewhere is not a home game */
+  }else if(/^@\s*/.test(t)){
+    opp=t.replace(/^@\s*/,"").trim();
+    ha="A";
+  }else{
+    ha=atHome?"H":"N";
+    guessed=!atHome;                      /* no vs / @ to go on - flag it rather than guess */
+  }
+  return {ha,opp,guessed};
+}
+
+/* A row with no opponent (e.g. "Start of SLB Season") is a marker, not a fixture */
+function isFixture(title){
+  const t=(title||"").toLowerCase();
+  if(/^(start|end) of/.test(t))return false;
+  return true;
+}
+
+let GAMES=[], MARKERS=[], COMP="All", VENUE="All";
+
+async function loadGames(){
+  const res=await fetch(SCHEDULE_CSV+"&cachebust="+Date.now());
+  if(!res.ok) throw new Error("schedule http "+res.status);
+  const rows=gsCSV(await res.text());
+  const head=rows[0].map(h=>h.toLowerCase().replace(/[^a-z_]/g,""));
+  const at=n=>head.indexOf(n);
+  const iDate=at("date"), iStart=at("start_time"), iCat=at("category"), iTitle=at("title"),
+        iNotes=at("notes"), iLoc=at("location");
+  /* if a result/score column is ever added to the sheet it lights up here */
+  const iRes=at("result"), iScore=at("score");
+
+  const all=[], marks=[];
+  rows.slice(1).forEach(r=>{
+    if(!/game/i.test(r[iCat]||"")) return;
+    const d=gsDate(r[iDate]); const title=r[iTitle];
+    if(!d||!title) return;
+    const rec={ date:d, start:iStart>=0?r[iStart]:"", title,
+                notes:iNotes>=0?r[iNotes]:"", loc:iLoc>=0?r[iLoc]:"",
+                comp:competitionOf(iNotes>=0?r[iNotes]:"",title),
+                result:iRes>=0?r[iRes]:"", score:iScore>=0?r[iScore]:"" };
+    Object.assign(rec, venueOf(title, rec.loc));
+    (isFixture(title)?all:marks).push(rec);
+  });
+  all.sort((a,b)=>a.date-b.date);
+  marks.sort((a,b)=>a.date-b.date);
+  return [all, marks];
+}
+
+function shown(g){
+  if(COMP!=="All" && g.comp!==COMP) return false;
+  if(VENUE==="Home" && g.ha!=="H") return false;
+  if(VENUE==="Away" && g.ha!=="A") return false;
+  return true;
+}
+
+function render(){
+  const t=today0();
+  const list=GAMES.filter(shown);
+  const nextGame=GAMES.find(g=>g.date>=t);
+
+  /* next fixture */
+  const nx=document.getElementById("gs-next");
+  if(nextGame){
+    const days=Math.round((nextGame.date-t)/86400000);
+    nx.innerHTML=`<div class="next-card">
+      <div>
+        <div class="next-lab">Next fixture</div>
+        <div class="next-opp">${nextGame.ha==="H"?"vs ":nextGame.ha==="A"?"@ ":""}${nextGame.opp}</div>
+        <div class="next-meta">
+          <span class="gm-comp c-${nextGame.comp}">${nextGame.comp}</span>
+          <span>${DAYS[(nextGame.date.getDay()+6)%7]} ${nextGame.date.getDate()} ${MONTHS[nextGame.date.getMonth()]}</span>
+          ${nextGame.start?`<span>${nextGame.start}</span>`:""}
+          ${nextGame.loc?`<span>${nextGame.loc}</span>`:""}
+        </div>
+      </div>
+      <div class="next-when">
+        <div class="next-days">${days===0?"Today":days===1?"Tomorrow":days}</div>
+        <div class="next-days-lab">${days>1?"days away":""}</div>
+      </div>
+    </div>`;
+  } else nx.innerHTML="";
+
+  /* summary counts always describe the whole season, not the filter */
+  const home=GAMES.filter(g=>g.ha==="H").length;
+  const away=GAMES.filter(g=>g.ha==="A").length;
+  const neut=GAMES.filter(g=>g.ha==="N").length;
+  const played=GAMES.filter(g=>g.date<t).length;
+  document.getElementById("gs-summary").innerHTML=`<div class="sumrow">
+    <div class="sum"><div class="sum-v">${GAMES.length}</div><div class="sum-l">Fixtures</div></div>
+    <div class="sum"><div class="sum-v">${home}</div><div class="sum-l">Home</div></div>
+    <div class="sum"><div class="sum-v">${away}</div><div class="sum-l">Away</div></div>
+    ${neut?`<div class="sum"><div class="sum-v">${neut}</div><div class="sum-l">Neutral</div></div>`:""}
+    <div class="sum"><div class="sum-v">${GAMES.length-played}</div><div class="sum-l">To come</div></div>
+  </div>`;
+
+  /* the list */
+  const box=document.getElementById("gs-list");
+  if(!list.length){ box.innerHTML=`<div class="gs-note">No fixtures match this filter.</div>`; return; }
+
+  const groups={};
+  list.forEach(g=>{ const k=g.date.getFullYear()+"-"+g.date.getMonth(); (groups[k]=groups[k]||[]).push(g); });
+
+  box.innerHTML=Object.keys(groups).map(k=>{
+    const [y,m]=k.split("-").map(Number);
+    const rows=groups[k].map(g=>{
+      const isNext=nextGame&&g===nextGame;
+      const meta=[g.start,g.loc,g.notes].filter(Boolean).map(x=>`<span>${x}</span>`).join("");
+      const score=g.score||g.result;
+      return `<div class="gm ${g.date<t?"past":""} ${isNext?"next":""}">
+        <div class="gm-date">
+          <div class="gm-dow">${DAYS[(g.date.getDay()+6)%7]}</div>
+          <div class="gm-dom">${g.date.getDate()}</div>
+        </div>
+        <div class="gm-ha ha-${g.ha}">${g.ha}</div>
+        <div class="gm-body">
+          <div class="gm-opp">${g.opp}${score?` <span style="color:var(--muted);font-weight:500">· ${score}</span>`:""}</div>
+          ${meta?`<div class="gm-meta">${meta}</div>`:""}
+        </div>
+        <div class="gm-comp c-${g.comp}">${g.comp}</div>
+      </div>`;
+    }).join("");
+    return `<div class="mo"><div class="mo-h">${MONTHS[m]} ${y}</div>${rows}</div>`;
+  }).join("");
+}
+
+function setComp(c,el){ COMP=c; document.querySelectorAll("#gs-comp .gs-chip").forEach(x=>x.classList.remove("on")); el.classList.add("on"); render(); }
+function setVenue(v,el){ VENUE=v; document.querySelectorAll("#gs-venue .gs-chip").forEach(x=>x.classList.remove("on")); el.classList.add("on"); render(); }
+
+function buildFilters(){
+  const comps=["All",...[...new Set(GAMES.map(g=>g.comp))].sort()];
+  document.getElementById("gs-comp").innerHTML=comps.map(c=>{
+    const n=c==="All"?GAMES.length:GAMES.filter(g=>g.comp===c).length;
+    return `<button class="gs-chip ${c==="All"?"on":""}" onclick="setComp('${c}',this)">${c} <span style="opacity:.6">${n}</span></button>`;
+  }).join("");
+  document.getElementById("gs-venue").innerHTML=["All","Home","Away"].map(v=>
+    `<button class="gs-chip ${v==="All"?"on":""}" onclick="setVenue('${v}',this)">${v}</button>`).join("");
+}
+
+async function initGames(){
+  try{
+    [GAMES, MARKERS]=await loadGames();
+  }catch(e){
+    console.error(e);
+    document.getElementById("gs-list").innerHTML=`<div class="gs-note">Could not load the schedule right now.<br>Please try again in a moment.</div>`;
+    document.getElementById("gs-sub").textContent="";
+    return;
+  }
+
+  if(!GAMES.length){
+    document.getElementById("gs-sub").textContent="Super League Basketball · Season 2026-27";
+    document.getElementById("gs-list").innerHTML=`<div class="gs-note">No games are on the master schedule yet.<br>
+      Add rows with category <strong>Game</strong> and they will appear here.</div>`;
+    return;
+  }
+
+  const t=today0();
+  const remaining=GAMES.filter(g=>g.date>=t).length;
+  document.getElementById("gs-sub").textContent=
+    `Super League Basketball · Season 2026-27 · ${GAMES.length} fixtures, ${remaining} still to play`;
+
+  buildFilters();
+  render();
+
+  const foot=[];
+  foot.push("Home / away comes from the <strong>vs</strong> or <strong>@</strong> at the front of the title, checked against the venue — a \u201cvs\u201d game played away from "+HOME_VENUE+" is counted as neutral.");
+  const guessed=GAMES.filter(g=>g.guessed);
+  if(guessed.length) foot.push("<strong>Cannot tell home from away</strong> for "+guessed.length+" fixture"+(guessed.length>1?"s":"")+" \u2014 "+guessed.map(g=>g.title).join(", ")+". Put <strong>vs</strong> or <strong>@</strong> at the front of those titles on the schedule and they will classify correctly.");
+  if(MARKERS.length) foot.push("Not counted as fixtures: "+MARKERS.map(m=>m.title).join(", ")+" \u2014 tagged Game on the schedule but with no opponent.");
+  foot.push("Everything here reads live from the master schedule. Add or change a Game row there and this page follows.");
+  document.getElementById("gs-foot").innerHTML=foot.join("<br><br>");
+}
+
 window.addEventListener("load",()=>{
   document.getElementById("login-logo").src="data:image/jpeg;base64,"+LOGO;
   const tl=document.getElementById("topbar-logo");if(tl)tl.src="data:image/jpeg;base64,"+LOGO;
