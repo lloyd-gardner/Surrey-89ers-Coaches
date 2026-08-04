@@ -133,6 +133,43 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .wsd-ev-title{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wsd-ev-meta{font-size:10px;color:var(--muted);margin-top:1px}
 .wsd-empty{font-size:10px;color:var(--muted);padding:5px 14px 8px;font-style:italic}
+
+/* ===== DASHBOARD KPI ROW ===== */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--border-soft);border-radius:10px;padding:14px 16px;
+  display:flex;flex-direction:column;justify-content:space-between;min-height:92px}
+.kpi.accent{background:linear-gradient(135deg,rgba(0,131,72,0.16),rgba(0,131,72,0.02));border-color:var(--border)}
+.kpi-l{font-size:9.5px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted)}
+.kpi-v{font-family:'Space Grotesk',sans-serif;font-size:25px;font-weight:700;line-height:1.1;margin-top:8px}
+.kpi-v small{font-size:14px;font-weight:600;color:var(--muted)}
+.kpi-s{font-size:11px;color:var(--offwhite-mid);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi.clickable{cursor:pointer;transition:border-color .15s}
+.kpi.clickable:hover{border-color:var(--green)}
+
+/* ===== PLAYER TILES ===== */
+.ptile-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(124px,1fr));gap:10px}
+.ptile{background:var(--card2);border:1px solid var(--border-soft);border-radius:10px;padding:14px 8px 12px;
+  text-align:center;cursor:pointer;transition:border-color .15s,transform .15s}
+.ptile:hover{border-color:var(--green);transform:translateY(-2px)}
+.ptile-av{width:64px;height:64px;border-radius:50%;margin:0 auto 9px;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;
+  justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:700}
+.ptile-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ptile-pos{font-size:10px;color:var(--muted);margin-top:2px}
+.ptile-st{font-size:9.5px;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:4px}
+
+/* ===== WATCHLIST ===== */
+.watch-row{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--border-soft)}
+.watch-row:last-child{border-bottom:0}
+.watch-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,var(--green),var(--green-dark));display:flex;align-items:center;
+  justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:700}
+.watch-body{flex:1;min-width:0}
+.watch-name{font-size:12px;font-weight:600}
+.watch-why{font-size:10.5px;color:var(--muted);margin-top:1px}
+.watch-val{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;flex-shrink:0}
+.watch-ok{padding:16px 0;text-align:center;font-size:11.5px;color:var(--muted);line-height:1.6}
+
 </style>
 </head>
 <body>
@@ -182,6 +219,8 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
     <div class="page-title">Dashboard</div>
     <div class="page-sub" id="page-date"></div>
 
+    <div class="kpi-row" id="kpi-row"></div>
+
     <div class="dash-grid">
       <div class="dash-col">
         <div class="card">
@@ -190,12 +229,20 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
             <div class="card-link" onclick="location.href='players.html'">View all →</div>
           </div>
           <div class="card-body">
-            <div class="wellness-grid-dash" id="wellness-grid"></div>
-            <div style="font-size:10px;color:var(--muted);margin-top:10px;text-align:center">Tap a player to open their portal · more stats coming soon</div>
+            <div class="ptile-grid" id="wellness-grid"></div>
+            <div style="font-size:10px;color:var(--muted);margin-top:10px;text-align:center">Tap a player to open their portal</div>
           </div>
         </div>
 
-  
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Needs Attention</div>
+            <div class="card-link" onclick="location.href='wellness.html'">Squad wellness →</div>
+          </div>
+          <div class="card-body" id="watchlist">
+            <div class="watch-ok">Loading…</div>
+          </div>
+        </div>
       </div>
 
       <div class="dash-col">
@@ -360,55 +407,157 @@ async function fetchCSV(url){
 function dotClass(avg){return avg>=3.5?"g":avg>=2.5?"a":"r";}
 function statusLabel(avg){return avg>=3.5?"Good to go":avg>=2.5?"Monitor":"Flag";}
 
+
+/* ============================================================
+   DASHBOARD HEADLINE NUMBERS
+   ============================================================ */
+function dashDate(v){const p=String(v).split("/");if(p.length!==3)return null;
+  const d=new Date(+p[2],+p[1]-1,+p[0]);return isNaN(d.getTime())?null:d;}
+
+/* the next fixture from the master schedule */
+async function nextFixture(){
+  try{
+    const rows=parseCSV(await (await fetch(SCHEDULE_CSV+"&cb="+Date.now())).text());
+    const head=rows[0].map(h=>h.toLowerCase().replace(/[^a-z_]/g,""));
+    const at=n=>head.indexOf(n);
+    const iDate=at("date"), iCat=at("category"), iTitle=at("title"), iLoc=at("location"), iStart=at("start_time");
+    const t=new Date(); t.setHours(0,0,0,0);
+    const games=rows.slice(1)
+      .filter(r=>/game/i.test(r[iCat]||"") && r[iTitle] && !/^(start|end) of/i.test(r[iTitle]))
+      .map(r=>({date:dashDate(r[iDate]), title:r[iTitle], loc:iLoc>=0?r[iLoc]:"", start:iStart>=0?r[iStart]:""}))
+      .filter(g=>g.date && g.date>=t)
+      .sort((a,b)=>a.date-b.date);
+    return games[0]||null;
+  }catch(e){ console.error("next fixture:",e); return null; }
+}
+
+/* how many of the squad have checked in today */
+async function checkedInToday(slugs){
+  try{
+    const rows=parseCSV(await (await fetch(rosterTabURL("WELLNESS LOG"))).text());
+    if(rows.length<2) return 0;
+    const head=rows[0].map(h=>h.toLowerCase().replace(/[^a-z_]/g,""));
+    const COLS=["timestamp","date","slug","name"];
+    const at=n=>{const i=head.indexOf(n);return i>=0?i:COLS.indexOf(n);};
+    const iDate=at("date"), iSlug=at("slug");
+    const d=new Date(), z=n=>(n<10?"0":"")+n;
+    const today=d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate());
+    const set=new Set(rows.slice(1)
+      .filter(r=>r[iDate]===today && slugs.includes((r[iSlug]||"").toLowerCase()))
+      .map(r=>(r[iSlug]||"").toLowerCase()));
+    return set.size;
+  }catch(e){ console.error("check-ins:",e); return 0; }
+}
+
+async function buildKPIs(people){
+  const box=document.getElementById("kpi-row");
+  if(!box) return;
+  const slugs=people.map(p=>p.slug);
+  const withData=people.filter(p=>p.avg!=null);
+  const squadAvg=withData.length? withData.reduce((a,p)=>a+p.avg,0)/withData.length : null;
+  const flagged=people.filter(p=>p.avg!=null&&p.avg<3.5).length;
+
+  const [game, checked]=await Promise.all([nextFixture(), checkedInToday(slugs)]);
+
+  const t=new Date(); t.setHours(0,0,0,0);
+  let gameV="—", gameS="Nothing scheduled";
+  if(game){
+    const days=Math.round((game.date-t)/86400000);
+    gameV = days===0?"Today":days===1?"Tomorrow":days+" days";
+    gameS = game.title + (game.start?" · "+game.start:"");
+  }
+
+  const avgCls=squadAvg==null?"gray":dotClass(squadAvg);
+  box.innerHTML=`
+    <div class="kpi accent clickable" onclick="location.href='game-schedule.html'">
+      <div class="kpi-l">Next fixture</div>
+      <div><div class="kpi-v">${gameV}</div><div class="kpi-s">${gameS}</div></div>
+    </div>
+    <div class="kpi clickable" onclick="location.href='wellness.html'">
+      <div class="kpi-l">Checked in today</div>
+      <div><div class="kpi-v">${checked}<small> / ${people.length}</small></div>
+      <div class="kpi-s">${checked===people.length?"Full squad":people.length-checked+" still to check in"}</div></div>
+    </div>
+    <div class="kpi clickable" onclick="location.href='wellness.html'">
+      <div class="kpi-l">Squad wellness</div>
+      <div><div class="kpi-v wlabel-${avgCls}">${squadAvg==null?"—":squadAvg.toFixed(1)}<small> / 5</small></div>
+      <div class="kpi-s">${squadAvg==null?"No check-ins yet":statusLabel(squadAvg)}</div></div>
+    </div>
+    <div class="kpi clickable" onclick="location.href='wellness.html'">
+      <div class="kpi-l">Needs attention</div>
+      <div><div class="kpi-v ${flagged?"wlabel-a":""}">${flagged}</div>
+      <div class="kpi-s">${flagged===0?"Nobody flagged":flagged===1?"1 player below par":flagged+" players below par"}</div></div>
+    </div>`;
+}
+
 async function init(){
   document.getElementById("page-date").textContent=new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})+" · Surrey 89ers Pro Team · 2026-27";
 
-  // Wellness grid - fetch published players, show others as "not yet published"
+  /* ---------- squad, wellness and the headline numbers ----------
+     The roster drives everything. Player tabs are fetched in parallel —
+     they used to run one after another, which is why the dashboard was slow. */
   const grid=document.getElementById("wellness-grid");
-  let cards=[];
 
-  /* Build the wellness list from the ROSTER tab so every player appears,
-     falling back to the old hardcoded pair if the sheet is unreachable. */
   const live=await loadRoster();
-  let wellnessList;
+  let squad;
   if(live){
-    wellnessList=live.map(p=>[p.name,{slug:p.slug,tab:p.tab}]);
+    squad=live.map(p=>({name:p.name, slug:p.slug, tab:p.tab, num:p.num, pos:p.pos, photo:p.photo}));
     OTHER_PLAYERS=[];
   }else{
-    wellnessList=Object.entries(PLAYER_PORTAL_GIDS);
+    squad=Object.entries(PLAYER_PORTAL_GIDS).map(([name,i])=>({name, slug:i.slug, gid:i.gid}))
+      .concat(OTHER_PLAYERS.map(p=>({name:p.name, slug:p.slug, num:p.num, pos:p.pos})));
   }
 
-  for(const [name,info] of wellnessList){
-    const url=info.tab?rosterTabURL(info.tab):PLAYER_PORTAL_BASE+info.gid;
-    const rows=await fetchCSV(url);
-    const scores=[
-      parseFloat(val(rows,"sleep_quality")||0),
-      parseFloat(val(rows,"soreness")||0),
-      parseFloat(val(rows,"mood")||0),
-      parseFloat(val(rows,"sleep_duration")||0),
-      parseFloat(val(rows,"stress")||0),
-      parseFloat(val(rows,"energy")||0)
-    ];
-    const avg=scores.reduce((a,b)=>a+b,0)/scores.length;
-    const cls=dotClass(avg);
-    cards.push(`<div class="wcard" onclick="window.open('https://surrey-89ers-players.vercel.app/${info.slug}','_blank')">
-      <div class="wcard-av">${ini(name)}${avatarImg(info)}</div>
-      <div class="wcard-info"><div class="wcard-name">${name}</div>
-      <div class="wcard-status"><div class="wdot wdot-${cls}"></div><span class="wlabel-${cls}">${statusLabel(avg)}</span></div></div>
-      <div class="wcard-arrow">→</div>
-    </div>`);
-  }
+  const METRICS=["sleep_quality","soreness","mood","sleep_duration","stress","energy"];
+  const settled=await Promise.all(squad.map(p=>{
+    const url=p.tab?rosterTabURL(p.tab):(p.gid?PLAYER_PORTAL_BASE+p.gid:null);
+    if(!url) return Promise.resolve({p,rows:[]});
+    return fetchCSV(url).then(rows=>({p,rows})).catch(()=>({p,rows:[]}));
+  }));
 
-  for(const p of OTHER_PLAYERS){
-    cards.push(`<div class="wcard" onclick="window.open('https://surrey-89ers-players.vercel.app/${p.slug}','_blank')">
-      <div class="wcard-av">${ini(p.name)}${avatarImg(p)}</div>
-      <div class="wcard-info"><div class="wcard-name">${p.name}</div>
-      <div class="wcard-status"><div class="wdot wdot-gray"></div><span class="wlabel-gray">No data yet</span></div></div>
-      <div class="wcard-arrow">→</div>
-    </div>`);
-  }
+  const people=settled.map(({p,rows})=>{
+    const scores=METRICS.map(m=>parseFloat(val(rows,m)||0)).filter(n=>n>0);
+    const avg=scores.length?scores.reduce((x,y)=>x+y,0)/scores.length:null;
+    /* the worst couple of measures, for the watchlist — naming all six
+       when everything is low tells a coach nothing */
+    const low=METRICS.map(m=>({m,v:parseFloat(val(rows,m)||0)}))
+                     .filter(x=>x.v>0&&x.v<3.5)
+                     .sort((a,b)=>a.v-b.v)
+                     .map(x=>x.m.replace(/_/g," "));
+    return {...p, avg, low};
+  });
 
-  grid.innerHTML=cards.join("");
+  grid.innerHTML=people.map(p=>{
+    const cls=p.avg==null?"gray":dotClass(p.avg);
+    const label=p.avg==null?"No data yet":statusLabel(p.avg);
+    const sub=[p.pos,p.num?"#"+p.num:""].filter(Boolean).join(" · ");
+    return `<div class="ptile" onclick="window.open('https://surrey-89ers-players.vercel.app/${p.slug}','_blank')">
+      <div class="ptile-av">${ini(p.name)}${avatarImg(p)}</div>
+      <div class="ptile-name">${p.name}</div>
+      ${sub?`<div class="ptile-pos">${sub}</div>`:""}
+      <div class="ptile-st"><div class="wdot wdot-${cls}"></div><span class="wlabel-${cls}">${label}</span></div>
+    </div>`;
+  }).join("");
+
+  /* ---------- watchlist ---------- */
+  const flagged=people.filter(p=>p.avg!=null&&p.avg<3.5).sort((a,b)=>a.avg-b.avg);
+  const wl=document.getElementById("watchlist");
+  wl.innerHTML = flagged.length
+    ? flagged.map(p=>{
+        const cls=dotClass(p.avg);
+        return `<div class="watch-row" onclick="window.open('https://surrey-89ers-players.vercel.app/${p.slug}','_blank')" style="cursor:pointer">
+          <div class="watch-av">${ini(p.name)}${avatarImg(p)}</div>
+          <div class="watch-body">
+            <div class="watch-name">${p.name}</div>
+            <div class="watch-why">${p.low.length?(p.low.slice(0,2).join(", ")+(p.low.length>2?" +"+(p.low.length-2)+" more":"")):statusLabel(p.avg)}</div>
+          </div>
+          <div class="watch-val wlabel-${cls}">${p.avg.toFixed(1)}</div>
+        </div>`;
+      }).join("")
+    : `<div class="watch-ok">Nobody flagged today.<br>Every player who has checked in is at 3.5 or above.</div>`;
+
+  /* ---------- headline numbers ---------- */
+  buildKPIs(people);
 
   // Latest Practice Videos - practices with synergy_url, last 3
   const practices=await fetchCSV(PRACTICE_URLS.practices);
