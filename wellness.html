@@ -224,6 +224,7 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
     <div class="nav-item " onclick="location.href='attendance.html'"><span class="nav-icon">🩺</span> Attendance &amp; Injury</div>
     <div class="nav-item " onclick="location.href='players.html'"><span class="nav-icon">👥</span> Players</div>
     <div class="nav-item active" onclick="location.href='wellness.html'"><span class="nav-icon">📈</span> Squad Wellness</div>
+    <div class="nav-item " onclick="location.href='load.html'"><span class="nav-icon">🏋</span> Training Load</div>
     <div class="nav-group-label">More</div>
     <div class="nav-item " onclick="location.href='recruitment.html'"><span class="nav-icon">🔍</span> Recruitment</div>
     <div class="nav-item " onclick="location.href='video-library.html'"><span class="nav-icon">📹</span> Video Library</div>
@@ -238,6 +239,15 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
       <button class="chip" data-range="7"  onclick="setRange(7,this)">7 days</button>
       <button class="chip on" data-range="28" onclick="setRange(28,this)">28 days</button>
       <button class="chip" data-range="90" onclick="setRange(90,this)">90 days</button>
+    </div>
+
+    <!-- TRAINING LOAD SUMMARY -->
+    <div class="card" style="margin-bottom:26px">
+      <div class="card-header">
+        <div class="card-title">Training Load</div>
+        <span class="card-link" onclick="location.href='load.html'">Open Training Load →</span>
+      </div>
+      <div class="card-body" id="load-summary">Loading session data…</div>
     </div>
 
     <!-- TODAY ACROSS THE SQUAD -->
@@ -819,12 +829,50 @@ function toggleTable(){
 
 let ROSTER=[];
 
+/* ---------- training load summary card ---------- */
+
+const LOAD_TAB = "LOAD LOG";
+/* Canonical column order — same blanked-header quirk as LOG_COLS above. */
+const LOAD_COLS = ["timestamp","date","time","session_type","slug","name",
+                   "duration_min","rpe","load_au","note"];
+
+async function loadLoadSummary(){
+  const box = document.getElementById("load-summary");
+  try{
+    const res = await fetch(rosterTabURL(LOAD_TAB));
+    if(!res.ok) throw new Error("load log http "+res.status);
+    const rows = rosterParseCSV(await res.text()).filter(r=>r.some(c=>c!==""));
+    if(rows.length < 2){
+      box.innerHTML = `No sessions logged yet. Use <strong>Open Training Load</strong> to record one.`;
+      return;
+    }
+    const head = rows[0].map(h=>h.toLowerCase().replace(/[^a-z_]/g,""));
+    const at = n => { const i=head.indexOf(n); return i>=0?i:LOAD_COLS.indexOf(n); };
+    const iDate=at("date"), iType=at("session_type"), iSlug=at("slug");
+    const data = rows.slice(1).filter(r=>r[iSlug]&&r[iDate]);
+
+    const since = daysAgoISO(7);
+    const recent = data.filter(r=>r[iDate]>=since && r[iDate]<=todayISO());
+    const sessions = new Set(recent.map(r=>r[iDate]+"|"+r[iType])).size;
+    const players = new Set(recent.map(r=>r[iSlug])).size;
+    const lastDate = data.map(r=>r[iDate]).sort().pop();
+
+    box.innerHTML = sessions
+      ? `<strong>${sessions}</strong> session${sessions===1?"":"s"} logged in the last 7 days · ${players} player${players===1?"":"s"} with load data · last session ${prettyDate(lastDate)}`
+      : `No sessions in the last 7 days · last session ${prettyDate(lastDate)}`;
+  }catch(e){
+    console.error("LOAD LOG not readable:",e);
+    box.textContent = "Session data unavailable right now.";
+  }
+}
+
 async function init(){
   const live=await loadRoster();
   if(live) PLAYERS=live;
   ROSTER=PLAYERS;
   ENTRIES=await loadLog();
   renderAll();
+  loadLoadSummary();
 }
 
 window.addEventListener("load",()=>{
