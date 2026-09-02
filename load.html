@@ -133,17 +133,17 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .type-row{display:flex;gap:8px}
 .type-row .chip{flex:1;text-align:center}
 
-.rpe-list{display:flex;flex-direction:column;gap:2px;margin-bottom:18px}
-.rpe-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border-soft)}
+.rpe-list{display:flex;flex-direction:column;gap:0;margin-bottom:18px}
+.rpe-row{display:flex;align-items:center;gap:16px;padding:10px 0;border-bottom:1px solid var(--border-soft)}
 .rpe-row:last-child{border-bottom:0}
-.rpe-name{flex:0 0 160px;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rpe-opts{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;flex:1}
+.rpe-name{flex:0 0 140px;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rpe-opts{display:grid;grid-template-columns:repeat(11,1fr);gap:6px;flex:1}
 .rpe-opt{background:var(--card2);border:1px solid var(--border);color:var(--offwhite-mid);
   border-radius:6px;padding:8px 0;font-size:12px;font-weight:700;cursor:pointer;transition:.12s;
   font-family:"Space Grotesk",sans-serif;text-align:center}
 .rpe-opt:hover{border-color:var(--green)}
 .rpe-opt.sel{background:var(--green);border-color:var(--green);color:#fff}
-.rpe-val{flex:0 0 26px;text-align:right;font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.rpe-val{flex:0 0 22px;text-align:right;font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
 .rpe-val.on{color:var(--green)}
 
 .form-msg{font-size:12px;margin-top:12px}
@@ -198,17 +198,13 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
     <!-- LOG A SESSION -->
     <div class="sec" id="sec-form">
       <div class="sec-head"><div class="sec-title">Log a session</div></div>
-      <div class="sec-sub">One entry per session for the whole squad — date, time and session type are shared, then one RPE (0–10) per player who took part. Leave a player blank if they didn't train.</div>
+      <div class="sec-sub">One entry per session for the whole squad — date and session type are shared, then one RPE (0–10) per player who took part. Leave a player blank if they didn't train.</div>
       <div class="card">
         <div class="card-body">
           <div class="form-grid">
             <div class="form-field">
               <label class="field-label">Date</label>
               <input class="field-input" type="date" id="f-date">
-            </div>
-            <div class="form-field">
-              <label class="field-label">Time</label>
-              <input class="field-input" type="time" id="f-time">
             </div>
             <div class="form-field">
               <label class="field-label">Duration (min)</label>
@@ -418,7 +414,7 @@ async function submitSession(){
   msg.textContent = ""; msg.className = "form-msg";
 
   const date = document.getElementById("f-date").value;
-  const time = document.getElementById("f-time").value;
+  const time = "";
   const duration = Number(document.getElementById("f-duration").value);
   const entries = Object.keys(RPE_PICKS).map(slug=>({slug, rpe:RPE_PICKS[slug]}));
 
