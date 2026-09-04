@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#008348">
+<title>Pre-Season Health Screening — Surrey 89ers</title>
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --green:#008348;--green-dark:#005c33;--green-deep:#003d22;--green-dim:rgba(0,131,72,0.15);
+  --offwhite:#FAF9F6;--offwhite-mid:rgba(250,249,246,0.6);--muted:rgba(250,249,246,0.42);
+  --card:#0f1f16;--card2:#152a1c;--border:rgba(0,131,72,0.2);--border-soft:rgba(250,249,246,0.07);
+  --red:#e05555;--amber:#f59e0b;
+}
+html{background:#080f0b}
+body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min-height:100vh;padding-bottom:60px}
+
+/* progress rail */
+#progress-rail{position:sticky;top:0;left:0;right:0;height:3px;background:var(--border-soft);z-index:50}
+#progress-fill{height:100%;width:0%;background:var(--green);transition:width .25s ease}
+
+/* cover */
+.cover{padding:34px 20px 26px;background:linear-gradient(135deg,#002a18 0%,#003d22 55%,#001a0e 100%);
+  border-bottom:1px solid var(--border)}
+.cover-inner{max-width:640px;margin:0 auto}
+.badge-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--green);background:var(--green-dim);border:1px solid rgba(0,131,72,0.35);border-radius:5px;
+  padding:5px 10px;margin-bottom:14px}
+.cover h1{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;line-height:1.25;letter-spacing:-0.3px}
+.cover-sub{font-size:12.5px;color:var(--offwhite-mid);margin-top:6px;font-style:italic}
+
+/* content */
+.content{max-width:640px;margin:0 auto;padding:22px 20px 40px}
+
+.intro-card{background:var(--card);border:1px solid var(--border-soft);border-radius:10px;
+  padding:14px 16px;font-size:12.5px;line-height:1.6;color:var(--offwhite-mid);margin-bottom:26px}
+.intro-card strong{color:var(--offwhite);font-weight:600}
+
+/* sections */
+.section{margin-bottom:26px}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.section-title{display:flex;align-items:center;gap:9px;font-size:10.5px;font-weight:700;letter-spacing:2.2px;
+  text-transform:uppercase;color:var(--muted)}
+.section-title::before{content:'';display:block;width:3px;height:13px;background:var(--green);border-radius:2px}
+.section-num{color:var(--green)}
+.section-help{font-size:12px;color:var(--muted);margin:-6px 0 12px;line-height:1.5}
+
+.card{background:var(--card);border:1px solid var(--border-soft);border-radius:10px;padding:16px}
+
+/* fields */
+.field{margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+.field-label{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+input[type=text], input[type=date], input[type=number], select, textarea{
+  width:100%;background:#0b1712;border:1px solid var(--border);color:var(--offwhite);
+  border-radius:8px;padding:11px 12px;font-family:'Inter',sans-serif;font-size:14.5px;outline:none;
+  -webkit-appearance:none;appearance:none
+}
+input::placeholder, textarea::placeholder{color:var(--muted)}
+input:focus, select:focus, textarea:focus{border-color:var(--green)}
+input:disabled, textarea:disabled{opacity:.5}
+textarea{resize:vertical;min-height:78px;line-height:1.5}
+
+.unit-wrap{position:relative}
+.unit-wrap input{padding-right:40px}
+.unit-label{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--muted);pointer-events:none}
+
+select{background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3e%3cpath d='M1 1l5 5 5-5' stroke='%23FAF9F6' stroke-opacity='0.5' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e");
+  background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+
+/* nothing-to-report toggle */
+.ntr{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;color:var(--offwhite-mid);
+  background:var(--card2);border:1px solid var(--border);border-radius:20px;padding:6px 12px 6px 10px;cursor:pointer;
+  user-select:none;transition:.12s}
+.ntr:hover{border-color:var(--green)}
+.ntr.on{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.ntr input{-webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:4px;border:1.5px solid var(--muted);
+  margin:0;flex-shrink:0;position:relative;cursor:pointer}
+.ntr input:checked{background:var(--green);border-color:var(--green)}
+.ntr input:checked::after{content:'';position:absolute;left:3.5px;top:0.5px;width:4px;height:8px;
+  border:solid #fff;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
+
+/* yes/no toggle */
+.yn-row{display:flex;gap:8px}
+.yn-opt{flex:1;background:var(--card2);border:1px solid var(--border);color:var(--offwhite-mid);
+  border-radius:8px;padding:11px 0;font-size:13.5px;font-weight:700;cursor:pointer;transition:.12s;text-align:center;
+  font-family:'Space Grotesk',sans-serif}
+.yn-opt:hover{border-color:var(--green)}
+.yn-opt.sel{background:var(--green);border-color:var(--green);color:#fff}
+.yn-opt.sel.alert{background:var(--amber);border-color:var(--amber);color:#1a1200}
+
+.conditional{margin-top:12px;padding-top:12px;border-top:1px solid var(--border-soft)}
+
+/* consent */
+.consent{display:flex;align-items:flex-start;gap:11px;background:var(--card);border:1px solid var(--border-soft);
+  border-radius:10px;padding:15px 16px;margin-bottom:18px}
+.consent input{-webkit-appearance:none;appearance:none;width:19px;height:19px;border-radius:5px;
+  border:1.5px solid var(--border);margin:0;flex-shrink:0;position:relative;cursor:pointer;background:#0b1712}
+.consent input:checked{background:var(--green);border-color:var(--green)}
+.consent input:checked::after{content:'';position:absolute;left:6px;top:2px;width:5px;height:10px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.consent label{font-size:12.5px;line-height:1.55;color:var(--offwhite-mid);cursor:pointer}
+
+/* submit */
+.submit-btn{width:100%;background:var(--green);color:#fff;border:0;border-radius:10px;padding:16px;
+  font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14.5px;letter-spacing:.5px;
+  text-transform:uppercase;cursor:pointer;transition:.15s}
+.submit-btn:hover:not(:disabled){background:var(--green-dark)}
+.submit-btn:disabled{opacity:.5;cursor:default}
+.form-msg{font-size:12.5px;text-align:center;margin-top:12px;min-height:16px}
+.form-msg.bad{color:var(--red)}
+
+.field-error{font-size:11px;color:var(--red);margin-top:5px;display:none}
+.field-error.show{display:block}
+.card.invalid{border-color:var(--red)}
+
+/* success */
+#successScreen{max-width:520px;margin:80px auto;padding:0 20px;text-align:center}
+.success-check{width:64px;height:64px;border-radius:50%;background:var(--green-dim);border:1px solid var(--green);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:30px;color:var(--green)}
+#successScreen h2{font-family:'Space Grotesk',sans-serif;font-size:21px;font-weight:700;margin-bottom:10px}
+#successScreen p{font-size:13.5px;color:var(--offwhite-mid);line-height:1.6}
+
+@media(max-width:420px){
+  .field-row{grid-template-columns:1fr 1fr}
+  .cover h1{font-size:22px}
+}
+</style>
+</head>
+<body>
+
+<div id="progress-rail"><div id="progress-fill"></div></div>
+
+<div class="cover">
+  <div class="cover-inner">
+    <span class="badge-tag">Surrey 89'ers · 2026-27 Season</span>
+    <h1>Pre-Season Health &amp; Training History Screening</h1>
+    <p class="cover-sub">Strength &amp; Conditioning — Confidential</p>
+  </div>
+</div>
+
+<div class="content">
+
+  <div class="intro-card">
+    Please complete honestly and in full. <strong>This information is confidential</strong> — used only by the
+    S&amp;C and medical staff to build a safe, individualised training programme — and won't be shared beyond that
+    group without your consent. It only takes a few minutes.
+  </div>
+
+  <form id="screeningForm" novalidate>
+
+    <!-- 1. Personal & Playing Information -->
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title"><span class="section-num">1.</span>&nbsp;Personal &amp; Playing Information</div>
+      </div>
+      <div class="card">
+        <div class="field">
+          <label class="field-label" for="full_name">Full name</label>
+          <input type="text" id="full_name" name="full_name" autocomplete="name" required>
+        </div>
+        <div class="field field-row">
+          <div>
+            <label class="field-label" for="date_of_birth">Date of birth</label>
+            <input type="date" id="date_of_birth" name="date_of_birth" required>
+          </div>
+          <div>
+            <label class="field-label" for="dominant_hand">Dominant hand</label>
+            <select id="dominant_hand" name="dominant_hand" required>
+              <option value="" disabled selected>Select</option>
+              <option>Right</option>
+              <option>Left</option>
+              <option>Ambidextrous</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="position">Playing position</label>
+          <input type="text" id="position" name="position" list="positionList" placeholder="e.g. Guard" required>
+          <datalist id="positionList">
+            <option value="Point Guard">
+            <option value="Guard">
+            <option value="Wing">
+            <option value="Forward">
+            <option value="Big">
+            <option value="Center">
+          </datalist>
+        </div>
+        <div class="field field-row">
+          <div>
+            <label class="field-label" for="height_cm">Height</label>
+            <div class="unit-wrap">
+              <input type="number" inputmode="decimal" id="height_cm" name="height_cm" placeholder="e.g. 196" min="120" max="230" step="0.1" required>
+              <span class="unit-label">cm</span>
+            </div>
+          </div>
+          <div>
+            <label class="field-label" for="weight_kg">Weight</label>
+            <div class="unit-wrap">
+              <input type="number" inputmode="decimal" id="weight_kg" name="weight_kg" placeholder="e.g. 88" min="40" max="200" step="0.1" required>
+              <span class="unit-label">kg</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Injury history -->
+    <div class="section" data-ntr-section>
+      <div class="section-head">
+        <div class="section-title"><span class="section-num">2.</span>&nbsp;Significant Injury History (last 5 years)</div>
+        <label class="ntr"><input type="checkbox" data-ntr-toggle>Nothing to report</label>
+      </div>
+      <p class="section-help">Fractures, ligament/tendon injuries, dislocations or muscle tears — joint/area, approximate date, and how it was treated.</p>
+      <div class="card">
+        <textarea name="injury_history" data-ntr-field placeholder="e.g. Sprained left ankle, March 2024, physio only, no surgery"></textarea>
+      </div>
+    </div>
+
+    <!-- 3. Surgical history -->
+    <div class="section" data-ntr-section>
+      <div class="section-head">
+        <div class="section-title"><span class="section-num">3.</span>&nbsp;Surgical History</div>
+        <label class="ntr"><input type="checkbox" data-ntr-toggle>Nothing to report</label>
+      </div>
+      <p class="section-help">Any surgeries, orthopaedic or otherwise, with approximate dates.</p>
+      <div class="card">
+        <textarea name="surgical_history" data-ntr-field placeholder="e.g. None"></textarea>
+      </div>
+    </div>
+
+    <!-- 4. Current pain -->
+    <div class="section" data-ntr-section>
+      <div class="section-head">
+        <div class="section-title"><span class="section-num">4.</span>&nbsp;Current Pain, Injury or Limitation</div>
+        <label class="ntr"><input type="checkbox" data-ntr-toggle>Nothing to report</label>
+      </div>
+      <p class="section-help">Anything bothering you right now, even minor — soreness, tightness, instability, or something you're managing around.</p>
+      <div class="card">
+        <textarea name="current_pain" data-ntr-field placeholder="e.g. Mild soreness in right knee after games"></textarea>
+      </div>
+    </div>
+
+    <!-- 5. Cardiac -->
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title"><span class="section-num">5.</span>&nbsp;Cardiac Health Screening</div>
+      </div>
+      <div class="card">
+        <div class="field">
+          <label class="field-label">Have you ever experienced chest pain, unexplained shortness of breath, dizziness, or fainting during exercise?</label>
+          <div class="yn-row" data-yn-group="cardiac_symptoms">
+            <div class="yn-opt" data-value="No">No</div>
+            <div class="yn-opt" data-value="Yes">Yes</div>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label class="field-label">Any family history of sudden cardiac death, heart disease, or Marfan syndrome in a relative under 50?</label>
+          <div class="yn-row" data-yn-group="cardiac_family_history">
+            <div class="yn-opt" data-value="No">No</div>
+            <div class="yn-opt" data-value="Yes">Yes</div>
+          </div>
+        </div>
+        <div class="conditional" id="cardiacDetailsWrap" hidden>
+          <label class="field-label" for="cardiac_details">Please give details</label>
+          <textarea id="cardiac_details" name="cardiac_details" placeholder="What happened, and when"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Medications -->
+    <div class="section" data-ntr-section>
+      <div class="section-head">
+        <div class="section-title"><span class="section-num">6.</span>&nbsp;Medications, Supplements &amp; Allergies</div>
+        <label class="ntr"><input type="checkbox" data-ntr-toggle>Nothing to report</label>
+      </div>
+      <p class="section-help">Prescription medications, regular supplements, and any known drug or food allergies.</p>
+      <div class="card">
+        <textarea name="medications_allergies" data-ntr-field placeholder="e.g. None"></textarea>
+      </div>
+    </div>
+
+    <!-- 7. S&C background -->
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title"><span class="section-num">7.</span>&nbsp;Strength &amp; Conditioning Background</div>
+      </div>
+      <p class="section-help">Years of structured S&amp;C training, and your comfort/experience with major lifts (squat, deadlift, olympic lift variations, etc.)</p>
+      <div class="card">
+        <textarea name="sc_background" placeholder="e.g. 3 years structured lifting, comfortable with squat and deadlift, limited olympic lift experience"></textarea>
+      </div>
+    </div>
+
+    <!-- 8. Sleep -->
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title"><span class="section-num">8.</span>&nbsp;Sleep Habits</div>
+      </div>
+      <div class="card">
+        <div class="field field-row">
+          <div>
+            <label class="field-label" for="sleep_hours">Average hours / night</label>
+            <input type="number" inputmode="decimal" id="sleep_hours" name="sleep_hours" placeholder="e.g. 7.5" min="0" max="14" step="0.5">
+          </div>
+          <div>
+            <label class="field-label" for="sleep_quality">General quality</label>
+            <select id="sleep_quality" name="sleep_quality">
+              <option value="" disabled selected>Select</option>
+              <option>Poor</option>
+              <option>Fair</option>
+              <option>Good</option>
+              <option>Excellent</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9. Playing load -->
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title"><span class="section-num">9.</span>&nbsp;Recent Playing Load</div>
+      </div>
+      <p class="section-help">Minutes/role last season, games played, and any load-related issues (e.g. overuse symptoms, managed minutes).</p>
+      <div class="card">
+        <textarea name="playing_load" placeholder="e.g. Starter, ~28 min/game, 34 games, no load issues"></textarea>
+      </div>
+    </div>
+
+    <div class="consent">
+      <input type="checkbox" id="consent" required>
+      <label for="consent">I confirm the information above is accurate to the best of my knowledge, and understand it will be used by the S&amp;C and medical staff to build my training programme.</label>
+    </div>
+
+    <button type="submit" class="submit-btn" id="submitBtn">Submit screening</button>
+    <div class="form-msg" id="formMsg"></div>
+  </form>
+
+  <div id="successScreen" hidden>
+    <div class="success-check">✓</div>
+    <h2>Thanks<span id="successName"></span> — you're all set.</h2>
+    <p>Your screening has been received by the S&amp;C and medical staff. You can close this tab now.</p>
+  </div>
+
+</div>
+
+<script>
+/* Set once this is deployed — see the "Manage deployments" step in
+   the Apps Script project. Same endpoint the player portals already
+   post to; this form sends type:"health_screening". */
+const HEALTH_ENDPOINT = "https://script.google.com/macros/s/AKfycbx-xVqT4EUY_ygD-AvzmfXE4EMcya1qlrsFtnKY7WzMaDTj-w9dwrH2Pbuvjbd6Mu0cKA/exec";
+
+const form = document.getElementById('screeningForm');
+const requiredFields = ['full_name','date_of_birth','dominant_hand','position','height_cm','weight_kg'];
+
+/* ---------- "Nothing to report" toggles ---------- */
+document.querySelectorAll('[data-ntr-section]').forEach(function(section){
+  var toggle = section.querySelector('[data-ntr-toggle]');
+  var field  = section.querySelector('[data-ntr-field]');
+  var label  = toggle.closest('.ntr');
+  var prevValue = '';
+  toggle.addEventListener('change', function(){
+    if(toggle.checked){
+      prevValue = field.value;
+      field.value = 'None reported';
+      field.disabled = true;
+      label.classList.add('on');
+    } else {
+      field.disabled = false;
+      field.value = prevValue;
+      label.classList.remove('on');
+      field.focus();
+    }
+    updateProgress();
+  });
+});
+
+/* ---------- Yes/No toggles ---------- */
+var ynValues = {};
+document.querySelectorAll('[data-yn-group]').forEach(function(group){
+  var name = group.getAttribute('data-yn-group');
+  group.querySelectorAll('.yn-opt').forEach(function(opt){
+    opt.addEventListener('click', function(){
+      group.querySelectorAll('.yn-opt').forEach(function(o){ o.classList.remove('sel','alert'); });
+      opt.classList.add('sel');
+      if(opt.getAttribute('data-value') === 'Yes') opt.classList.add('alert');
+      ynValues[name] = opt.getAttribute('data-value');
+      updateCardiacConditional();
+      updateProgress();
+    });
+  });
+});
+
+function updateCardiacConditional(){
+  var wrap = document.getElementById('cardiacDetailsWrap');
+  var showIt = ynValues.cardiac_symptoms === 'Yes' || ynValues.cardiac_family_history === 'Yes';
+  wrap.hidden = !showIt;
+  document.getElementById('cardiac_details').required = showIt;
+}
+
+/* ---------- progress bar ---------- */
+function updateProgress(){
+  var total = requiredFields.length + 2 /* cardiac Y/N */ + 1 /* consent */;
+  var done = 0;
+  requiredFields.forEach(function(name){
+    var el = form.querySelector('[name="'+name+'"]');
+    if(el && String(el.value||'').trim()) done++;
+  });
+  if(ynValues.cardiac_symptoms) done++;
+  if(ynValues.cardiac_family_history) done++;
+  if(document.getElementById('consent').checked) done++;
+  var pct = Math.round((done/total)*100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+form.addEventListener('input', updateProgress);
+form.addEventListener('change', updateProgress);
+updateProgress();
+
+/* ---------- submit ---------- */
+form.addEventListener('submit', async function(e){
+  e.preventDefault();
+  var msg = document.getElementById('formMsg');
+  var btn = document.getElementById('submitBtn');
+  msg.className = 'form-msg'; msg.textContent = '';
+
+  var missing = [];
+  requiredFields.forEach(function(name){
+    var el = form.querySelector('[name="'+name+'"]');
+    if(!el.value || !String(el.value).trim()) missing.push(el);
+  });
+  if(!ynValues.cardiac_symptoms) missing.push(document.querySelector('[data-yn-group="cardiac_symptoms"]'));
+  if(!ynValues.cardiac_family_history) missing.push(document.querySelector('[data-yn-group="cardiac_family_history"]'));
+  if((ynValues.cardiac_symptoms === 'Yes' || ynValues.cardiac_family_history === 'Yes') &&
+     !document.getElementById('cardiac_details').value.trim()) missing.push(document.getElementById('cardiac_details'));
+  if(!document.getElementById('consent').checked) missing.push(document.getElementById('consent'));
+
+  if(missing.length){
+    msg.className = 'form-msg bad';
+    msg.textContent = 'Please fill in the highlighted fields before submitting.';
+    missing[0].scrollIntoView({ behavior:'smooth', block:'center' });
+    if(missing[0].focus) missing[0].focus();
+    return;
+  }
+
+  if(HEALTH_ENDPOINT.indexOf('http') !== 0){
+    msg.className = 'form-msg bad';
+    msg.textContent = "Submission isn't switched on yet — please contact your coach.";
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Sending...';
+
+  var payload = { type: 'health_screening' };
+  requiredFields.concat(['injury_history','surgical_history','current_pain','medications_allergies',
+    'sc_background','sleep_hours','sleep_quality','playing_load']).forEach(function(name){
+    var el = form.querySelector('[name="'+name+'"]');
+    payload[name] = el ? el.value : '';
+  });
+  payload.cardiac_symptoms = ynValues.cardiac_symptoms || '';
+  payload.cardiac_family_history = ynValues.cardiac_family_history || '';
+  payload.cardiac_details = document.getElementById('cardiac_details').value || '';
+
+  try{
+    /* text/plain keeps this a "simple" request so the browser skips the
+       CORS preflight that Apps Script cannot answer. */
+    var res = await fetch(HEALTH_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+      redirect: 'follow'
+    });
+    var out = await res.json();
+    if(!out.ok) throw new Error(out.error || 'save failed');
+
+    document.getElementById('successName').textContent = ', ' + payload.full_name.split(' ')[0];
+    form.hidden = true;
+    document.getElementById('successScreen').hidden = false;
+    document.getElementById('progress-fill').style.width = '100%';
+    window.scrollTo({ top:0, behavior:'smooth' });
+
+  }catch(err){
+    msg.className = 'form-msg bad';
+    msg.textContent = "Couldn't submit — check your connection and try again.";
+    btn.disabled = false; btn.textContent = 'Submit screening';
+  }
+});
+</script>
+
+</body>
+</html>
