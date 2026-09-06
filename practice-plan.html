@@ -86,6 +86,7 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .tag-tactical{background:rgba(0,131,72,0.08);color:rgba(0,180,100,0.8);border:1px solid rgba(0,131,72,0.15)}
 .tag-skill{background:rgba(245,158,11,0.06);color:rgba(245,158,11,0.8);border:1px solid rgba(245,158,11,0.12)}
 .t-focus{font-size:11px;color:var(--muted);font-style:italic;padding:7px 10px;background:rgba(0,131,72,0.06);border-radius:5px;margin-top:6px}
+.t-assistant{font-size:11px;color:var(--blue);font-style:italic;padding:7px 10px;background:rgba(96,200,250,0.06);border-radius:5px;margin-top:6px}
 
 /* SIDEBAR */
 .sidebar{display:flex;flex-direction:column;gap:14px}
@@ -157,6 +158,8 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
   .print-coach{font-size:8px;color:#0066aa;font-weight:600}
   .print-tags{font-size:7px;color:#999;margin-top:1px}
   .print-focus{font-size:8.5px;color:#666;font-style:italic;margin-top:2px;line-height:1.3}
+  .print-assistant{font-size:8.5px;color:#0066aa;font-style:italic;margin-top:2px;line-height:1.3}
+  .print-notes-line{font-size:8px;color:#555;margin-top:4px}
 
   .print-sidebar{border-left:1px solid #ddd;padding-left:10px}
   .print-side-title{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#008348;margin-bottom:4px;margin-top:8px}
@@ -217,6 +220,10 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
     <div class="timeline" id="practice-timeline"></div>
 
     <div class="sidebar">
+      <div class="side-card" id="side-notes-card" style="display:none">
+        <div class="side-header">Notes</div>
+        <div class="side-body" id="side-notes-body" style="font-size:12px;line-height:1.5;color:var(--offwhite)"></div>
+      </div>
       <div class="side-card">
         <div class="side-header">Roster — Available</div>
         <div class="side-body">
@@ -413,14 +420,27 @@ function renderPractice(){
         <div class="t-title"><span class="duration-badge">${mins>0?mins+'<small style="font-size:10px">min</small>':""}</span>${(d["drill_id_or_name"]||"").replace(/\s*\([A-Z]\d{3}\)/g,"")}</div>
         ${tags.length?`<div class="t-tags">${tags.map(t=>`<span class="t-tag ${tagClass(t)}">${t}</span>`).join("")}</div>`:""}
         ${d.focus_note?`<div class="t-focus">🎯 ${nl2br(d.focus_note)}</div>`:""}
+        ${d.assistant_emphasis?`<div class="t-assistant">🗣 Assistant — ${nl2br(d.assistant_emphasis)}</div>`:""}
       </div>
     </div>`;
   }).join("");
 
+  renderSideNotes(p);
   renderRoster(p.practice_num);
   renderTagSummary();
   renderSynergyCard(p);
   buildPrintLayout(p, practiceDrills);
+}
+
+function renderSideNotes(p){
+  const card=document.getElementById("side-notes-card");
+  const body=document.getElementById("side-notes-body");
+  if(p.notes && p.notes.trim()){
+    body.innerHTML=nl2br(p.notes);
+    card.style.display="";
+  }else{
+    card.style.display="none";
+  }
 }
 
 function renderSynergyCard(p){
@@ -467,6 +487,7 @@ function buildPrintLayout(p, drills){
         <div class="print-drill-title"><span>${cleanTitle}</span><span class="print-coach">${d.leading_coach||""}</span></div>
         ${tags.length?`<div class="print-tags">${tags.join(" · ")}</div>`:""}
         ${d.focus_note?`<div class="print-focus">${nl2br(d.focus_note)}</div>`:""}
+        ${d.assistant_emphasis?`<div class="print-assistant">Assistant — ${nl2br(d.assistant_emphasis)}</div>`:""}
       </div>
     </div>`;
   }).join("");
@@ -487,6 +508,7 @@ function buildPrintLayout(p, drills){
       </div>
       <div class="print-num">${p.practice_num}</div>
     </div>
+    ${p.notes && p.notes.trim()?`<div class="print-notes-line">📝 ${nl2br(p.notes)}</div>`:""}
     <div class="print-body">
       <div class="print-timeline">${rows}</div>
       <div class="print-sidebar">
