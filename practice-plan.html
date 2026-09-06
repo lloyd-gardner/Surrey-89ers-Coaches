@@ -599,11 +599,16 @@ function renderRoster(practiceNum){
 }
 
 function renderTagSummary(){
-  // Sum minutes per tag across ALL practices
+  // Sum minutes per tag across ALL practices — combine manually-entered tags
+  // with each drill's library_tags (segments split off a repeated drill often
+  // only have the manual tags filled on the first segment, but every segment
+  // carries library_tags, so this is what makes multi-segment drills add up).
   const tagMinutes={};
   DRILLS.forEach(d=>{
     const mins=parseInt(d.minutes)||0;
-    const tags=(d["tags (comma separated)"]||"").split(",").map(t=>t.trim()).filter(t=>t);
+    const manualTags=(d["tags (comma separated)"]||"").split(",").map(t=>t.trim()).filter(t=>t);
+    const libTags=(d["library_tags"]||"").split(",").map(t=>t.trim()).filter(t=>t);
+    const tags=[...new Set([...manualTags, ...libTags])];
     tags.forEach(t=>{
       tagMinutes[t]=(tagMinutes[t]||0)+mins;
     });
