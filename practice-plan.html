@@ -286,7 +286,7 @@ function formatNote(text){
     const leadSpaces=(raw.match(/^ */)||[""])[0].length;
     indent+=Math.floor(leadSpaces/2);
     raw=raw.slice(leadSpaces);
-    const bulletMatch=raw.match(/^[-â¢*]\s+(.*)$/);
+    const bulletMatch=raw.match(/^[-•]\s*(.*)$/);
     const isBullet=!!bulletMatch;
     let content=isBullet?bulletMatch[1]:raw;
     content=escHtml(content);
@@ -296,7 +296,7 @@ function formatNote(text){
     }
     const style=indent?` style="margin-left:${indent*14}px"`:"";
     if(isBullet){
-      return `<div class="note-line note-bullet"${style}>â¢ ${content}</div>`;
+      return `<div class="note-line note-bullet"${style}>• ${content}</div>`;
     }
     return `<div class="note-line"${style}>${content}</div>`;
   }).join("");
