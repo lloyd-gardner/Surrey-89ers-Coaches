@@ -132,13 +132,15 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 /* MONTH */
 .month-wrap{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
 .mh{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);text-align:center;padding:7px 2px}
-.md{min-height:90px;background:var(--card);border:1px solid var(--border-soft);border-radius:6px;padding:5px;cursor:pointer;transition:border-color 0.15s}
+.md{min-height:100px;background:var(--card);border:1px solid var(--border-soft);border-radius:6px;padding:5px;cursor:pointer;transition:border-color 0.15s}
 .md:hover{border-color:var(--border)}
 .md.today{border-color:var(--green);background:rgba(0,131,72,0.04)}
 .md.other{opacity:0.28}
 .md-num{font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;color:var(--offwhite-mid);margin-bottom:3px}
 .md.today .md-num{color:var(--green)}
-.me{font-size:8.5px;font-weight:600;padding:2px 5px;border-radius:3px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.me{font-size:8.5px;font-weight:600;padding:3px 5px;border-radius:3px;margin-bottom:2px}
+.me-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.me-meta{font-size:7.5px;font-weight:500;opacity:0.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 .mm{font-size:8px;color:var(--muted);margin-top:1px}
 
 /* WEEK */
@@ -386,8 +388,9 @@ function renderMonth(){
     h+=`<div class="md${tc}" onclick="dayClick(${y},${m},${day})"><div class="md-num">${day}</div>`;
     evs.slice(0,3).forEach((ev,i)=>{
       const idx=EVENTS.indexOf(ev);
-      const timeStr=ev.start_time&&ev.all_day!=="TRUE"?ev.start_time+' ':'';
-      h+=`<div class="me" style="${cs(ev.category)}" onclick="event.stopPropagation();showEv(${idx})">${timeStr}${ev.title}</div>`;
+      const timeStr=ev.start_time&&ev.all_day!=="TRUE"?ev.start_time+(ev.end_time?'–'+ev.end_time:'')+' ':'';
+      const metaHtml=ev.location?`<div class="me-meta">📍 ${ev.location}</div>`:'';
+      h+=`<div class="me" style="${cs(ev.category)}" onclick="event.stopPropagation();showEv(${idx})"><div class="me-title">${timeStr}${ev.title}</div>${metaHtml}</div>`;
     });
     if(evs.length>3)h+=`<div class="mm">+${evs.length-3} more</div>`;
     h+='</div>';
