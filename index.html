@@ -431,33 +431,33 @@ async function nextFixture(){
   }catch(e){ console.error("next fixture:",e); return null; }
 }
 
-/* how many of the squad have checked in today */
-async function checkedInToday(slugs){
+/* which of the squad have checked in today — used so the dashboard never
+   shows yesterday's cached wellness numbers as if they were today's */
+async function todaysCheckins(slugs){
   try{
     const rows=parseCSV(await (await fetch(rosterTabURL("WELLNESS LOG"))).text());
-    if(rows.length<2) return 0;
+    if(rows.length<2) return new Set();
     const head=rows[0].map(h=>h.toLowerCase().replace(/[^a-z_]/g,""));
     const COLS=["timestamp","date","slug","name"];
     const at=n=>{const i=head.indexOf(n);return i>=0?i:COLS.indexOf(n);};
     const iDate=at("date"), iSlug=at("slug");
     const d=new Date(), z=n=>(n<10?"0":"")+n;
     const today=d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate());
-    const set=new Set(rows.slice(1)
+    return new Set(rows.slice(1)
       .filter(r=>r[iDate]===today && slugs.includes((r[iSlug]||"").toLowerCase()))
       .map(r=>(r[iSlug]||"").toLowerCase()));
-    return set.size;
-  }catch(e){ console.error("check-ins:",e); return 0; }
+  }catch(e){ console.error("check-ins:",e); return new Set(); }
 }
 
-async function buildKPIs(people){
+async function buildKPIs(people, checkedSet){
   const box=document.getElementById("kpi-row");
   if(!box) return;
-  const slugs=people.map(p=>p.slug);
   const withData=people.filter(p=>p.avg!=null);
   const squadAvg=withData.length? withData.reduce((a,p)=>a+p.avg,0)/withData.length : null;
   const flagged=people.filter(p=>p.avg!=null&&p.avg<3.5).length;
 
-  const [game, checked]=await Promise.all([nextFixture(), checkedInToday(slugs)]);
+  const [game]=await Promise.all([nextFixture()]);
+  const checked=checkedSet.size;
 
   const t=new Date(); t.setHours(0,0,0,0);
   let gameV="—", gameS="Nothing scheduled";
@@ -509,13 +509,20 @@ async function init(){
   }
 
   const METRICS=["sleep_quality","soreness","mood","sleep_duration","stress","energy"];
-  const settled=await Promise.all(squad.map(p=>{
-    const url=p.tab?rosterTabURL(p.tab):(p.gid?PLAYER_PORTAL_BASE+p.gid:null);
-    if(!url) return Promise.resolve({p,rows:[]});
-    return fetchCSV(url).then(rows=>({p,rows})).catch(()=>({p,rows:[]}));
-  }));
+  const [settled, checkedSet]=await Promise.all([
+    Promise.all(squad.map(p=>{
+      const url=p.tab?rosterTabURL(p.tab):(p.gid?PLAYER_PORTAL_BASE+p.gid:null);
+      if(!url) return Promise.resolve({p,rows:[]});
+      return fetchCSV(url).then(rows=>({p,rows})).catch(()=>({p,rows:[]}));
+    })),
+    todaysCheckins(squad.map(p=>p.slug))
+  ]);
 
   const people=settled.map(({p,rows})=>{
+    const checkedToday=checkedSet.has((p.slug||"").toLowerCase());
+    /* don't surface a player's last-known wellness numbers as if they were
+       today's — only count them once they've actually checked in today */
+    if(!checkedToday) return {...p, avg:null, low:[], checkedToday};
     const scores=METRICS.map(m=>parseFloat(val(rows,m)||0)).filter(n=>n>0);
     const avg=scores.length?scores.reduce((x,y)=>x+y,0)/scores.length:null;
     /* the worst couple of measures, for the watchlist — naming all six
@@ -524,12 +531,12 @@ async function init(){
                      .filter(x=>x.v>0&&x.v<3.5)
                      .sort((a,b)=>a.v-b.v)
                      .map(x=>x.m.replace(/_/g," "));
-    return {...p, avg, low};
+    return {...p, avg, low, checkedToday};
   });
 
   grid.innerHTML=people.map(p=>{
-    const cls=p.avg==null?"gray":dotClass(p.avg);
-    const label=p.avg==null?"No data yet":statusLabel(p.avg);
+    const cls=!p.checkedToday?"gray":(p.avg==null?"gray":dotClass(p.avg));
+    const label=!p.checkedToday?"Not checked in yet":(p.avg==null?"No data yet":statusLabel(p.avg));
     const sub=[p.pos,p.num?"#"+p.num:""].filter(Boolean).join(" · ");
     return `<div class="ptile" onclick="window.open('https://surrey-89ers-players.vercel.app/${p.slug}','_blank')">
       <div class="ptile-av">${ini(p.name)}${avatarImg(p)}</div>
@@ -557,7 +564,7 @@ async function init(){
     : `<div class="watch-ok">Nobody flagged today.<br>Every player who has checked in is at 3.5 or above.</div>`;
 
   /* ---------- headline numbers ---------- */
-  buildKPIs(people);
+  buildKPIs(people, checkedSet);
 
   // Latest Practice Videos - practices with synergy_url, last 3
   const practices=await fetchCSV(PRACTICE_URLS.practices);
