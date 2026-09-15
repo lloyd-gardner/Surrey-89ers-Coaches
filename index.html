@@ -169,6 +169,10 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .watch-why{font-size:10.5px;color:var(--muted);margin-top:1px}
 .watch-val{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;flex-shrink:0}
 .watch-ok{padding:16px 0;text-align:center;font-size:11.5px;color:var(--muted);line-height:1.6}
+.watch-trt{font-size:8.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;
+  border-radius:4px;background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.25);
+  margin-left:7px;vertical-align:middle;white-space:nowrap}
+.watch-note{font-size:10.5px;color:var(--offwhite-mid);margin-top:3px;font-style:italic;line-height:1.4}
 
 </style>
 </head>
@@ -406,6 +410,10 @@ async function fetchCSV(url){
 
 function dotClass(avg){return avg>=3.5?"g":avg>=2.5?"a":"r";}
 function statusLabel(avg){return avg>=3.5?"Good to go":avg>=2.5?"Monitor":"Flag";}
+/* a player needs attention if their wellness average is below par, OR they
+   ticked "treatment" on today's check-in, OR they left a note — a fine
+   average shouldn't hide a treatment request or a note a coach should see */
+function isFlagged(p){return p.checkedToday&&((p.avg!=null&&p.avg<3.5)||p.treatment||!!p.note);}
 
 
 /* ============================================================
@@ -454,7 +462,7 @@ async function buildKPIs(people, checkedSet){
   if(!box) return;
   const withData=people.filter(p=>p.avg!=null);
   const squadAvg=withData.length? withData.reduce((a,p)=>a+p.avg,0)/withData.length : null;
-  const flagged=people.filter(p=>p.avg!=null&&p.avg<3.5).length;
+  const flagged=people.filter(isFlagged).length;
 
   const [game]=await Promise.all([nextFixture()]);
   const checked=checkedSet.size;
@@ -486,7 +494,7 @@ async function buildKPIs(people, checkedSet){
     <div class="kpi clickable" onclick="location.href='wellness.html'">
       <div class="kpi-l">Needs attention</div>
       <div><div class="kpi-v ${flagged?"wlabel-a":""}">${flagged}</div>
-      <div class="kpi-s">${flagged===0?"Nobody flagged":flagged===1?"1 player below par":flagged+" players below par"}</div></div>
+      <div class="kpi-s">${flagged===0?"Nobody flagged":flagged===1?"1 player flagged":flagged+" players flagged"}</div></div>
     </div>`;
 }
 
@@ -522,7 +530,7 @@ async function init(){
     const checkedToday=checkedSet.has((p.slug||"").toLowerCase());
     /* don't surface a player's last-known wellness numbers as if they were
        today's — only count them once they've actually checked in today */
-    if(!checkedToday) return {...p, avg:null, low:[], checkedToday};
+    if(!checkedToday) return {...p, avg:null, low:[], checkedToday, treatment:false, note:""};
     const scores=METRICS.map(m=>parseFloat(val(rows,m)||0)).filter(n=>n>0);
     const avg=scores.length?scores.reduce((x,y)=>x+y,0)/scores.length:null;
     /* the worst couple of measures, for the watchlist — naming all six
@@ -531,7 +539,9 @@ async function init(){
                      .filter(x=>x.v>0&&x.v<3.5)
                      .sort((a,b)=>a.v-b.v)
                      .map(x=>x.m.replace(/_/g," "));
-    return {...p, avg, low, checkedToday};
+    const treatment=val(rows,"treatment").toLowerCase()==="yes";
+    const note=(val(rows,"note")||"").trim();
+    return {...p, avg, low, checkedToday, treatment, note};
   });
 
   grid.innerHTML=people.map(p=>{
@@ -546,22 +556,34 @@ async function init(){
     </div>`;
   }).join("");
 
-  /* ---------- watchlist ---------- */
-  const flagged=people.filter(p=>p.avg!=null&&p.avg<3.5).sort((a,b)=>a.avg-b.avg);
+  /* ---------- watchlist ----------
+     Flags on a low wellness average (as before), a "needs treatment" tick,
+     or a note left at check-in — a fine average shouldn't bury a treatment
+     request or something a player wanted a coach to see. Treatment-flagged
+     players sort to the top regardless of their average. */
+  const flagged=people.filter(isFlagged).sort((a,b)=>{
+    const av=a.treatment?-1:(a.avg==null?3.5:a.avg);
+    const bv=b.treatment?-1:(b.avg==null?3.5:b.avg);
+    return av-bv;
+  });
   const wl=document.getElementById("watchlist");
   wl.innerHTML = flagged.length
     ? flagged.map(p=>{
-        const cls=dotClass(p.avg);
+        const cls=p.treatment?"r":(p.low.length?dotClass(p.avg):"a");
+        const why=p.low.length
+          ? p.low.slice(0,2).join(", ")+(p.low.length>2?" +"+(p.low.length-2)+" more":"")
+          : (p.avg!=null?statusLabel(p.avg):(p.treatment?"Requested treatment":"Left a note"));
         return `<div class="watch-row" onclick="window.open('https://surrey-89ers-players.vercel.app/${p.slug}','_blank')" style="cursor:pointer">
           <div class="watch-av">${ini(p.name)}${avatarImg(p)}</div>
           <div class="watch-body">
-            <div class="watch-name">${p.name}</div>
-            <div class="watch-why">${p.low.length?(p.low.slice(0,2).join(", ")+(p.low.length>2?" +"+(p.low.length-2)+" more":"")):statusLabel(p.avg)}</div>
+            <div class="watch-name">${p.name}${p.treatment?'<span class="watch-trt">⚕ Treatment</span>':''}</div>
+            <div class="watch-why">${why}</div>
+            ${p.note?`<div class="watch-note">"${p.note}"</div>`:''}
           </div>
-          <div class="watch-val wlabel-${cls}">${p.avg.toFixed(1)}</div>
+          <div class="watch-val wlabel-${cls}">${p.avg!=null?p.avg.toFixed(1):"⚕"}</div>
         </div>`;
       }).join("")
-    : `<div class="watch-ok">Nobody flagged today.<br>Every player who has checked in is at 3.5 or above.</div>`;
+    : `<div class="watch-ok">Nobody flagged today.<br>Every player who has checked in is at 3.5 or above, with no treatment requests or notes.</div>`;
 
   /* ---------- headline numbers ---------- */
   buildKPIs(people, checkedSet);
