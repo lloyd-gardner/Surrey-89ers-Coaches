@@ -39,9 +39,10 @@ async function load(){
     const rows = parseCSV(text);
     const header = rows[0];
     document.getElementById("status").textContent = "CSV loaded: "+rows.length+" rows, "+header.length+" columns";
+    const iCat=header.indexOf("category"), iTitle=header.indexOf("title");
 
     const events = rows.slice(1)
-      .filter(r=>r[0]&&r[0]!=="date"&&r[6]&&r[7])
+      .filter(r=>r[0]&&r[0]!=="date"&&r[iCat]&&r[iTitle])
       .map(r=>{
         const o={};
         header.forEach((h,i)=>o[h]=r[i]||"");
