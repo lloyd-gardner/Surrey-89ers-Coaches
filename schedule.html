@@ -310,7 +310,9 @@ async function loadData(){
     const text=await r.text();
     const rows=parseCSV(text);
     const hdr=rows[0];
-    EVENTS=rows.slice(1).filter(r=>r[0]&&r[0]!=="date"&&r[6]&&r[7]).map(r=>{
+    const hdrT=hdr.map(h=>h.trim());
+    const iCat=hdrT.indexOf("category"), iTitle=hdrT.indexOf("title");
+    EVENTS=rows.slice(1).filter(r=>r[0]&&r[0]!=="date"&&r[iCat]&&r[iTitle]).map(r=>{
       const o={};hdr.forEach((h,i)=>o[h.trim()]=r[i]||"");
       o._d=pd(o.date);
       o._end=o.multi_day_end?pd(o.multi_day_end):null;
