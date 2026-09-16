@@ -651,7 +651,9 @@ async function renderWeekSchedule(){
     const text=await res.text();
     const rows=parseCSV(text);
     const hdr=rows[0];
-    const events=rows.slice(1).filter(r=>r[0]&&r[0]!=="date"&&r[6]&&r[7]).map(r=>{
+    const hdrT=hdr.map(h=>h.trim());
+    const iCat=hdrT.indexOf("category"), iTitle=hdrT.indexOf("title");
+    const events=rows.slice(1).filter(r=>r[0]&&r[0]!=="date"&&r[iCat]&&r[iTitle]).map(r=>{
       const o={};hdr.forEach((h,i)=>o[h.trim()]=r[i]||"");
       o._d=pd2(o.date);
       return o;
