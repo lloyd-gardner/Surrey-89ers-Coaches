@@ -266,6 +266,7 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
   <div class="view-tabs">
     <button class="view-tab active" id="tab-clips" onclick="switchView('clips')">🎬 Player Clips</button>
     <button class="view-tab" id="tab-practices" onclick="switchView('practices')">🏀 Practice Sessions</button>
+    <button class="view-tab" id="tab-games" onclick="switchView('games')">📹 Game Videos</button>
   </div>
 
   <div id="view-clips">
@@ -291,6 +292,12 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
       <div class="loading-state">Loading practice sessions...</div>
     </div>
   </div>
+
+  <div id="view-games" style="display:none">
+    <div id="games-content">
+      <div class="loading-state">Loading game videos...</div>
+    </div>
+  </div>
 </div>
 </div>
 
@@ -303,6 +310,9 @@ const PLAYER_BASE="https://docs.google.com/spreadsheets/d/e/2PACX-1vR8A808exKxTx
    links. Practice Videos no longer has its own sidebar entry; it's the
    second tab on this page instead. */
 const PRACTICE_URLS={"practices":"https://docs.google.com/spreadsheets/d/e/2PACX-1vQKRFsRCVYbEDikkCWXUjHub2GdNPv3MjlRabHOffhhKixskBbM-L265fHu8j1LH1nEGPYTngmhWe7k/pub?single=true&output=csv&gid=798917355"};
+/* Full game films for the whole squad — separate "Games" tab on the same
+   published sheet as Practices. video_url can be a Synergy or a YouTube link. */
+const GAMES_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQKRFsRCVYbEDikkCWXUjHub2GdNPv3MjlRabHOffhhKixskBbM-L265fHu8j1LH1nEGPYTngmhWe7k/pub?single=true&output=csv&gid=1481938340";
 let PLAYERS=[{"name": "Kareem Queeley", "num": "11", "pos": "Guard", "gid": "1632339033"}, {"name": "Ollie Bishop", "num": "13", "pos": "Forward", "gid": "1821311777"}, {"name": "DJ Parkinson", "num": "5", "pos": "Guard", "gid": ""}, {"name": "Kino Lilly", "num": "3", "pos": "Guard", "gid": ""}, {"name": "Tayo Ogedengbe", "num": "24", "pos": "Forward", "gid": ""}, {"name": "Tim Nwankwo", "num": "20", "pos": "Big", "gid": ""}, {"name": "Haydn Ling", "num": "8", "pos": "Guard", "gid": ""}, {"name": "Mike Graham", "num": "14", "pos": "Big", "gid": ""}, {"name": "Andrew Lawrence", "num": "22", "pos": "Guard", "gid": ""}, {"name": "Ronald Polite", "num": "10", "pos": "Forward", "gid": ""}, {"name": "Nedas Cholevinskas", "num": "9", "pos": "Big", "gid": ""}];
 
 /* ============================================================
@@ -396,9 +406,10 @@ function showApp(){
   document.getElementById("login-screen").style.display="none";
   document.getElementById("app").style.display="block";
   const wantView=new URLSearchParams(location.search).get("view");
-  if(wantView==="practices") switchView("practices");
+  if(wantView==="practices"||wantView==="games") switchView(wantView);
   init();
   renderPractices();
+  renderGames();
 }
 if(sessionStorage.getItem("89ers_auth")==="1"){
   if(document.readyState==="loading"){
@@ -428,7 +439,7 @@ function isYouTube(url){return url&&(url.includes("youtu.be")||url.includes("you
 function isSynergy(url){return url&&url.includes("synergysports.com");}
 
 let ALL_VIDEOS=[], filterPlayer="All", filterType="All";
-let CURRENT_VIEW="clips", CLIPS_SUB="", PRACTICES_SUB="";
+let CURRENT_VIEW="clips", CLIPS_SUB="", PRACTICES_SUB="", GAMES_SUB="";
 
 async function init(){
   const live=await loadRoster();
@@ -566,17 +577,108 @@ async function renderPractices(){
   `;
 }
 
+/* ---------- game videos (full squad game films) ---------- */
+
+function isYouTube(url){
+  return /youtu\.?be/i.test(url||"");
+}
+function youTubeEmbed(url){
+  let id="";
+  const m1=url.match(/[?&]v=([^&]+)/);
+  const m2=url.match(/youtu\.be\/([^?&]+)/);
+  if(m1) id=m1[1]; else if(m2) id=m2[1];
+  return id?`https://www.youtube.com/embed/${id}`:"";
+}
+
+async function renderGames(){
+  const box=document.getElementById("games-content");
+  const gamesRaw=await fetchCSV(GAMES_URL);
+  if(!gamesRaw.length){
+    box.innerHTML=`<div class="empty-state">
+      <div class="empty-icon">📹</div>
+      <div class="empty-title">Couldn't load game videos</div>
+      <div class="empty-sub">Check the Games sheet is still published to the web.</div>
+    </div>`;
+    return;
+  }
+  const header=gamesRaw[0];
+  const records=gamesRaw.slice(1)
+    .filter(r=>r[0]&&r[0]!=="game_num")
+    .map(r=>{
+      const o={};header.forEach((h,i)=>o[h.trim()]=r[i]||"");return o;
+    });
+
+  // Filter to games that have a video_url, newest first
+  const withVideo=records
+    .filter(r=>r.video_url&&r.video_url.trim())
+    .reverse();
+
+  GAMES_SUB=`${withVideo.length} full game film${withVideo.length===1?"":"s"} · Most recent first`;
+  if(CURRENT_VIEW==="games") document.getElementById("page-sub").textContent=GAMES_SUB;
+
+  if(withVideo.length===0){
+    box.innerHTML=`<div class="empty-state">
+      <div class="empty-icon">📹</div>
+      <div class="empty-title">No game videos yet</div>
+      <div class="empty-sub">Add a YouTube or Synergy link to the <code>video_url</code> column<br>in the Games tab to see it here.</div>
+    </div>`;
+    return;
+  }
+
+  const featured=withVideo[0];
+  const rest=withVideo.slice(1);
+
+  function gameLabel(g){
+    return g.title||`vs ${g.opponent||"Opponent"}`;
+  }
+
+  box.innerHTML=`
+    <a class="featured-card" href="${featured.video_url}" target="_blank">
+      <div class="featured-top">
+        <div class="featured-icon">▶</div>
+        <div class="featured-info">
+          <div class="featured-label">Latest Game</div>
+          <div class="featured-title">${gameLabel(featured)}</div>
+          <div class="featured-date">${featured.date||""}${featured.opponent?" · vs "+featured.opponent:""}</div>
+        </div>
+      </div>
+      <div class="featured-bottom">
+        <div class="featured-btn"><span class="featured-btn-icon">▶</span> Watch ${isYouTube(featured.video_url)?"on YouTube":"on Synergy"}</div>
+      </div>
+    </a>
+
+    ${rest.length?`
+    <div class="video-list-grid">
+      ${rest.map((g,i)=>`
+        <a class="pv-card" href="${g.video_url}" target="_blank">
+          <div class="pv-num">${g.game_num||(rest.length-i)}</div>
+          <div class="pv-divider"></div>
+          <div class="pv-info">
+            <div class="pv-title">${gameLabel(g)}</div>
+            <div class="pv-meta">
+              ${g.date?`<span class="meta-pill pill-green">${g.date}</span>`:""}
+              ${g.opponent?`<span class="meta-pill pill-coach">vs ${g.opponent}</span>`:""}
+            </div>
+          </div>
+          <div class="pv-arrow">↗</div>
+        </a>`).join("")}
+    </div>`:""}
+  `;
+}
+
 function switchView(view){
   CURRENT_VIEW=view;
   document.getElementById("tab-clips").classList.toggle("active",view==="clips");
   document.getElementById("tab-practices").classList.toggle("active",view==="practices");
+  document.getElementById("tab-games").classList.toggle("active",view==="games");
   document.getElementById("view-clips").style.display=view==="clips"?"block":"none";
   document.getElementById("view-practices").style.display=view==="practices"?"block":"none";
-  document.getElementById("page-sub").textContent=view==="clips"?CLIPS_SUB:PRACTICES_SUB;
+  document.getElementById("view-games").style.display=view==="games"?"block":"none";
+  document.getElementById("page-sub").textContent=view==="clips"?CLIPS_SUB:(view==="practices"?PRACTICES_SUB:GAMES_SUB);
 
   // Keep the URL shareable/bookmarkable without a full reload
   const url=new URL(location.href);
-  if(view==="practices") url.searchParams.set("view","practices");
+  if(view==="practices"||view==="games") url.searchParams.set("view",view);
   else url.searchParams.delete("view");
   history.replaceState(null,"",url);
 }
