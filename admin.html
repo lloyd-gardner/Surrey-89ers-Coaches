@@ -595,18 +595,19 @@ function renderEditor(){
         <div class="section-label">Defensive Tendencies</div>
         <div class="form-row col3">
           ${[
-            ["ISO","iso",["KEEP OUTSIDE","FORCE LEFT","FORCE RIGHT","ALLOW DRIVE"]],
-            ["Curl / Shoot","cs",["CURL","SHOOT","FADE","MIX"]],
-            ["Dribble","dribble",["TIGHT","LOOSE","NORMAL"]],
-            ["Post","post",["FRONT","3/4 FRONT","PLAY BEHIND","PUSH OUT"]],
-            ["Screener","screener",["HEDGE","DROP","SWITCH","OVER","UNDER"]],
-            ["Ball Handler","ballhandler",["MIX OVER UNDER","GO OVER","GO UNDER","SWITCH"]],
+            ["ISO","iso",["KEEP OUTSIDE","PUSH RIGHT","PUSH LEFT","FORCE DRIBBLE"]],
+            ["Catch & Shoot","cs",["SNIPER","SHIFT","BRICK"]],
+            ["Dribble Jumpers","dribble",["SNIPER","SHIFT","BRICK","GOOD GOING RIGHT","GOOD GOING LEFT"]],
+            ["Post","post",["NO MIDDLE","NO BASELINE","FORCE RIGHT HAND","FORCE LEFT HAND","STRAIGHT UP"]],
+            ["PNR","ballhandler",["BLACK","WHITE","BLUE","GREEN","RED"]],
+            ["PNR Screener","screener",["POP THREAT","ROLL ONLY","MIX ROLL AND POP"]],
           ].map(([lbl,field,opts])=>`
             <div class="form-group">
               <label>${lbl}</label>
               <select id="f-${field}" onchange="autoSave()">
                 <option value="">—</option>
                 ${opts.map(v=>`<option value="${v}" ${(sc[field]||"")===v?"selected":""}>${v}</option>`).join("")}
+                ${sc[field]&&!opts.includes(sc[field])?`<option value="${sc[field]}" selected>${sc[field]} (old option)</option>`:""}
               </select>
             </div>`).join("")}
         </div>

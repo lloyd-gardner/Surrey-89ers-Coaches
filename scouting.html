@@ -4056,10 +4056,10 @@ var types3 = pbpTypes(shots3,[
   var guardDefs = [
     ['ISOLATION',        p.iso],
     ['CATCH & SHOOT',    p.cs],
-    ['DRIBBLE JUMPER',   p.dribble],
+    ['DRIBBLE JUMPERS',  p.dribble],
     ['POST UP',          p.post],
+    ['PNR',              p.ballhandler],
     ['PNR SCREENER',     p.screener],
-    ['PNR BALL HANDLER', p.ballhandler],
   ];
   var guardItems = guardDefs.filter(function(x){ return x[1]; });
 
@@ -4696,10 +4696,10 @@ function openPosterWindow(p, playerName, doPrint){
   const guardDefs = [
     ["ISOLATION",        p.iso],
     ["CATCH & SHOOT",    p.cs],
-    ["DRIBBLE JUMPER",   p.dribble],
+    ["DRIBBLE JUMPERS",  p.dribble],
     ["POST UP",          p.post],
+    ["PNR",              p.ballhandler],
     ["PNR SCREENER",     p.screener],
-    ["PNR BALL HANDLER", p.ballhandler],
   ].filter(function(x){ return x[1]; });
 
   // Grade boxes
