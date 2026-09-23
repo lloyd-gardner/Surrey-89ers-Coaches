@@ -834,6 +834,7 @@ const TEAM_NAME_MAP = {
   "leicester":           "LEICESTER RIDERS",
   "riders":              "LEICESTER RIDERS",
   "caledonia":           "CALEDONIA GLADIATORS",
+  "liverpool":           "LIVERPOOL BASKETBALL",
   "gladiators":          "CALEDONIA GLADIATORS",
 };
 
@@ -887,7 +888,15 @@ async function loadFixtures() {
     const res = await fetch(SCHEDULE_URL);
     const csv = await res.text();
     const lines = csv.trim().split("\n");
-    // Skip header row (row 0)
+    // Read columns by HEADER NAME, not position -- the schedule sheet gains
+    // columns over time (week_num, end_time, all_day, ...) and positional
+    // reads silently broke when it did. Old positions are the fallback.
+    const hdr = parseCSVLine(lines[0] || "").map(h => h.trim().toLowerCase());
+    const col = (name, fallback) => { const i = hdr.indexOf(name); return i >= 0 ? i : fallback; };
+    const C = {
+      date: col("date", 0), time: col("start_time", 2), category: col("category", 6),
+      title: col("title", 7), notes: col("notes", 8), location: col("location", 9),
+    };
     const today = new Date();
     today.setHours(0,0,0,0);
     const upcomingGames = [];
@@ -895,7 +904,8 @@ async function loadFixtures() {
     for (let i = 1; i < lines.length; i++) {
       const cols = parseCSVLine(lines[i]);
       if (!cols || cols.length < 8) continue;
-      const [dateStr,,timeStr,,,,category,title,,location,,, notes] = cols;
+      const dateStr = cols[C.date], timeStr = cols[C.time], category = cols[C.category];
+      const title = cols[C.title], location = cols[C.location];
       if ((category || "").trim() !== "Game") continue;
       // Parse date DD/MM/YYYY
       const parts = (dateStr || "").trim().split("/");
@@ -906,7 +916,7 @@ async function loadFixtures() {
       if (!team) continue;
       const isHome = !(title || "").trim().startsWith("@");
       // notes col (index 8) contains RS1, RS2 etc
-      const rawNotes = (cols[8]||"").trim();
+      const rawNotes = (cols[C.notes]||"").trim();
       const oppShort = parseScheduleTeam(title) ? SHORT[parseScheduleTeam(title)] : teamShort;
       // Format as "London Lions RS2"
 const notesLabel = rawNotes ? rawNotes.toUpperCase() : parseCompetition(rawNotes);      upcomingGames.push({
@@ -1029,7 +1039,7 @@ async function loadData(){
   const seasonId = seasons[0]?.id;
   if(!seasonId){ console.error("Season not found:", SEASON_LABEL); return null; }
 
-const gameRows = await sbFetchAll("slb_games", `select=id,livestats_game_id,game_date,round,status,home_score,away_score,home_team_id,away_team_id&season_id=eq.${seasonId}&status=eq.final`);  const gameIds  = gameRows.map(g => g.id);
+const gameRows = await sbFetchAll("slb_games", `select=id,livestats_game_id,game_date,round,status,home_score,away_score,home_team_id,away_team_id,competition&season_id=eq.${seasonId}&status=eq.final`);  const gameIds  = gameRows.map(g => g.id);
   const gidIn    = `game_id=in.(${gameIds.join(",")})`;
   const gameById = {};
   gameRows.forEach(g => { gameById[g.id] = g; });
@@ -1105,6 +1115,7 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       "Biggest Run": r.biggest_run || 0,
       "Lead Changes": r.lead_changes || 0,
       "_gameId":     g.livestats_game_id,
+      "_comp":       g.competition || "SLB",
     };
   }).filter(Boolean);
 
@@ -1174,6 +1185,7 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       "Usage%":   null,
       "PIP":      r.pip || 0, "FBP": r.fbp || 0,
       "_gameId":  g.livestats_game_id,
+      "_comp":    g.competition || "SLB",
     };
   }).filter(Boolean);
 
@@ -1235,6 +1247,7 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       "Quarter":  r.quarter,
       "Time":     r.game_clock,
       "ActionNum": r.action_number,
+      "_comp":    g.competition || "SLB",
       "Score H":  r.score_home,
       "Score A":  r.score_away,
     };
@@ -1282,13 +1295,18 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       "x":        r.x,
       "y":        r.y,
       "AssistedBy": r.assisted_by_player_id ? (playerById[r.assisted_by_player_id]?.full_name || "") : "",
+      "_comp":    g.competition || "SLB",
     };
   }).filter(Boolean);
+
+  const tsSLB = ts.filter(r => r._comp === "SLB");
 
   DB = {
     raw: { ts, ps, lu, pbp, shots },
 
-    teamAgg:        buildTeamAgg(ts, ts),
+    // Europe/cup games (slb_games.competition != SLB) are kept in raw.* for
+    // player pages, but standings/ranks/League Leaders use SLB games only.
+    teamAgg:        buildTeamAgg(tsSLB, tsSLB),
     playerAgg:      buildPlayerAgg(ps),
     lr,
     tr,
@@ -1608,6 +1626,13 @@ function doSortRankings(){
 // and the "League Leaders" tab layout from Scout_Database_2026.xlsx
 // (multiple categories shown side by side, Top 10 each).
 async function renderLeagueLeadersSection(db){
+  // League Leaders are an SLB table: drop Europe/cup games from the pool.
+  const slbOnly = r => (r._comp || "SLB") === "SLB";
+  db = Object.assign({}, db, { raw: Object.assign({}, db.raw, {
+    ps: (db.raw.ps||[]).filter(slbOnly),
+    pbp: (db.raw.pbp||[]).filter(slbOnly),
+    shots: (db.raw.shots||[]).filter(slbOnly),
+  }) });
   const container=document.getElementById("league-leaders-section");
   container.innerHTML='<div class="section-header"><div class="section-label">League Leaders</div></div><div class="loading-state"><div class="loading-spinner"></div></div>';
 
