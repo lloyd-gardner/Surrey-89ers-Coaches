@@ -408,7 +408,7 @@ async function selectTeam(team,btn){
   }
 
   console.log("Loading players for team.id=",team.id,"seasonId=",seasonId);
-  players=await sbGet(`slb_players?current_team_id=eq.${team.id}&select=id,full_name,jersey_number,position&order=full_name.asc`);
+  players=await sbGet(`slb_players?current_team_id=eq.${team.id}&select=*&order=full_name.asc`);
   console.log("Players loaded:",players.length, players.slice(0,3));
 
   const pids=players.map(p=>p.id).join(",");
@@ -473,12 +473,12 @@ function playerRowHTML(p,pos,inactive=false){
   const imgUrl=sc.image_url||"";
   const thumb=imgUrl
     ?`<img class="p-thumb" src="${imgUrl}" onerror="this.style.display='none'" alt="">`
-    :`<div class="p-thumb-empty">${initials(p.full_name)}</div>`;
+    :`<div class="p-thumb-empty">${initials(shownName(p))}</div>`;
   return `<div class="player-row ${sel?"selected":""} ${inactive?"inactive":""} ${inactive?"":"active-p"}" onclick="selectPlayer(${p.id})">
     <span class="pos-num">${pos??"—"}</span>
     ${thumb}
     <div class="p-info">
-      <div class="p-name">${formatName(p.full_name)}</div>
+      <div class="p-name">${escHtml(shownName(p))}</div>
       <div class="p-meta">
         ${sc.position||p.position?`<span class="p-pos-tag">${sc.position||p.position}</span>`:""}
         ${p.jersey_number?`<span>#${p.jersey_number}</span>`:""}
@@ -493,6 +493,9 @@ function formatName(raw){
   const parts=raw.split(",");
   return parts.length===2?`${parts[1].trim()} ${parts[0].trim()}`:raw;
 }
+// Name shown on slides/admin: display_name override if set, else the LiveStats name.
+function shownName(p){ return (p&&p.display_name)||formatName(p&&p.full_name); }
+function escHtml(v){ return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function initials(raw){
   return formatName(raw).split(" ").map(w=>w[0]||"").join("").toUpperCase().slice(0,2);
 }
@@ -514,13 +517,13 @@ function renderEditor(){
 
   const thumbHdr=imgUrl
     ?`<img class="player-photo-large" src="${imgUrl}" alt="" onerror="this.style.display='none'">`
-    :`<div class="player-initials-large">${initials(p.full_name)}</div>`;
+    :`<div class="player-initials-large">${initials(shownName(p))}</div>`;
 
   document.getElementById("editor-card").innerHTML=`
     <div class="editor-header">
       ${thumbHdr}
       <div>
-        <div class="editor-title">${formatName(p.full_name)}</div>
+        <div class="editor-title" id="editor-title">${escHtml(shownName(p))}</div>
         <div class="editor-sub">${selectedTeam.name} &middot; #${p.jersey_number||"—"} &middot; ${p.position||"—"}</div>
       </div>
       <label class="active-toggle">
@@ -530,6 +533,15 @@ function renderEditor(){
     </div>
 
     <div class="editor-body">
+
+      <div class="form-section">
+        <div class="section-label">Name</div>
+        <div class="form-group">
+          <label>Display Name (used on Player Slides)</label>
+          <input type="text" id="f-display_name" value="${escHtml(p.display_name||"")}" placeholder="${escHtml(formatName(p.full_name))}" oninput="autoSaveName()">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">LiveStats name: <b>${escHtml(p.full_name)}</b> — leave blank to use this. Stats matching is unaffected.</div>
+        </div>
+      </div>
 
       <div class="form-section">
         <div class="section-label">Photo</div>
@@ -651,6 +663,25 @@ function toggleActive(){
 function autoSave(){ clearTimeout(saveTimer); setStatus("saving","Saving..."); saveTimer=setTimeout(savePlayer,1200); }
 function setStatus(cls,msg){ const el=document.getElementById("save-status"); if(!el)return; el.className="save-status "+cls; el.textContent=msg; }
 
+// Display name lives on slb_players (not per-season scouting) so it carries across seasons.
+let nameTimer=null;
+function autoSaveName(){ clearTimeout(nameTimer); setStatus("saving","Saving..."); nameTimer=setTimeout(saveDisplayName,1000); }
+async function saveDisplayName(){
+  clearTimeout(nameTimer);
+  const pid=selectedPid; if(!pid)return;
+  const val=(document.getElementById("f-display_name")?.value||"").trim();
+  try{
+    await sbPatch(`slb_players?id=eq.${pid}`,{display_name:val||null});
+    const p=players.find(x=>x.id===pid); if(p)p.display_name=val||null;
+    const t=document.getElementById("editor-title"); if(t&&p)t.textContent=shownName(p);
+    renderDepthChart();
+    setStatus("saved","Saved ✓"); setTimeout(()=>setStatus("",""),3000);
+  }catch(e){
+    console.error("[DC] display_name save failed",e);
+    setStatus("error",String(e.message||e).includes("display_name")?"Save failed — display_name column missing":"Save failed");
+  }
+}
+
 async function savePlayer(){
   clearTimeout(saveTimer);
   if(!selectedPid||!seasonId)return;
@@ -703,7 +734,7 @@ async function sbDelete(path){
 // MERGE DUPLICATE PLAYERS
 function openMergeModal(){
   if(!players.length){ return; }
-  const opts=players.map(p=>`<option value="${p.id}">${formatName(p.full_name)}${p.jersey_number?" #"+p.jersey_number:""}</option>`).join("");
+  const opts=players.map(p=>`<option value="${p.id}">${escHtml(shownName(p))}${p.jersey_number?" #"+p.jersey_number:""}</option>`).join("");
   document.getElementById("merge-a").innerHTML=opts;
   document.getElementById("merge-b").innerHTML=opts;
   if(players.length>1) document.getElementById("merge-b").selectedIndex=1;

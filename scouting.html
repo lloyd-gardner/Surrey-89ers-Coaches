@@ -670,7 +670,7 @@ async function fetchSupabaseDepthChart(teamCaps) {
     // Players (needs teamId) and this season's game IDs (needs only seasonId)
     // don't depend on each other either -- also run together.
     const [players, seasonGames] = await Promise.all([
-      sbFetch(`slb_players?current_team_id=eq.${teamId}&select=id,full_name,jersey_number,position`),
+      sbFetch(`slb_players?current_team_id=eq.${teamId}&select=*`),  // * so display_name is picked up without breaking if the column is missing
       sbFetch(`slb_games?season_id=eq.${seasonId}&select=id`)
     ]);
     if (!players.length) return null;
@@ -720,6 +720,7 @@ const sc = scoutMap[p.id];
         return {
           pos:        sc.depth_pos,
           name:       p.full_name,
+          displayName: p.display_name || "",   // full name override set in admin; p.name stays the LiveStats key for stat matching
           number:     p.jersey_number || "",
           position:   sc.position || p.position || "",
           height:     sc.height || "",
@@ -3980,7 +3981,8 @@ function matchPlayerName(pbpName, dataName){
 }
 
 function slideCard(p, idx, teamName){
-  var name     = fmtName(p.name||'');
+  // Display name override (admin.html) wins; p.name is untouched because it is the key used to match stats/shots.
+  var name     = String(p.displayName || fmtName(p.name||'')).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   var num      = p.number||'—';
   var _pShots  = ((DB&&DB.raw&&DB.raw.shots)||[]).filter(function(r){ return matchPlayerName(r.Player||'', p.name||''); });
   var _pShotsTotal = _pShots.length;
