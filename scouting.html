@@ -4394,44 +4394,58 @@ var types3 = pbpTypes(shots3,[
 
 // ── Shared: apply Surrey brand print styles to a cloned slide DOM node ───────
 function applyPrintStyles(clone){
+  // Print palette = club brand only: Celtic Green #008348, Off White #FAF9F6,
+  // Black. No reds/ambers/greys -- "what to stop"/negatives use black so they
+  // still read differently from the green "what to force"/positives.
+  var G='#008348', K='#111111', OW='#FAF9F6', GL='rgba(0,131,72,0.35)';
   clone.querySelectorAll('.slide-buttons,.no-print').forEach(function(b){ b.remove(); });
+  // Recolour every inline border (boxes solid green, thin dividers light green).
+  function brandBorders(el, s, col){
+    var re=/border(-top|-right|-bottom|-left)?\s*:\s*([\d.]+px)\s+solid/g, m;
+    while((m=re.exec(s))){
+      var side=m[1]?m[1].slice(1):'', w=m[2];
+      var c=col||(s.includes('border-radius')?G:GL);
+      if(!side) el.style.border=w+' solid '+c;
+      else el.style['border'+side.charAt(0).toUpperCase()+side.slice(1)]=w+' solid '+c;
+    }
+  }
   (function walk(el){
     var s = el.getAttribute('style')||'';
     var isBarFill = s.includes('height:100%') && s.includes('width:') &&
                     (s.includes('border-radius:2px')||s.includes('border-radius:3px'));
-    if(!isBarFill){
-      if(s.includes('rgba(0,131,72,0.08)')){
+    if(isBarFill){
+      el.style.background=G;
+    } else if(s.includes('height:4px') && s.includes('background')){
+      el.style.background = s.includes('width:') ? G : 'rgba(0,131,72,0.15)';   // stat bars
+    } else {
+      if(s.includes('rgba(0,131,72,0.08)')){                 // What to force
         el.style.background='#fff';
-        el.style.borderTop='1px solid #008348'; el.style.borderRight='1px solid #008348';
-        el.style.borderBottom='1px solid #008348'; el.style.borderLeft='3px solid #008348';
-      } else if(s.includes('rgba(224,85,85,0.06)')){
+        el.style.border='1px solid '+G; el.style.borderLeft='3px solid '+G;
+      } else if(s.includes('rgba(224,85,85,0.06)')){         // What to stop
         el.style.background='#fff';
-        el.style.borderTop='1px solid #c0392b'; el.style.borderRight='1px solid #c0392b';
-        el.style.borderBottom='1px solid #c0392b'; el.style.borderLeft='3px solid #c0392b';
-      } else if(s.includes('rgba(74,222,128,0.07)')){
-        el.style.background='#fff'; el.style.border='1px solid #008348';
-      } else if(s.includes('rgba(255,138,138,0.07)')){
-        el.style.background='#fff'; el.style.border='1px solid #c0392b';
+        el.style.border='1px solid '+K; el.style.borderLeft='3px solid '+K;
+      } else if(s.includes('rgba(74,222,128,0.07)')){        // positive pill
+        el.style.background='#fff'; el.style.border='1px solid '+G;
+      } else if(s.includes('rgba(255,138,138,0.07)')){       // negative pill
+        el.style.background='#fff'; el.style.border='1px solid '+K;
       } else if(s.includes('rgba(250,249,246,0.06)')||s.includes('rgba(255,255,255,.07)')||s.includes('rgba(255,255,255,0.07)')){
-        el.style.background='#e0e0e0';
-      } else if(s.includes('rgba(0,0,0,0.2)')){
-        el.style.background='#fff'; el.style.border='1px solid #ccc';
+        el.style.background=OW; el.style.border='1px solid '+GL;  // small tags
       } else if(s.includes('background')){
         el.style.background='#fff';
-        if(s.includes('border-radius')) el.style.border='1px solid #ccc';
+        if(s.includes('border-radius')) el.style.border='1px solid '+G;     // stat / grade boxes
+        brandBorders(el, s, s.includes('border-radius') ? G : null);
+      } else {
+        brandBorders(el, s, null);
       }
-      if(s.includes('var(--border-soft)')) el.style.borderColor='#ddd';
     }
-    el.style.color = '#111';
-    if(s.includes('color:var(--green)')||s.includes('color:#4ade80')) el.style.color='#008348';
-    if(s.includes('color:#60c8fa')||s.includes('color:var(--blue)')) el.style.color='#008348';
-    if(s.includes('color:var(--amber)')||s.includes('color:#f59e0b')) el.style.color='#b45309';
-    if(s.includes('color:#ff8a8a')) el.style.color='#c0392b';
-    if(s.includes('color:var(--muted)')||s.includes('color:rgba(250,249,246,0.4')||s.includes('color:rgba(250,249,246,0.35')) el.style.color='#666';
-    if(s.includes('color:rgba(250,249,246,0.5')||s.includes('color:rgba(250,249,246,0.45')||s.includes('color:rgba(250,249,246,0.55')) el.style.color='#555';
-    if(s.includes('color:rgba(250,249,246,0.6')) el.style.color='#444';
-    if(s.includes('color:#4ade80')) el.style.color='#008348';
-    if(s.includes('color:#ff8a8a') && s.includes('letter-spacing')) el.style.color='#c0392b';
+    el.style.color = K;
+    if(s.includes('color:var(--green)')||s.includes('color:#4ade80')) el.style.color=G;
+    if(s.includes('color:#60c8fa')||s.includes('color:var(--blue)')) el.style.color=G;
+    if(s.includes('color:var(--amber)')||s.includes('color:#f59e0b')) el.style.color=K;
+    if(s.includes('color:#ff8a8a')) el.style.color=K;
+    if(s.includes('color:var(--muted)')||s.includes('color:rgba(250,249,246,0.4')||s.includes('color:rgba(250,249,246,0.35')) el.style.color='#555';
+    if(s.includes('color:rgba(250,249,246,0.5')||s.includes('color:rgba(250,249,246,0.45')||s.includes('color:rgba(250,249,246,0.55')) el.style.color='#444';
+    if(s.includes('color:rgba(250,249,246,0.6')) el.style.color='#333';
     var fsMatch = s.match(/font-size:(\d+)px/);
     var fs = fsMatch ? parseFloat(fsMatch[1]) : 0;
     if(fs > 0 && fs <= 12 && (s.includes('letter-spacing:1px')||s.includes('letter-spacing:1.5px')||s.includes('letter-spacing:2px')))
@@ -4441,10 +4455,12 @@ function applyPrintStyles(clone){
   })(clone);
   var hdr=clone.querySelector('.slide-header');
   if(hdr){hdr.style.background='#fff';hdr.style.borderRight='3px solid #008348';}
-  clone.querySelectorAll('.grade-a').forEach(function(e){e.style.background='#fff';e.style.border='2px solid #4ade80';e.style.color='#111';});
-  clone.querySelectorAll('.grade-b').forEach(function(e){e.style.background='#fff';e.style.border='2px solid #008348';e.style.color='#111';});
-  clone.querySelectorAll('.grade-c').forEach(function(e){e.style.background='#fff';e.style.border='2px solid #f59e0b';e.style.color='#111';});
-  clone.querySelectorAll('.grade-d').forEach(function(e){e.style.background='#fff';e.style.border='2px solid #c0392b';e.style.color='#111';});
+  // Grades in brand colours only: A = solid green, B = green outline,
+  // C = black outline, D = solid black.
+  clone.querySelectorAll('.grade-a').forEach(function(e){e.style.background=G;e.style.border='2px solid '+G;e.style.color=OW;});
+  clone.querySelectorAll('.grade-b').forEach(function(e){e.style.background='#fff';e.style.border='2px solid '+G;e.style.color=K;});
+  clone.querySelectorAll('.grade-c').forEach(function(e){e.style.background='#fff';e.style.border='2px solid '+K;e.style.color=K;});
+  clone.querySelectorAll('.grade-d').forEach(function(e){e.style.background=K;e.style.border='2px solid '+K;e.style.color=OW;});
 }
 
 // ── Shared: collect page CSS, skipping @media print blocks ───────────────────
@@ -4466,8 +4482,9 @@ var SLIDE_PRINT_CSS = [
   '.slide-card { width:100vw!important; height:100vh!important; max-width:none!important; border-radius:0!important; margin:0!important; display:grid!important; grid-template-columns:280px 1fr!important; overflow:hidden!important; background:#fff!important; page-break-after:always; break-after:page; }',
   '.slide-header { background:#fff!important; border-right:3px solid #008348!important; }',
   '.slide-buttons, .no-print { display:none!important; }',
-  '.slide-card, .slide-card * { color:#111!important; }',
-  '.slide-card [style] { background:#fff!important; }',
+  // Colours are set inline by applyPrintStyles (brand palette); only the
+  // card itself is forced here so the green/black accents survive.
+  '.slide-card { color:#111; }',
 ].join('\n');
 
 // ── Print CSS for multi-section pages (Next Opponent, League Leaders) --
