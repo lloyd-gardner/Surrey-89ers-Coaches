@@ -4408,6 +4408,7 @@ var types3 = pbpTypes(shots3,[
 
 
 // ── Shared: apply Surrey brand print styles to a cloned slide DOM node ───────
+var PRINT_SCALE = 1.5;   // print-only text enlargement for A3 locker-room sheets
 function applyPrintStyles(clone){
   // Print palette = club brand only: Celtic Green #008348, Off White #FAF9F6,
   // Black. No reds/ambers/greys -- "what to stop"/negatives use black so they
@@ -4466,6 +4467,13 @@ function applyPrintStyles(clone){
     if(fs > 0 && fs <= 12 && (s.includes('letter-spacing:1px')||s.includes('letter-spacing:1.5px')||s.includes('letter-spacing:2px')))
       el.style.letterSpacing = '0.5px';
     if(s.includes('overflow:hidden')) el.style.overflow='visible';
+    // Scale up everything outside the statements / How to Guard (those have
+    // their own print sizes) so stats, ratings and labels read from across
+    // the room. Min 13px. Printers are often greyscale, so faint greys go dark.
+    if(fs > 0 && !el.closest('.stmt-box') && !el.closest('.guard-pill')){
+      el.style.fontSize = Math.max(13, Math.min(80, Math.round(fs * PRINT_SCALE))) + 'px';
+    }
+    if(el.style.color==='rgb(85, 85, 85)'||el.style.color==='rgb(68, 68, 68)') el.style.color='#222';
     Array.from(el.children).forEach(walk);
   })(clone);
   var hdr=clone.querySelector('.slide-header');
@@ -4494,7 +4502,7 @@ function collectPageStyles(){
 var SLIDE_PRINT_CSS = [
   '@page { size: A3 landscape; margin: 8mm; }',  // safe margin: printers cannot print to the paper edge
   'html, body { margin:0; padding:0; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }',
-  '.slide-card { width:404mm!important; height:280mm!important; max-width:none!important; border-radius:0!important; margin:0!important; display:grid!important; grid-template-columns:280px 1fr!important; overflow:hidden!important; background:#fff!important; page-break-after:always; break-after:page; }',
+  '.slide-card { width:404mm!important; height:280mm!important; max-width:none!important; border-radius:0!important; margin:0!important; display:grid!important; grid-template-columns:330px 1fr!important; overflow:hidden!important; background:#fff!important; page-break-after:always; break-after:page; }',
   '.slide-header { background:#fff!important; border-right:3px solid #008348!important; }',
   '.slide-buttons, .no-print { display:none!important; }',
   // Statements: equal thirds that never grow with content; large bold text
