@@ -206,6 +206,9 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .empty-icon{font-size:40px;margin-bottom:14px}
 .empty-title{font-size:15px;font-weight:600;color:var(--offwhite-mid);margin-bottom:6px}
 .empty-sub{font-size:12px;line-height:1.6}
+.games-section{margin-bottom:32px}
+.games-section:last-child{margin-bottom:0}
+.games-section-title{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:12px;display:flex;align-items:center;gap:6px}
 .meta-pill{font-size:10px;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:1px;text-transform:uppercase;display:inline-block}
 .pill-green{background:rgba(0,131,72,0.15);color:#4ade80;border:1px solid rgba(0,131,72,0.3)}
 .pill-amber{background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.2)}
@@ -266,7 +269,7 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
   <div class="view-tabs">
     <button class="view-tab active" id="tab-clips" onclick="switchView('clips')">🎬 Player Clips</button>
     <button class="view-tab" id="tab-practices" onclick="switchView('practices')">🏀 Practice Sessions</button>
-    <button class="view-tab" id="tab-games" onclick="switchView('games')">📹 Game Videos</button>
+    <button class="view-tab" id="tab-games" onclick="switchView('games')">📹 Games &amp; Scouting</button>
   </div>
 
   <div id="view-clips">
@@ -609,7 +612,7 @@ async function renderGames(){
   if(!gamesRaw.length){
     box.innerHTML=`<div class="empty-state">
       <div class="empty-icon">📹</div>
-      <div class="empty-title">Couldn't load game videos</div>
+      <div class="empty-title">Couldn't load videos</div>
       <div class="empty-sub">Check the Games sheet is still published to the web.</div>
     </div>`;
     return;
@@ -621,60 +624,78 @@ async function renderGames(){
       const o={};header.forEach((h,i)=>o[h.trim()]=r[i]||"");return o;
     });
 
-  // Filter to games that have a video_url, newest first
+  // Filter to rows that have a video_url, newest first
   const withVideo=records
     .filter(r=>r.video_url&&r.video_url.trim())
     .reverse();
 
   window._gamesList=withVideo;
 
-  GAMES_SUB=`${withVideo.length} full game film${withVideo.length===1?"":"s"} · Most recent first`;
+  const isScouting=g=>(g.type||"").trim().toLowerCase()==="scouting";
+  const scouting=withVideo.filter(isScouting);
+  const gameFilm=withVideo.filter(g=>!isScouting(g));
+
+  GAMES_SUB=`${scouting.length} scouting report${scouting.length===1?"":"s"} · ${gameFilm.length} full game film${gameFilm.length===1?"":"s"}`;
   if(CURRENT_VIEW==="games") document.getElementById("page-sub").textContent=GAMES_SUB;
 
   if(withVideo.length===0){
     box.innerHTML=`<div class="empty-state">
       <div class="empty-icon">📹</div>
-      <div class="empty-title">No game videos yet</div>
-      <div class="empty-sub">Add a YouTube or Synergy link to the <code>video_url</code> column<br>in the Games tab to see it here.</div>
+      <div class="empty-title">No videos yet</div>
+      <div class="empty-sub">Add a YouTube or Synergy link to the <code>video_url</code> column in the Games tab — mark <code>type</code> as <code>Scouting</code> or <code>Game</code> — to see it here.</div>
     </div>`;
     return;
   }
 
-  const featured=withVideo[0];
-  const rest=withVideo.slice(1);
-
-  box.innerHTML=`
-    <a class="featured-card" ${gameLinkAttrs(featured,0)}>
-      <div class="featured-top">
-        <div class="featured-icon">▶</div>
-        <div class="featured-info">
-          <div class="featured-label">Latest Game</div>
-          <div class="featured-title">${gameLabel(featured)}</div>
-          <div class="featured-date">${featured.date||""}${featured.opponent?" · vs "+featured.opponent:""}</div>
+  function renderSection(title, icon, label, list, emptyText){
+    if(!list.length){
+      return `<div class="games-section">
+        <div class="games-section-title">${icon} ${title}</div>
+        <div class="empty-state" style="padding:24px">
+          <div class="empty-sub">${emptyText}</div>
         </div>
-      </div>
-      <div class="featured-bottom">
-        <div class="featured-btn"><span class="featured-btn-icon">▶</span> Watch ${isYouTube(featured.video_url)?"on YouTube":"on Synergy"}</div>
-      </div>
-    </a>
-
-    ${rest.length?`
-    <div class="video-list-grid">
-      ${rest.map((g,i)=>`
-        <a class="pv-card" ${gameLinkAttrs(g,i+1)}>
-          <div class="pv-num">${g.game_num||(rest.length-i)}</div>
-          <div class="pv-divider"></div>
-          <div class="pv-info">
-            <div class="pv-title">${gameLabel(g)}</div>
-            <div class="pv-meta">
-              ${g.date?`<span class="meta-pill pill-green">${g.date}</span>`:""}
-              ${g.opponent?`<span class="meta-pill pill-coach">vs ${g.opponent}</span>`:""}
-            </div>
+      </div>`;
+    }
+    const featured=list[0];
+    const rest=list.slice(1);
+    return `<div class="games-section">
+      <div class="games-section-title">${icon} ${title}</div>
+      <a class="featured-card" ${gameLinkAttrs(featured,window._gamesList.indexOf(featured))}>
+        <div class="featured-top">
+          <div class="featured-icon">▶</div>
+          <div class="featured-info">
+            <div class="featured-label">${label}</div>
+            <div class="featured-title">${gameLabel(featured)}</div>
+            <div class="featured-date">${featured.date||""}${featured.opponent?" · vs "+featured.opponent:""}</div>
           </div>
-          <div class="pv-arrow">↗</div>
-        </a>`).join("")}
-    </div>`:""}
-  `;
+        </div>
+        <div class="featured-bottom">
+          <div class="featured-btn"><span class="featured-btn-icon">▶</span> Watch ${isYouTube(featured.video_url)?"on YouTube":"on Synergy"}</div>
+        </div>
+      </a>
+
+      ${rest.length?`
+      <div class="video-list-grid">
+        ${rest.map((g,i)=>`
+          <a class="pv-card" ${gameLinkAttrs(g,window._gamesList.indexOf(g))}>
+            <div class="pv-num">${g.game_num||"🔎"}</div>
+            <div class="pv-divider"></div>
+            <div class="pv-info">
+              <div class="pv-title">${gameLabel(g)}</div>
+              <div class="pv-meta">
+                ${g.date?`<span class="meta-pill pill-green">${g.date}</span>`:""}
+                ${g.opponent?`<span class="meta-pill pill-coach">vs ${g.opponent}</span>`:""}
+              </div>
+            </div>
+            <div class="pv-arrow">↗</div>
+          </a>`).join("")}
+      </div>`:""}
+    </div>`;
+  }
+
+  box.innerHTML=
+    renderSection("Scouting", "🔎", "Next Opponent", scouting, "Add a row to the Games tab with <code>type</code> set to <code>Scouting</code> for the next opponent's film.")
+    + renderSection("Game Film", "📹", "Latest Game", gameFilm, "Add a row to the Games tab with <code>type</code> set to <code>Game</code> for full match film.");
 }
 
 function switchView(view){
