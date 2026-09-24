@@ -4185,9 +4185,9 @@ var types3 = pbpTypes(shots3,[
   var guardHTML = guardItems.length
     ? '<div style="display:grid;grid-template-columns:repeat('+guardItems.length+',1fr);gap:6px">'
       + guardItems.map(function(g){
-          return '<div style="background:rgba(0,0,0,0.22);border-radius:8px;padding:7px 4px;text-align:center">'
-            +'<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">'+g[0]+'</div>'
-            +'<div style="font-size:14px;font-weight:900;color:var(--green);text-transform:uppercase;line-height:1.1">'+g[1]+'</div>'
+          return '<div class="guard-pill" style="background:rgba(0,0,0,0.22);border-radius:8px;padding:7px 4px;text-align:center">'
+            +'<div class="guard-label" style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">'+g[0]+'</div>'
+            +'<div class="guard-value" style="font-size:14px;font-weight:900;color:var(--green);text-transform:uppercase;line-height:1.1">'+g[1]+'</div>'
           +'</div>';
         }).join('')
       +'</div>'
@@ -4492,9 +4492,9 @@ function collectPageStyles(){
 
 // ── Shared popup CSS for print window ────────────────────────────────────────
 var SLIDE_PRINT_CSS = [
-  '@page { size: A3 landscape; margin: 0; }',
+  '@page { size: A3 landscape; margin: 8mm; }',  // safe margin: printers cannot print to the paper edge
   'html, body { margin:0; padding:0; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }',
-  '.slide-card { width:420mm!important; height:297mm!important; max-width:none!important; border-radius:0!important; margin:0!important; display:grid!important; grid-template-columns:280px 1fr!important; overflow:hidden!important; background:#fff!important; page-break-after:always; break-after:page; }',
+  '.slide-card { width:404mm!important; height:280mm!important; max-width:none!important; border-radius:0!important; margin:0!important; display:grid!important; grid-template-columns:280px 1fr!important; overflow:hidden!important; background:#fff!important; page-break-after:always; break-after:page; }',
   '.slide-header { background:#fff!important; border-right:3px solid #008348!important; }',
   '.slide-buttons, .no-print { display:none!important; }',
   // Statements: equal thirds that never grow with content; large bold text
@@ -4502,6 +4502,10 @@ var SLIDE_PRINT_CSS = [
   '.stmt-grid { grid-template-rows:repeat(3,minmax(0,1fr))!important; gap:10px!important; }',
   '.stmt-box { overflow:hidden!important; padding:14px 24px!important; }',
   '.stmt-label { font-size:14px!important; letter-spacing:2px!important; margin-bottom:8px!important; font-weight:700!important; }',
+  // How to Guard pills: scaled up to sit alongside the statement text
+  '.guard-pill { padding:12px 8px!important; }',
+  '.guard-label { font-size:13px!important; letter-spacing:1.5px!important; margin-bottom:6px!important; }',
+  '.guard-value { font-family:Inter,sans-serif!important; font-size:26px!important; font-weight:800!important; line-height:1.15!important; }',
   '.stmt-text { font-family:Inter,sans-serif!important; font-weight:500!important; color:#222!important; line-height:1.4!important; letter-spacing:-0.2px!important; overflow:visible!important; }',
   // Colours are set inline by applyPrintStyles (brand palette); only the
   // card itself is forced here so the green/black accents survive.
