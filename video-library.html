@@ -131,6 +131,14 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .vo-note-label{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:4px}
 .vo-note-text{font-size:13px;color:var(--offwhite-mid);line-height:1.5}
 
+.vo-watch-bar{padding:14px 24px;border-top:1px solid var(--border-soft);background:#080f0b;flex-shrink:0;max-height:150px;overflow-y:auto}
+.vo-watch-label{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:8px}
+.vo-watch-list{display:flex;flex-wrap:wrap;gap:6px}
+.vo-watch-pill{font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.vo-watch-pill.watched{background:rgba(0,131,72,0.18);color:#4ade80;border:1px solid rgba(0,131,72,0.35)}
+.vo-watch-pill.started{background:rgba(245,158,11,0.14);color:#f59e0b;border:1px solid rgba(245,158,11,0.3)}
+.vo-watch-pill.notwatched{background:rgba(250,249,246,0.06);color:var(--muted);border:1px solid var(--border-soft)}
+
 /* FILTERS */
 .filter-row{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
 .filter-pill{font-size:11px;font-weight:600;padding:6px 14px;border-radius:6px;border:1px solid var(--border-soft);color:var(--muted);cursor:pointer;transition:all 0.15s;background:none}
@@ -154,6 +162,11 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .play-btn::after{content:"";display:block;width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;border-left:13px solid #080f0b;margin-left:3px}
 .synergy-btn{width:40px;height:40px;background:rgba(0,131,72,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--green)}
 .vl-new-badge{position:absolute;top:8px;right:8px;background:var(--green);color:#fff;font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:1px}
+.vl-thumb-scout{background:linear-gradient(135deg,#1a1028,#0d0818)}
+.vl-thumb-game{background:linear-gradient(135deg,#0a2018,#051008)}
+.type-scout{background:rgba(167,139,250,0.15);color:#a78bfa}
+.type-game{background:rgba(0,131,72,0.15);color:var(--green)}
+.vl-watch-badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);color:#FAF9F6;font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;letter-spacing:0.3px}
 .vl-type-badge{position:absolute;top:8px;left:8px;font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:0.5px}
 .type-def{background:rgba(224,85,85,0.15);color:var(--red)}
 .type-off{background:rgba(96,200,250,0.1);color:var(--blue)}
@@ -236,6 +249,10 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
   <div class="vo-note-bar" id="vo-note-bar" style="display:none">
     <div class="vo-note-label">Coaching Note</div>
     <div class="vo-note-text" id="vo-note-text"></div>
+  </div>
+  <div class="vo-watch-bar" id="vo-watch-bar" style="display:none">
+    <div class="vo-watch-label" id="vo-watch-label">Watched by squad</div>
+    <div class="vo-watch-list" id="vo-watch-list"></div>
   </div>
 </div>
 
@@ -429,16 +446,70 @@ async function fetchCSV(url){
 
 function ini(name){return name.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase();}
 
-function ytEmbed(url){
-  if(!url) return "";
+function ytVideoId(url){
+  if(!url) return null;
   const m1=url.match(/youtu\.be\/([\w-]+)/);
   const m2=url.match(/[?&]v=([\w-]+)/);
   const m3=url.match(/embed\/([\w-]+)/);
-  const id=m1?m1[1]:m2?m2[1]:m3?m3[1]:null;
+  return m1?m1[1]:m2?m2[1]:m3?m3[1]:null;
+}
+
+function ytEmbed(url){
+  const id=ytVideoId(url);
   return id?"https://www.youtube.com/embed/"+id+"?autoplay=1&rel=0":"";
 }
 
 function isYouTube(url){return url&&(url.includes("youtu.be")||url.includes("youtube.com"));}
+
+/* ---------- who's watched a Games & Scouting video ----------
+   Players log their own opened/completed events (game-videos.html on
+   the players site) against the same Player Portals sheet this page
+   already reads ROSTER from — VIDEO_VIEWS tab, keyed by slug + the
+   YouTube video id. Read-only here: coaches just see the roster split
+   watched / started / not yet. */
+async function loadVideoViews(){
+  const rows=await fetchCSV(rosterTabURL("VIDEO_VIEWS"));
+  if(!rows.length) return [];
+  return rows.slice(1).filter(r=>r[1]).map(r=>({
+    slug:(r[1]||"").toLowerCase().trim(),
+    video_id:(r[3]||"").trim(),
+    event:(r[5]||"").toLowerCase().trim()
+  }));
+}
+
+function watchSetsFor(videoId){
+  const watched=new Set(), started=new Set();
+  (window._videoViews||[]).forEach(v=>{
+    if(!videoId||v.video_id!==videoId) return;
+    if(v.event==="completed") watched.add(v.slug);
+    else if(v.event==="opened") started.add(v.slug);
+  });
+  watched.forEach(s=>started.delete(s));
+  return {watched,started};
+}
+
+function watchBadge(g){
+  const roster=window._gamesRoster;
+  const id=ytVideoId(g.video_url);
+  if(!id||!roster||!roster.length) return "";
+  const {watched}=watchSetsFor(id);
+  return `${watched.size}/${roster.length} watched`;
+}
+
+function renderWatchList(videoId){
+  const bar=document.getElementById("vo-watch-bar");
+  const roster=(window._gamesRoster||[]).filter(p=>p.slug);
+  if(!videoId||!roster.length){ bar.style.display="none"; return; }
+  const {watched,started}=watchSetsFor(videoId);
+  document.getElementById("vo-watch-label").textContent=`Watched by squad — ${watched.size}/${roster.length}`;
+  document.getElementById("vo-watch-list").innerHTML=roster.map(p=>{
+    const slug=(p.slug||"").toLowerCase();
+    const cls=watched.has(slug)?"watched":started.has(slug)?"started":"notwatched";
+    const mark=cls==="watched"?"✓ ":cls==="started"?"▶ ":"";
+    return `<span class="vo-watch-pill ${cls}">${mark}${(p.name||"").split(" ")[0]}</span>`;
+  }).join("");
+  bar.style.display="block";
+}
 function isSynergy(url){return url&&url.includes("synergysports.com");}
 
 let ALL_VIDEOS=[], filterPlayer="All", filterType="All";
@@ -586,12 +657,6 @@ function gameLabel(g){
   return g.title||`vs ${g.opponent||"Opponent"}`;
 }
 
-function gameLinkAttrs(g, idx){
-  return isYouTube(g.video_url)
-    ? `href="javascript:void(0)" onclick="openGameVideo(${idx})"`
-    : `href="${g.video_url}" target="_blank"`;
-}
-
 function openGameVideo(idx){
   const g=window._gamesList&&window._gamesList[idx];
   if(!g) return;
@@ -604,11 +669,19 @@ function openGameVideo(idx){
   document.getElementById("vo-note-bar").style.display="none";
   document.getElementById("video-overlay").style.display="flex";
   document.body.style.overflow="hidden";
+  renderWatchList(ytVideoId(g.video_url));
 }
 
 async function renderGames(){
   const box=document.getElementById("games-content");
-  const gamesRaw=await fetchCSV(GAMES_URL);
+  const [gamesRaw, roster, views]=await Promise.all([
+    fetchCSV(GAMES_URL),
+    loadRoster(),
+    loadVideoViews()
+  ]);
+  window._gamesRoster=roster||PLAYERS;
+  window._videoViews=views;
+
   if(!gamesRaw.length){
     box.innerHTML=`<div class="empty-state">
       <div class="empty-icon">📹</div>
@@ -647,7 +720,10 @@ async function renderGames(){
     return;
   }
 
-  function renderSection(title, icon, label, list, emptyText){
+  /* Same thumbnail-card format as Player Clips (.vl-card/.vl-thumb),
+     just with a Scouting/Game Film colour and, when it's a trackable
+     YouTube clip, a "N/M watched" badge from the squad's view log. */
+  function renderSection(title, icon, thumbClass, badgeClass, list, emptyText){
     if(!list.length){
       return `<div class="games-section">
         <div class="games-section-title">${icon} ${title}</div>
@@ -656,46 +732,32 @@ async function renderGames(){
         </div>
       </div>`;
     }
-    const featured=list[0];
-    const rest=list.slice(1);
     return `<div class="games-section">
       <div class="games-section-title">${icon} ${title}</div>
-      <a class="featured-card" ${gameLinkAttrs(featured,window._gamesList.indexOf(featured))}>
-        <div class="featured-top">
-          <div class="featured-icon">▶</div>
-          <div class="featured-info">
-            <div class="featured-label">${label}</div>
-            <div class="featured-title">${gameLabel(featured)}</div>
-            <div class="featured-date">${featured.date||""}${featured.opponent?" · vs "+featured.opponent:""}</div>
-          </div>
-        </div>
-        <div class="featured-bottom">
-          <div class="featured-btn"><span class="featured-btn-icon">▶</span> Watch ${isYouTube(featured.video_url)?"on YouTube":"on Synergy"}</div>
-        </div>
-      </a>
-
-      ${rest.length?`
-      <div class="video-list-grid">
-        ${rest.map((g,i)=>`
-          <a class="pv-card" ${gameLinkAttrs(g,window._gamesList.indexOf(g))}>
-            <div class="pv-num">${g.game_num||"🔎"}</div>
-            <div class="pv-divider"></div>
-            <div class="pv-info">
-              <div class="pv-title">${gameLabel(g)}</div>
-              <div class="pv-meta">
-                ${g.date?`<span class="meta-pill pill-green">${g.date}</span>`:""}
-                ${g.opponent?`<span class="meta-pill pill-coach">vs ${g.opponent}</span>`:""}
-              </div>
+      <div class="video-grid">
+        ${list.map(g=>{
+          const idx=window._gamesList.indexOf(g);
+          const isYT=isYouTube(g.video_url);
+          const badge=watchBadge(g);
+          return `<div class="vl-card" onclick="openGameVideo(${idx})">
+            <div class="vl-thumb ${thumbClass}">
+              ${isYT?`<div class="play-btn"></div>`:`<div class="synergy-btn">▶</div>`}
+              <span class="vl-type-badge ${badgeClass}">${title}</span>
+              ${badge?`<span class="vl-watch-badge">${badge}</span>`:""}
             </div>
-            <div class="pv-arrow">↗</div>
-          </a>`).join("")}
-      </div>`:""}
+            <div class="vl-body">
+              <div class="vl-title">${gameLabel(g)}</div>
+              <div class="vl-date">${g.date||""}${g.opponent?" · vs "+g.opponent:""}</div>
+            </div>
+          </div>`;
+        }).join("")}
+      </div>
     </div>`;
   }
 
   box.innerHTML=
-    renderSection("Scouting", "🔎", "Next Opponent", scouting, "Add a row to the Games tab with <code>type</code> set to <code>Scouting</code> for the next opponent's film.")
-    + renderSection("Game Film", "📹", "Latest Game", gameFilm, "Add a row to the Games tab with <code>type</code> set to <code>Game</code> for full match film.");
+    renderSection("Scouting", "🔎", "vl-thumb-scout", "type-scout", scouting, "Add a row to the Games tab with <code>type</code> set to <code>Scouting</code> for the next opponent's film.")
+    + renderSection("Game Film", "📹", "vl-thumb-game", "type-game", gameFilm, "Add a row to the Games tab with <code>type</code> set to <code>Game</code> for full match film.");
 }
 
 function switchView(view){
@@ -798,6 +860,7 @@ function openVideo(idx){
     noteBar.style.display="none";
   }
 
+  document.getElementById("vo-watch-bar").style.display="none";
   document.getElementById("video-overlay").style.display="flex";
   document.body.style.overflow="hidden";
 }
@@ -805,6 +868,7 @@ function openVideo(idx){
 function closeVideo(){
   document.getElementById("video-overlay").style.display="none";
   document.getElementById("vo-iframe").src="";
+  document.getElementById("vo-watch-bar").style.display="none";
   document.body.style.overflow="";
 }
 
