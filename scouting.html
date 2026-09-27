@@ -1766,6 +1766,12 @@ async function renderLeagueLeadersSection(db){
   const maxGP=pool.reduce((m,p)=>Math.max(m,p.gp),0);
   const minGP=Math.max(1,Math.round(maxGP*0.25));
   const qualified=pool.filter(p=>p.gp>=minGP);
+  // Minimum attempts for % categories scale with the season too: the full
+  // 20 attempts (40 minutes for USG%) once teams have ~10 games, a floor of
+  // 3 early on -- otherwise 3P%/FT%/eFG% sit empty for the first month.
+  const attScale=Math.min(1,maxGP/10);
+  const minAtt=n=>Math.max(3,Math.ceil(n*attScale));
+  const minMin=Math.max(10,Math.ceil(40*attScale));
 
   function top10(valueFn,sortAsc,minAttempts){
     let list=qualified;
@@ -1795,16 +1801,16 @@ async function renderLeagueLeadersSection(db){
     {lbl:"MPG",       entries:top10(p=>p.gp?p.min/p.gp:null)},
     {lbl:"TOV/G",     entries:top10(p=>p.gp?p.tov/p.gp:null)},
     {lbl:"3PM/G",     entries:top10(p=>p.gp?p.tpm/p.gp:null)},
-    {lbl:"3P%",       entries:top10(p=>p.tpa?p.tpm/p.tpa*100:null,false,p=>p.tpa>=20),isPct:true},
+    {lbl:"3P%",       entries:top10(p=>p.tpa?p.tpm/p.tpa*100:null,false,p=>p.tpa>=minAtt(20)),isPct:true},
     {lbl:"FTM/G",     entries:top10(p=>p.gp?p.ftm/p.gp:null)},
-    {lbl:"FT%",       entries:top10(p=>p.fta?p.ftm/p.fta*100:null,false,p=>p.fta>=20),isPct:true},
+    {lbl:"FT%",       entries:top10(p=>p.fta?p.ftm/p.fta*100:null,false,p=>p.fta>=minAtt(20)),isPct:true},
     {lbl:"+/-",       entries:top10(p=>p.gp?p.pm/p.gp:null),showSign:true},
-    {lbl:"3PT RATE",  entries:top10(p=>p.fga?p.tpa/p.fga*100:null,false,p=>p.fga>=20),isPct:true},
-    {lbl:"eFG%",      entries:top10(p=>p.fga?(p.fgm+0.5*p.tpm)/p.fga*100:null,false,p=>p.fga>=20),isPct:true},
+    {lbl:"3PT RATE",  entries:top10(p=>p.fga?p.tpa/p.fga*100:null,false,p=>p.fga>=minAtt(20)),isPct:true},
+    {lbl:"eFG%",      entries:top10(p=>p.fga?(p.fgm+0.5*p.tpm)/p.fga*100:null,false,p=>p.fga>=minAtt(20)),isPct:true},
     {lbl:"3PA/G",     entries:top10(p=>p.gp?p.tpa/p.gp:null)},
     {lbl:"OREB/G",    entries:top10(p=>p.gp?p.oreb/p.gp:null)},
     {lbl:"APG",       entries:top10(p=>p.gp?p.ast/p.gp:null)},
-    {lbl:"USG%",      entries:top10(p=>usagePct(p),false,p=>p.min>=40),isPct:true},
+    {lbl:"USG%",      entries:top10(p=>usagePct(p),false,p=>p.min>=minMin),isPct:true},
     {lbl:"2ND CH PTS/G", entries:top10(p=>p.gp?(secondChancePts[p.name]||0)/p.gp:null)},
     {lbl:"FBP/G",     entries:top10(p=>p.gp?p.fbp/p.gp:null)},
     {lbl:"PIP/G",     entries:top10(p=>p.gp?p.pip/p.gp:null)},
