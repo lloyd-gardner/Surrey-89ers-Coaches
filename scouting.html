@@ -636,6 +636,46 @@ const SUPABASE_URL  = "https://xxhotbyqajzosxtczezh.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4aG90YnlxYWp6b3N4dGN6ZXpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODYzODUsImV4cCI6MjA5NTk2MjM4NX0.m37aEWrf9Yx74CcZkcIRmn95D4fVWhnd2IWDxBbHSqs";
 const SEASON_LABEL  = "2025-26";
 
+// Two different players can share a LiveStats name -- e.g. "T. Smith" at
+// Newcastle AND Liverpool, or brothers "M. Delpeche" #21/#22 at Bristol.
+// The hub matches stats, shots, assists and lineups by player NAME, so any
+// clashing name gets a unique key: "T. Smith (Liverpool)" when the clash is
+// across teams, "M. Delpeche #21" when it's two team-mates. Players with a
+// unique name are untouched. Built once per page load from player ids.
+let _playerNameKeys=null;
+function getPlayerNameKeys(){
+  if(_playerNameKeys) return _playerNameKeys;
+  _playerNameKeys=(async()=>{
+    try{
+      const seasons=await sbFetch(`slb_seasons?is_current=eq.true&select=id`);
+      const sid=seasons[0]?.id;
+      if(!sid) return {};
+      const [players,teams]=await Promise.all([
+        sbFetchAll("slb_players",`select=id,full_name,jersey_number,current_team_id&season_id=eq.${sid}`),
+        sbFetchAll("slb_teams","select=id,name"),
+      ]);
+      const teamName={}; teams.forEach(t=>{ teamName[t.id]=t.name; });
+      const byName={};
+      players.forEach(p=>{ (byName[p.full_name]=byName[p.full_name]||[]).push(p); });
+      const keys={};
+      Object.values(byName).forEach(list=>{
+        const multiTeam=new Set(list.map(p=>p.current_team_id)).size>1;
+        list.forEach(p=>{
+          let k=p.full_name;
+          if(list.length>1){
+            if(multiTeam) k+=` (${teamShort(capsTeam(teamName[p.current_team_id]||""))})`;
+            const mates=list.filter(q=>q.current_team_id===p.current_team_id).length;
+            if(mates>1 && p.jersey_number) k+=` #${p.jersey_number}`;
+          }
+          keys[p.id]=k;
+        });
+      });
+      return keys;
+    }catch(e){ console.error("getPlayerNameKeys error:",e); return {}; }
+  })();
+  return _playerNameKeys;
+}
+
 async function fetchSupabaseDepthChart(teamCaps) {
   try {
     // Resolve canonical team name from caps
@@ -692,6 +732,7 @@ async function fetchSupabaseDepthChart(teamCaps) {
 
     const scoutMap = {};
     scouting.forEach(s => { scoutMap[s.player_id] = s; });
+    const nameKeys = await getPlayerNameKeys();
 
     const avgMap = {};
     averages.forEach(a => { avgMap[a.player_id] = a; });
@@ -721,7 +762,7 @@ const sc = scoutMap[p.id];
         const av = avgMap[p.id] || {};
         return {
           pos:        sc.depth_pos,
-          name:       p.full_name,
+          name:       nameKeys[p.id] || p.full_name,
           displayName: p.display_name || "",   // full name override set in admin; p.name stays the LiveStats key for stat matching
           number:     p.jersey_number || "",
           position:   sc.position || p.position || "",
@@ -1053,6 +1094,8 @@ const gameRows = await sbFetchAll("slb_games", `select=id,livestats_game_id,game
   allTeams.forEach(t => { teamById[t.id] = t; });
 
   const allPlayers = await sbFetchAll("slb_players", `select=id,full_name,jersey_number&season_id=eq.${seasonId}`);
+  const nameKeys = await getPlayerNameKeys();
+  allPlayers.forEach(p => { p.full_name = nameKeys[p.id] || p.full_name; });
   const playerById = {};
   allPlayers.forEach(p => { playerById[p.id] = p; });
 
@@ -1259,7 +1302,7 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
 
   // ── lr — player season averages ──
   const lr = lrRows.map(r => ({
-    "Player": r.full_name,
+    "Player": (r.player_id && nameKeys[r.player_id]) || r.full_name,
     "TEAM":   capsTeam(r.team_name),
     "GP":     r.games_played,
     "MPG":    r.mpg,
@@ -1663,7 +1706,8 @@ async function renderLeagueLeadersSection(db){
   const scoutingRows=seasonId?await sbFetchAll("slb_player_scouting",`season_id=eq.${seasonId}&select=player_id,active`):[];
   const inactiveIds=new Set(scoutingRows.filter(r=>r.active===false).map(r=>r.player_id));
   const playersAll=await sbFetchAll("slb_players","select=id,full_name");
-  const inactiveNames=new Set(playersAll.filter(p=>inactiveIds.has(p.id)).map(p=>p.full_name));
+  const leaderKeys=await getPlayerNameKeys();
+  const inactiveNames=new Set(playersAll.filter(p=>inactiveIds.has(p.id)).map(p=>leaderKeys[p.id]||p.full_name));
 
   // Aggregate every player's per-game stats league-wide (all teams), and
   // each TEAM's own season totals + game count alongside it -- the team
@@ -5006,6 +5050,8 @@ async function renderPlayerTrending(db,SURREY){
 
   const rosterPlayers=await sbFetchAll("slb_players","select=id,full_name,position");
   const posByName={};
+  const trendKeys=await getPlayerNameKeys();
+  rosterPlayers.forEach(p=>{ p.full_name=trendKeys[p.id]||p.full_name; });
   rosterPlayers.forEach(p=>{ posByName[p.full_name]=p.position||""; });
   function positionGroup(pos){
     const p=(pos||"").toLowerCase();
