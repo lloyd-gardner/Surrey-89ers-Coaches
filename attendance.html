@@ -153,6 +153,7 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .dot-a{background:rgba(245,158,11,0.12);color:var(--amber)}
 .dot-s{background:rgba(167,139,250,0.12);color:#a78bfa}
 .dot-blank{background:transparent;color:transparent}
+.dot-none{background:transparent;color:var(--muted);opacity:.5}
 
 /* SESSION GRID */
 .session-grid-wrap{overflow-x:auto;border:1px solid var(--border-soft);border-radius:10px;margin-bottom:28px}
@@ -169,6 +170,7 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .att-A{background:rgba(245,158,11,0.1);color:var(--amber)}
 .att-S{background:rgba(167,139,250,0.12);color:#a78bfa}
 .att-blank{color:transparent}
+.att-none{color:var(--muted);opacity:.5}
 
 /* LEGEND */
 .legend-row{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap}
@@ -359,7 +361,12 @@ async function init(){
   // Parse roster - wide format: player | 142 | 143 | ...
   const rosterHeader = rosterRaw[0];
   const practiceCols = rosterHeader.slice(1).filter(h=>h&&h.trim()&&!isNaN(h.trim()));
-  const rosterRows = rosterRaw.slice(1).filter(r=>r[0]&&r[0]!=="player"&&!r[0].startsWith("KEY")&&!["O","X","I","A","S"].includes(r[0].trim()));
+  // Player rows only — the TOTAL row, the KEY block and blank spacer rows are not players
+  const STATUS_CODES = ["O","X","I","A","S"];
+  const rosterRows = rosterRaw.slice(1).filter(r=>{
+    const n=(r[0]||"").trim(), u=n.toUpperCase();
+    return n&&u!=="PLAYER"&&u!=="TOTAL"&&!u.startsWith("KEY")&&!STATUS_CODES.includes(u);
+  });
 
   // Build player data map
   const playerData = {};
@@ -373,13 +380,30 @@ async function init(){
     playerData[name] = statuses;
   });
 
-  // Only count practices that have at least one entry (not all blank)
+  // Only count practices where at least one player has a status marked.
+  // (The sheet's TOTAL row holds a 0 for every future practice, so it must not count.)
   const activePractices = practiceCols.filter(col=>{
-    return rosterRows.some(row=>{
-      const hIdx = rosterHeader.indexOf(col);
-      return (row[hIdx]||"").trim() !== "";
-    });
+    const hIdx = rosterHeader.indexOf(col);
+    return rosterRows.some(row=>STATUS_CODES.includes((row[hIdx]||"").trim().toUpperCase()));
   });
+
+  // Match hub roster names to sheet names. Exact (ignoring case/punctuation) first,
+  // then first name + surname initial via the roster "tab" (e.g. "Manny K"), so a
+  // nickname or a spelling slip in the sheet doesn't zero a player's attendance.
+  const normName = s=>(s||"").toLowerCase().replace(/[^a-z ]/g,"").replace(/\s+/g," ").trim();
+  const shortKey = s=>{const w=normName(s).split(" ").filter(Boolean);return w.length>1?w[0]+" "+w[w.length-1][0]:(w[0]||"");};
+  const sheetNames = Object.keys(playerData);
+  function findData(p){
+    const exact = sheetNames.filter(n=>normName(n).replace(/ /g,"")===normName(p.name).replace(/ /g,""));
+    if(exact.length===1) return playerData[exact[0]];
+    for(const key of [shortKey(p.tab), shortKey(p.name)]){
+      if(!key) continue;
+      const hits = sheetNames.filter(n=>shortKey(n)===key);
+      if(hits.length===1) return playerData[hits[0]];
+    }
+    console.warn("Attendance: no row in Roster Availability for", p.name);
+    return null;
+  }
 
   const totalSessions = activePractices.length;
 
@@ -387,11 +411,12 @@ async function init(){
   let totalInjuryDays=0, totalAwayDays=0, totalAvailable=0, totalPossible=0;
 
   const playerStats = PLAYERS.map(p=>{
-    const data = playerData[p.name] || {};
+    const data = findData(p) || {};
     let available=0, notAvail=0, injured=0, away=0, suspended=0;
     const dots = activePractices.map(col=>{
       const s = data[col] || "";
-      if(s==="O"||s===""){if(s==="O")available++;return s||"";}
+      if(s==="O"){available++;return "O";}
+      if(s==="") return "";   // nothing marked — not counted for or against
       if(s==="X"){notAvail++;return "X";}
       if(s==="I"){injured++;return "I";}
       if(s==="A"){away++;return "A";}
@@ -401,14 +426,17 @@ async function init(){
 
     const attended = available;
     const missed = notAvail+injured+away+suspended;
-    const pct = totalSessions>0?Math.round((attended/totalSessions)*100):0;
+    // Percentage is out of the sessions this player was expected at: blanks and
+    // X (not available) are left out, so they count neither for nor against him.
+    const recorded = attended+injured+away+suspended;
+    const pct = recorded>0?Math.round((attended/recorded)*100):null;
 
     totalInjuryDays+=injured;
     totalAwayDays+=away;
     totalAvailable+=attended;
-    totalPossible+=totalSessions;
+    totalPossible+=recorded;
 
-    return {...p, available, notAvail, injured, away, suspended, missed, pct, dots};
+    return {...p, available, notAvail, injured, away, suspended, missed, recorded, pct, dots};
   });
 
   // Stats strip
@@ -434,14 +462,14 @@ async function init(){
         <div class="pa-av">#${p.num}</div>
         <div class="pa-info">
           <div class="pa-name">${p.name}</div>
-          <div class="pa-meta">${p.pos} · #${p.num} · ${p.available}/${totalSessions} sessions</div>
+          <div class="pa-meta">${p.pos} · #${p.num} · ${p.available}/${p.recorded} sessions</div>
         </div>
-        <div class="pa-attend-pct ${pctClass(p.pct)}">${p.pct}%</div>
+        <div class="pa-attend-pct ${p.pct===null?"":pctClass(p.pct)}">${p.pct===null?"—":p.pct+"%"}</div>
       </div>
       <div class="pa-body">
-        <div class="pa-bar-track"><div class="pa-bar-fill" style="width:${p.pct}%;background:${barColor(p.pct)}"></div></div>
-        <div class="pa-breakdown">${reasons.join("")||'<span style="font-size:10px;color:var(--muted)">Full attendance</span>'}</div>
-        <div class="pa-dot-row">${p.dots.map(d=>d?`<div class="pa-dot dot-${d}">${d}</div>`:`<div class="pa-dot dot-o">O</div>`).join("")}</div>
+        <div class="pa-bar-track"><div class="pa-bar-fill" style="width:${p.pct||0}%;background:${barColor(p.pct||0)}"></div></div>
+        <div class="pa-breakdown">${reasons.join("")||`<span style="font-size:10px;color:var(--muted)">${p.recorded?"Full attendance":"No sessions recorded"}</span>`}</div>
+        <div class="pa-dot-row">${p.dots.map(d=>d?`<div class="pa-dot dot-${d.toLowerCase()}">${d}</div>`:`<div class="pa-dot dot-none">·</div>`).join("")}</div>
       </div>
     </div>`;
   }).join("");
@@ -463,10 +491,10 @@ async function init(){
         <tr>
           <td class="player-cell">${p.name}</td>
           ${activePractices.map((col,i)=>{
-            const s=p.dots[i]||"O";
-            return `<td><span class="att-cell att-${s}">${s}</span></td>`;
+            const s=p.dots[i];
+            return s?`<td><span class="att-cell att-${s}">${s}</span></td>`:`<td><span class="att-cell att-none">·</span></td>`;
           }).join("")}
-          <td style="font-family:'Space Grotesk',sans-serif;font-weight:700;color:${barColor(p.pct)}">${p.pct}%</td>
+          <td style="font-family:'Space Grotesk',sans-serif;font-weight:700;color:${p.pct===null?"var(--muted)":barColor(p.pct)}">${p.pct===null?"—":p.pct+"%"}</td>
           <td style="color:var(--red);font-weight:700">${p.injured||"—"}</td>
           <td style="color:var(--amber);font-weight:700">${p.away||"—"}</td>
         </tr>`).join("")}
