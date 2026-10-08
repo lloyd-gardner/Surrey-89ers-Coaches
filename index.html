@@ -172,6 +172,14 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .watch-trt{font-size:8.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;
   border-radius:4px;background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.25);
   margin-left:7px;vertical-align:middle;white-space:nowrap}
+.avail-pills{display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0}
+.avail-pill{font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;padding:3px 8px;border-radius:20px;white-space:nowrap;border:1px solid transparent}
+.avail-pill small{font-size:8px;font-weight:600;opacity:.7;margin-right:4px;letter-spacing:.6px}
+.avail-g{color:#4ade80;background:rgba(74,222,128,0.10);border-color:rgba(74,222,128,0.25)}
+.avail-a{color:var(--amber);background:rgba(245,158,11,0.10);border-color:rgba(245,158,11,0.3)}
+.avail-r{color:var(--red);background:rgba(224,85,85,0.12);border-color:rgba(224,85,85,0.35)}
+.avail-gray{color:var(--muted);background:rgba(250,249,246,0.04);border-color:var(--border-soft)}
+.avail-foot{font-size:10.5px;color:var(--muted);padding-top:10px;text-align:center}
 .watch-note{font-size:10.5px;color:var(--offwhite-mid);margin-top:3px;font-style:italic;line-height:1.4}
 
 </style>
@@ -250,6 +258,16 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
       </div>
 
       <div class="dash-col">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Player Availability</div>
+            <div class="card-link" id="avail-open" style="display:none">Physio sheet →</div>
+          </div>
+          <div class="card-body" id="availability">
+            <div class="watch-ok">Loading…</div>
+          </div>
+        </div>
+
         <div class="card week-sched-card" id="week-sched-wrap">
           <div class="card-header">
             <div class="card-title">This Week</div>
@@ -277,6 +295,16 @@ const LOGO="/9j/4AAQSkZJRgABAQAAAQABAAD/4gKgSUNDX1BST0ZJTEUAAQEAAAKQbGNtcwQwAABt
 const PASSWORD="89ers2627";
 
 const SCHEDULE_CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vTxFit7jrGqaHcbBTuK15aBvfn4AVsd5MWK4tMLgDyoQdCJSHvQM7F4cRFK-3w91n65RlfMlNISYFD8/pub?gid=0&single=true&output=csv";
+/* ============================================================
+   PLAYER AVAILABILITY — the physio's sheet ("Surrey 89ers - Physio Status").
+   Staff only: this lives on the coaches Dashboard and nowhere on the
+   player portals. The Dashboard reads ONLY the published "Dashboard Feed"
+   tab (player, injury_status, game_status) — never the physio's working
+   tabs — so anything else added to that spreadsheet stays private.
+   PHYSIO_STATUS_CSV = the "Publish to web" CSV link for the Dashboard Feed tab.
+   ============================================================ */
+const PHYSIO_STATUS_CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vTgZ2Qfo4z1nhk_7IbG2OMRwtAwWPjqZlTMMsNNvQ6z108QAIlCQVKyHaBE5Z9nVeOf7HKy7W-CT1fm/pub?gid=56246200&single=true&output=csv";
+const PHYSIO_SHEET_EDIT="https://docs.google.com/spreadsheets/d/1-F38wiGnGwZzVoK9vKDQQiax3yu_UJ-1MTfZvYjGrw0/edit";
 const PLAYER_PORTAL_GIDS={"Kareem Queeley": {"gid": "1632339033", "slug": "kareem-queeley"}, "Ollie Bishop": {"gid": "1821311777", "slug": "ollie-bishop"}};
 
 /* ============================================================
@@ -417,6 +445,85 @@ function isFlagged(p){return p.checkedToday&&((p.avg!=null&&p.avg<3.5)||p.treatm
 
 
 /* ============================================================
+   PLAYER AVAILABILITY (physio sheet)
+   ============================================================ */
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function nameKey(s){return String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");}
+/* severity: 0 fine · 1 watch · 2 doubtful · 3 out · -1 not set */
+const INJURY_SEV={"healthy":0,"questionable":1,"day to day":1,"day-to-day":1,"doubtful":2,"out":3};
+const GAME_SEV={"available":0,"probable":1,"questionable":1,"doubtful":2,"out":3};
+function sevOf(map,v){const k=String(v||"").trim().toLowerCase();if(!k)return -1;return k in map?map[k]:1;}
+function sevCls(n){return n<0?"gray":n===0?"g":n===1?"a":"r";}
+
+async function renderAvailability(squad){
+  const box=document.getElementById("availability");
+  if(!box) return;
+  const link=document.getElementById("avail-open");
+  if(link&&PHYSIO_SHEET_EDIT){link.style.display="";link.onclick=()=>window.open(PHYSIO_SHEET_EDIT,"_blank");}
+  if(!PHYSIO_STATUS_CSV){
+    box.innerHTML=`<div class="watch-ok">Not connected yet.<br>The physio's status sheet still needs linking to the Dashboard.</div>`;
+    return;
+  }
+  let rows=[];
+  try{
+    const res=await fetch(PHYSIO_STATUS_CSV+(PHYSIO_STATUS_CSV.includes("?")?"&":"?")+"cachebust="+Date.now());
+    if(!res.ok) throw new Error("physio sheet http "+res.status);
+    rows=parseCSV(await res.text());
+  }catch(e){
+    console.error("availability:",e);
+    box.innerHTML=`<div class="watch-ok">Couldn't reach the physio's sheet.<br>Try again in a moment.</div>`;
+    return;
+  }
+  /* find the header row by name rather than by position, so the sheet can
+     grow extra columns or rows above without breaking this card */
+  const norm=h=>String(h||"").toLowerCase().replace(/[^a-z]/g,"");
+  const hi=rows.findIndex(r=>r.some(c=>norm(c)==="player"));
+  if(hi<0){box.innerHTML=`<div class="watch-ok">The physio's sheet has no "player" column to read.</div>`;return;}
+  const head=rows[hi].map(norm);
+  const iP=head.indexOf("player"), iI=head.indexOf("injurystatus"), iG=head.indexOf("gamestatus");
+
+  const bySlugName={};(squad||[]).forEach(p=>{bySlugName[nameKey(p.name)]=p;});
+  const list=rows.slice(hi+1).map(r=>{
+    const name=clean(r[iP]); if(!name) return null;
+    const injury=iI>=0?clean(r[iI]):"", game=iG>=0?clean(r[iG]):"";
+    const si=sevOf(INJURY_SEV,injury), sg=sevOf(GAME_SEV,game);
+    return {name, injury, game, si, sg, p:bySlugName[nameKey(name)]||null};
+  }).filter(Boolean);
+
+  if(!list.length){box.innerHTML=`<div class="watch-ok">No players on the physio's sheet yet.</div>`;return;}
+  if(list.every(x=>x.si<0&&x.sg<0)){
+    box.innerHTML=`<div class="watch-ok">No statuses set yet.<br>They'll show here once the physio fills in the sheet.</div>`;
+    return;
+  }
+
+  /* only the players a coach needs to think about — anyone not both
+     Healthy and Available — worst first, game status breaking ties */
+  const noted=list.filter(x=>x.si>0||x.sg>0)
+                  .sort((a,b)=>(Math.max(b.sg,b.si)-Math.max(a.sg,a.si))||(b.sg-a.sg)||(b.si-a.si)||a.name.localeCompare(b.name));
+  const unset=list.filter(x=>(x.si<0||x.sg<0)&&!(x.si>0||x.sg>0)).length;
+  const fine=list.length-noted.length-unset;
+  const pill=(label,val,sev)=>`<span class="avail-pill avail-${sevCls(sev)}"><small>${label}</small>${val?esc(val):"Not set"}</span>`;
+
+  const body=noted.length
+    ? noted.map(x=>{
+        const sub=x.p?[x.p.pos,x.p.num!==""&&x.p.num!=null?"#"+x.p.num:""].filter(Boolean).join(" · "):"";
+        return `<div class="watch-row">
+          <div class="watch-av">${esc(ini(x.name))}${x.p?avatarImg(x.p):""}</div>
+          <div class="watch-body">
+            <div class="watch-name">${esc(x.name)}</div>
+            ${sub?`<div class="watch-why">${esc(sub)}</div>`:""}
+          </div>
+          <div class="avail-pills">${pill("Injury",x.injury,x.si)}${pill("Game",x.game,x.sg)}</div>
+        </div>`;
+      }).join("")
+    : `<div class="watch-ok">Full squad healthy and available.</div>`;
+
+  const foot=[fine+" of "+list.length+" healthy &amp; available"];
+  if(unset) foot.push(unset+" not set");
+  box.innerHTML=body+(noted.length||unset?`<div class="avail-foot">${foot.join(" · ")}</div>`:"");
+}
+
+/* ============================================================
    DASHBOARD HEADLINE NUMBERS
    ============================================================ */
 function dashDate(v){const p=String(v).split("/");if(p.length!==3)return null;
@@ -515,6 +622,8 @@ async function init(){
     squad=Object.entries(PLAYER_PORTAL_GIDS).map(([name,i])=>({name, slug:i.slug, gid:i.gid}))
       .concat(OTHER_PLAYERS.map(p=>({name:p.name, slug:p.slug, num:p.num, pos:p.pos})));
   }
+
+  renderAvailability(squad);
 
   const METRICS=["sleep_quality","soreness","mood","sleep_duration","stress","energy"];
   const [settled, checkedSet]=await Promise.all([
