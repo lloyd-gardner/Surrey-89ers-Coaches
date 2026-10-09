@@ -145,6 +145,13 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .pr-i{background:rgba(224,85,85,0.1);color:var(--red);border:1px solid rgba(224,85,85,0.2)}
 .pr-a{background:rgba(245,158,11,0.1);color:var(--amber);border:1px solid rgba(245,158,11,0.2)}
 .pr-s{background:rgba(167,139,250,0.1);color:#a78bfa;border:1px solid rgba(167,139,250,0.2)}
+.pa-status{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px}
+.pa-status-pill{font-size:9.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;padding:3px 9px;border-radius:20px;white-space:nowrap;border:1px solid transparent}
+.pa-status-pill small{font-size:8px;font-weight:600;opacity:.7;margin-right:5px;letter-spacing:.6px}
+.ps-g{color:#4ade80;background:rgba(74,222,128,0.10);border-color:rgba(74,222,128,0.25)}
+.ps-a{color:var(--amber);background:rgba(245,158,11,0.10);border-color:rgba(245,158,11,0.3)}
+.ps-r{color:var(--red);background:rgba(224,85,85,0.12);border-color:rgba(224,85,85,0.35)}
+.ps-gray{color:var(--muted);background:rgba(250,249,246,0.04);border-color:var(--border-soft)}
 .pa-dot-row{display:flex;gap:3px;flex-wrap:wrap;margin-top:8px}
 .pa-dot{width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700}
 .dot-o{background:rgba(74,222,128,0.12);color:#4ade80}
@@ -348,14 +355,44 @@ async function fetchCSV(url){
   catch(e){console.error("fetch failed",url,e);return [];}
 }
 
+/* ============================================================
+   PHYSIO STATUS — current injury + game status per player, from the
+   published "Dashboard Feed" tab of "Surrey 89ers - Physio Status"
+   (player, injury_status, game_status). Same feed the Dashboard's
+   Player Availability card reads. Staff pages only.
+   ============================================================ */
+const PHYSIO_STATUS_CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vTgZ2Qfo4z1nhk_7IbG2OMRwtAwWPjqZlTMMsNNvQ6z108QAIlCQVKyHaBE5Z9nVeOf7HKy7W-CT1fm/pub?gid=56246200&single=true&output=csv";
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+/* severity: 0 fine · 1 watch · 2 doubtful · 3 out · -1 not set */
+const INJURY_SEV={"healthy":0,"questionable":1,"day to day":1,"day-to-day":1,"doubtful":2,"out":3};
+const GAME_SEV={"available":0,"probable":1,"questionable":1,"doubtful":2,"out":3};
+function sevOf(map,v){const k=String(v||"").trim().toLowerCase();if(!k)return -1;return k in map?map[k]:1;}
+function sevCls(n){return n<0?"gray":n===0?"g":n===1?"a":"r";}
+/* Returns [{name,injury,game}] — or [] if the sheet can't be reached, in
+   which case the cards simply render without a status row. */
+async function loadPhysioStatus(){
+  try{
+    const res=await fetch(PHYSIO_STATUS_CSV+"&cachebust="+Date.now());
+    if(!res.ok) throw new Error("physio sheet http "+res.status);
+    const rows=parseCSV(await res.text());
+    const norm=h=>String(h||"").toLowerCase().replace(/[^a-z]/g,"");
+    const hi=rows.findIndex(r=>r.some(c=>norm(c)==="player"));
+    if(hi<0) throw new Error("no player column");
+    const head=rows[hi].map(norm);
+    const iP=head.indexOf("player"), iI=head.indexOf("injurystatus"), iG=head.indexOf("gamestatus");
+    return rows.slice(hi+1).map(r=>({name:clean(r[iP]), injury:iI>=0?clean(r[iI]):"", game:iG>=0?clean(r[iG]):""})).filter(x=>x.name);
+  }catch(e){console.error("physio status:",e);return [];}
+}
+
 function ini(name){return name.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase();}
 function pctClass(p){return p>=85?"pct-high":p>=70?"pct-mid":"pct-low";}
 function barColor(p){return p>=85?"#4ade80":p>=70?"#f59e0b":"#e05555";}
 
 async function init(){
-  const [rosterRaw, practicesRaw] = await Promise.all([
+  const [rosterRaw, practicesRaw, physio] = await Promise.all([
     fetchCSV(PRACTICE_URLS.roster),
-    fetchCSV(PRACTICE_URLS.practices)
+    fetchCSV(PRACTICE_URLS.practices),
+    loadPhysioStatus()
   ]);
 
   // Parse roster - wide format: player | 142 | 143 | ...
@@ -403,6 +440,25 @@ async function init(){
     }
     console.warn("Attendance: no row in Roster Availability for", p.name);
     return null;
+  }
+
+  // Physio status for a hub player — same name matching as the attendance rows
+  const physioAnySet = physio.some(x=>x.injury||x.game);
+  function findPhysio(p){
+    const exact = physio.filter(x=>normName(x.name).replace(/ /g,"")===normName(p.name).replace(/ /g,""));
+    if(exact.length===1) return exact[0];
+    for(const key of [shortKey(p.tab), shortKey(p.name)]){
+      if(!key) continue;
+      const hits = physio.filter(x=>shortKey(x.name)===key);
+      if(hits.length===1) return hits[0];
+    }
+    return null;
+  }
+  function statusRow(p){
+    if(!physioAnySet) return "";          // physio hasn't started using the sheet yet
+    const st = findPhysio(p) || {injury:"",game:""};
+    const pill=(label,val,map)=>`<span class="pa-status-pill ps-${sevCls(sevOf(map,val))}"><small>${label}</small>${val?esc(val):"Not set"}</span>`;
+    return `<div class="pa-status">${pill("Injury",st.injury,INJURY_SEV)}${pill("Game",st.game,GAME_SEV)}</div>`;
   }
 
   const totalSessions = activePractices.length;
@@ -467,6 +523,7 @@ async function init(){
         <div class="pa-attend-pct ${p.pct===null?"":pctClass(p.pct)}">${p.pct===null?"—":p.pct+"%"}</div>
       </div>
       <div class="pa-body">
+        ${statusRow(p)}
         <div class="pa-bar-track"><div class="pa-bar-fill" style="width:${p.pct||0}%;background:${barColor(p.pct||0)}"></div></div>
         <div class="pa-breakdown">${reasons.join("")||`<span style="font-size:10px;color:var(--muted)">${p.recorded?"Full attendance":"No sessions recorded"}</span>`}</div>
         <div class="pa-dot-row">${p.dots.map(d=>d?`<div class="pa-dot dot-${d.toLowerCase()}">${d}</div>`:`<div class="pa-dot dot-none">·</div>`).join("")}</div>
