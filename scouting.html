@@ -3977,6 +3977,8 @@ async function buildSlides(db,teamName){
     const starters = depthPlayers.filter(p=>p.pos<=5).sort((a,b)=>a.pos-b.pos);
     const bench    = depthPlayers.filter(p=>p.pos>5).sort((a,b)=>a.pos-b.pos);
     const allPlayers = [...starters,...bench];
+    window._slidePlayers = allPlayers;   // wall-sheet print builds from this
+    window._slideTeam    = teamName;
 
     container.innerHTML=`
       <div class="no-print" style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
@@ -4024,6 +4026,8 @@ ${allPlayers.map((p,i)=>{ try{ return slideCard(p,i,teamName); } catch(e){ retur
       container.innerHTML="<div class='loading-state'>No player data for "+( fullNameMap[teamName]||teamName)+" — no games in database yet</div>";
       return;
     }
+    window._slidePlayers = converted;   // wall-sheet print builds from this
+    window._slideTeam    = teamName;
     container.innerHTML=`
       <div class="no-print" style="display:flex;gap:10px;align-items:center;margin-bottom:20px">
         <div style="font-size:13px;color:var(--muted)">${converted.length} players (stats only)</div>
@@ -4646,35 +4650,198 @@ var FIT_STATEMENTS_JS = [
   '}'
 ].join('\n');
 
-// ── Print a single slide in a popup window ────────────────────────────────────
-function printSingleSlide(idx, playerName){
-  const el = document.getElementById("slide-"+idx);
-  if(!el) return;
-  const clone = el.cloneNode(true);
-  applyPrintStyles(clone);
-  const styles = collectPageStyles();
-  const w = window.open('','_blank');
+// ── WALL SHEETS: print-only Player Slide layout (A3 landscape) ──────────────
+// The on-screen / JPEG slide is a dense dashboard built for a TV. Cloned onto
+// paper it gave the coaching notes about a quarter of the sheet, so they
+// printed tiny and grey. The wall sheet is a separate layout built to be read
+// from across the locker room, in the spirit of the old 23/24 player slides:
+//   header: number, name, position line, team logo
+//   top row: ten headline stats
+//   notes: Who / Force / Stop in Bebas Neue at ONE standard size on every
+//          sheet — long notes are flagged to be shortened in Admin, never shrunk
+//   right: photo with the five player grades stacked underneath
+//   footer: How to Guard calls as solid green blocks
+// Shot chart, shot menu, creation bars and assist detail stay on screen/JPEG.
+// Brand colours only: Celtic Green #008348, Off White #FAF9F6, Black.
+function _wsEsc(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function _wsNote(s){ return _wsEsc(String(s||'').trim()).replace(/\r?\n/g,'<br>'); }
+
+function wallSheetHTML(p, teamName){
+  var name  = _wsEsc(p.displayName || fmtName(p.name||''));
+  var meta  = [p.position, p.height, fmtHanded(p.handed)].filter(Boolean).map(_wsEsc).join('&nbsp;&nbsp;·&nbsp;&nbsp;');
+  var photo = p.imageUrl || p.imageB64 || '';
+  var logo  = (typeof LOGOS!=='undefined' && LOGOS[teamName]) || '';
+  function pct(v){ return (v!=null && !isNaN(v) && Number(v)!==0) ? Math.round(Number(v)*100)+'%' : '—'; }
+
+  var stats = [
+    [fmtN(p.ppg),'PPG'], [fmtN(p.rpg),'RPG'], [fmtN(p.apg),'APG'],
+    [pct(p.fgp),'FG%'],  [pct(p.threepct),'3P%'], [pct(p.three_rate),'3PR'],
+    [fmtN(p.fta),'FTA'], [pct(p.ftpct),'FT%'], [fmtN(p.oreb),'OFF REB'], [fmtN(p.tpg),'TO']
+  ];
+  var grades = [
+    ['IMPACT', p.impact||p.scoring], ['SCORING', p.scoring], ['DEFENCE', p.defence],
+    ['REBOUNDING', p.rebounding], ['PLAYMAKING', p.playmaking]
+  ];
+  function gCls(g){ var c = String(g||'').charAt(0).toUpperCase(); return c==='A'?'g-a':c==='B'?'g-b':c==='C'?'g-c':c==='D'?'g-d':'g-none'; }
+  var notes = [
+    ['WHO IS HE',     p.whoWhat,  'ws-who'],
+    ['WHAT TO FORCE', p.forcing,  'ws-force'],
+    ['WHAT TO STOP',  p.stopping, 'ws-stop']
+  ].filter(function(n){ return n[1] && String(n[1]).trim(); });
+  var guards = [
+    ['ISOLATION', p.iso], ['CATCH & SHOOT', p.cs], ['DRIBBLE JUMPERS', p.dribble],
+    ['POST UP', p.post], ['PNR', p.ballhandler], ['PNR SCREENER', p.screener]
+  ].filter(function(g){ return g[1]; });
+
+  return '<section class="ws">'
+    +'<header class="ws-head">'
+      +(p.number ? '<div class="ws-num">#'+_wsEsc(p.number)+'</div>' : '')
+      +'<div class="ws-id"><div class="ws-name">'+name+'</div>'
+        +(meta ? '<div class="ws-meta">'+meta+'</div>' : '')
+      +'</div>'
+      +(logo ? '<img class="ws-logo" src="'+logo+'" alt="">' : '')
+    +'</header>'
+    +'<div class="ws-main">'
+      +'<div class="ws-left">'
+      +'<div class="ws-stats">'
+        +stats.map(function(st){ return '<div class="ws-stat"><b>'+st[0]+'</b><span>'+st[1]+'</span></div>'; }).join('')
+      +'</div>'
+      +'<div class="ws-notes">'
+        +(notes.length
+          ? notes.map(function(n){
+              return '<div class="ws-note '+n[2]+'"><div class="ws-label">'+n[0]+'</div>'
+                +'<div class="ws-text">'+_wsNote(n[1])+'</div></div>';
+            }).join('')
+          : '<div class="ws-empty">No scouting notes yet — add Who / Force / Stop in Admin.</div>')
+      +'</div>'
+      +'</div>'
+      +'<aside class="ws-side">'
+        +'<div class="ws-photo">'
+          +(photo ? '<img src="'+_wsEsc(photo)+'" crossorigin="anonymous" '+PHOTO_FALLBACK+' alt="">' : '')
+        +'</div>'
+        +'<div class="ws-grades">'
+          +grades.map(function(g){ return '<div class="ws-grade '+gCls(g[1])+'"><b>'+_wsEsc(g[1]||'—')+'</b><span>'+g[0]+'</span></div>'; }).join('')
+        +'</div>'
+      +'</aside>'
+    +'</div>'
+    +(guards.length
+      ? '<footer class="ws-guard"><div class="ws-glabel">HOW TO<br>GUARD</div>'
+          +'<div class="ws-pills" style="grid-template-columns:repeat('+guards.length+',minmax(0,1fr))">'
+          +guards.map(function(g){
+              return '<div class="ws-pill"><div class="ws-pill-k">'+g[0]+'</div>'
+                +'<div class="ws-pill-v">'+_wsEsc(g[1])+'</div></div>';
+            }).join('')
+          +'</div></footer>'
+      : '')
+  +'</section>';
+}
+
+// One standard size for every note on every sheet. Change here if needed.
+var WALL_NOTE_PX = 52;
+
+var WALL_SHEET_CSS = [
+  '@page { size: A3 landscape; margin: 8mm; }',
+  '*{ box-sizing:border-box; }',
+  'html,body{ margin:0; padding:0; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }',
+  'body{ font-family:"Bebas Neue",Impact,sans-serif; color:#111; }',
+  '.ws{ width:404mm; height:280mm; display:grid; grid-template-rows:auto minmax(0,1fr) auto; overflow:hidden; border-top:18px solid #008348; break-after:page; page-break-after:always; }',
+  '.ws:last-child{ break-after:auto; page-break-after:auto; }',
+  // Header: number + name + position line + team logo
+  '.ws-head{ display:flex; align-items:center; gap:26px; padding:10px 30px 10px; border-bottom:5px solid #111; }',
+  '.ws-num{ font-family:"Bebas Neue",Impact,sans-serif; font-size:128px; line-height:.82; color:#008348; flex-shrink:0; padding-top:8px; }',
+  '.ws-id{ flex:1; min-width:0; }',
+  '.ws-name{ font-family:"Bebas Neue",Impact,sans-serif; font-size:112px; line-height:.88; letter-spacing:1px; white-space:nowrap; overflow:hidden; padding-top:8px; }',
+  '.ws-meta{ font-family:"Bebas Neue",Impact,sans-serif; font-size:44px; line-height:1; margin-top:4px; letter-spacing:1.5px; color:#111; }',
+  '.ws-logo{ width:100px; height:100px; object-fit:contain; flex-shrink:0; }',
+  '.ws-left{ display:flex; flex-direction:column; min-height:0; min-width:0; }',
+  // Top row: ten headline stats across the notes column
+  '.ws-stats{ display:grid; grid-template-columns:repeat(10,minmax(0,1fr)); border-bottom:5px solid #111; flex-shrink:0; }',
+  '.ws-stat{ text-align:center; padding:14px 2px 10px; min-width:0; }',
+  '.ws-stat b{ display:block; font-family:"Bebas Neue",Impact,sans-serif; font-weight:400; font-size:58px; line-height:.9; white-space:nowrap; }',
+  '.ws-stat span{ display:block; font-family:"Bebas Neue",Impact,sans-serif; font-size:24px; letter-spacing:1.5px; color:#008348; margin-top:3px; white-space:nowrap; }',
+  // Main: notes (left, gets most of the page) + photo/stats (right)
+  '.ws-main{ display:grid; grid-template-columns:minmax(0,1fr) 390px; min-height:0; }',
+  '.ws-notes{ flex:1; display:flex; flex-direction:column; justify-content:space-evenly; gap:14px; padding:14px 30px 14px 28px; min-height:0; overflow:hidden; }',
+  '.ws-note{ border-left:14px solid #111; padding-left:22px; }',
+  '.ws-force{ border-left-color:#008348; }',
+  '.ws-label{ display:inline-block; font-family:"Bebas Neue",Impact,sans-serif; font-size:38px; line-height:1; letter-spacing:2px; padding:6px 14px 2px; margin-bottom:8px; background:#111; color:#fff; }',
+  '.ws-force .ws-label{ background:#008348; }',
+  '.ws-who .ws-label{ background:#fff; color:#111; box-shadow:inset 0 0 0 4px #111; }',
+  '.ws-text{ font-family:"Bebas Neue",Impact,sans-serif; font-weight:400; text-transform:uppercase; font-size:'+WALL_NOTE_PX+'px; line-height:1.02; letter-spacing:1px; color:#111; }',
+  '.ws-empty{ font-family:"Bebas Neue",Impact,sans-serif; font-size:48px; color:#111; }',
+  '@media screen{ .ws-over .ws-notes{ outline:8px dashed #111; outline-offset:-8px; } }',
+  '.ws-side{ border-left:5px solid #111; display:flex; flex-direction:column; min-height:0; }',
+  '.ws-photo{ flex:1; min-height:0; overflow:hidden; background:#FAF9F6; }',
+  '.ws-photo img{ width:100%; height:100%; object-fit:cover; object-position:center top; display:block; }',
+  // Player grades stacked under the photo, open (no boxes): A/B letters in
+  // green, C/D in black
+  '.ws-grades{ display:flex; flex-direction:column; gap:4px; padding:12px 0 14px; border-top:5px solid #111; flex-shrink:0; }',
+  '.ws-grade{ display:flex; align-items:baseline; gap:20px; padding:0 24px; }',
+  '.ws-grade b{ flex-shrink:0; width:70px; font-family:"Bebas Neue",Impact,sans-serif; font-weight:400; font-size:62px; line-height:1; color:#111; }',
+  '.ws-grade span{ font-family:"Bebas Neue",Impact,sans-serif; font-size:40px; letter-spacing:1.5px; line-height:1; color:#111; }',
+  '.ws-grade.g-a b, .ws-grade.g-b b{ color:#008348; }',
+  // How to Guard: solid green call blocks
+  '.ws-guard{ border-top:5px solid #111; padding:12px 30px 14px; display:flex; gap:22px; align-items:stretch; }',
+  '.ws-glabel{ font-family:"Bebas Neue",Impact,sans-serif; font-size:46px; line-height:.92; display:flex; align-items:center; flex-shrink:0; }',
+  '.ws-pills{ flex:1; display:grid; gap:14px; }',
+  '.ws-pill{ display:flex; flex-direction:column; border:4px solid #008348; min-width:0; }',
+  '.ws-pill-k{ font-family:"Bebas Neue",Impact,sans-serif; font-size:27px; letter-spacing:1px; padding:4px 10px 0; color:#111; white-space:nowrap; overflow:hidden; }',
+  '.ws-pill-v{ flex:1; display:flex; align-items:center; background:#008348; color:#fff; font-family:"Bebas Neue",Impact,sans-serif; font-size:52px; line-height:.95; padding:8px 10px 4px; text-transform:uppercase; overflow-wrap:break-word; }'
+].join('\n');
+
+// Per sheet: shrink a long name to fit one line and shrink guard calls only
+// if a word won't fit its block. Notes are NEVER resized — any sheet whose
+// notes run past the space is flagged and listed so they can be shortened.
+// Returns the names of flagged players.
+var FIT_WALL_SHEETS_JS = [
+  'function fitWallSheets(){',
+  '  var tooLong = [];',
+  '  document.querySelectorAll(".ws").forEach(function(sheet){',
+  '    var nm = sheet.querySelector(".ws-name"), f = 112;',
+  '    while(nm && f > 60 && nm.scrollWidth > nm.clientWidth){ f -= 4; nm.style.fontSize = f + "px"; }',
+  '    var vals = Array.from(sheet.querySelectorAll(".ws-pill-v")), ps = 52;',
+  '    function over(){ return vals.some(function(v){ var s = getComputedStyle(v), inner = v.scrollHeight - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom);',
+  '      return v.scrollWidth > v.clientWidth + 1 || inner > ps * 0.95 * 2 + 2; }); }',
+  '    while(vals.length && ps > 28 && over()){ ps -= 2; vals.forEach(function(v){ v.style.fontSize = ps + "px"; }); }',
+  '    var col = sheet.querySelector(".ws-notes");',
+  '    if(col && col.scrollHeight > col.clientHeight + 1){ sheet.classList.add("ws-over"); tooLong.push(nm ? nm.textContent : "?"); }',
+  '  });',
+  '  return tooLong;',
+  '}',
+  'function waitForImages(ms){',
+  '  var imgs = Array.from(document.images).filter(function(i){ return !i.complete; });',
+  '  return Promise.race([',
+  '    Promise.all(imgs.map(function(i){ return new Promise(function(r){ i.addEventListener("load", r, {once:true}); i.addEventListener("error", r, {once:true}); }); })),',
+  '    new Promise(function(r){ setTimeout(r, ms); })',
+  '  ]);',
+  '}'
+].join('\n');
+
+function openWallSheets(players, teamName, title){
+  if(!players || !players.length){ alert('No slides loaded — select a team first'); return; }
+  var w = window.open('', '_blank');
+  if(!w){ alert('Pop-up blocked — allow pop-ups for this site to print.'); return; }
+  var sheets = players.map(function(p){
+    try { return wallSheetHTML(p, teamName); }
+    catch(e){ return '<section class="ws"><div style="padding:40px;font-size:30px">Error on '+_wsEsc(p.name||'')+': '+_wsEsc(e.message)+'</div></section>'; }
+  }).join('\n');
   w.document.write([
     '<!DOCTYPE html><html><head>',
     '<meta charset="UTF-8">',
-    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Space+Grotesk:wght@400;600;700;800;900&display=swap" rel="stylesheet">',
-    '<style>', styles, SLIDE_PRINT_CSS, '</style>',
+    '<base href="'+_wsEsc(location.href)+'">',
+    '<title>'+_wsEsc(title||'Player Slides')+'</title>',
+    '<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">',
+    '<style>', WALL_SHEET_CSS, '</style>',
     '</head><body>',
-    clone.outerHTML,
+    sheets,
     '<scr'+'ipt>',
-    FIT_STATEMENTS_JS,
-    'document.fonts.ready.then(function() {',
-    '  try {',
-    '    var dstCanvas = document.querySelector("canvas");',
-    '    var op = window.opener;',
-    '    if (dstCanvas && op && op._playerShotsCache && op.renderPlayerShotChart) {',
-    '      var shots = op._playerShotsCache['+idx+'];',
-    '      var gp    = op._playerGpCache ? op._playerGpCache['+idx+'] : 1;',
-    '      if (shots) op.renderPlayerShotChart(shots, null, gp, true, dstCanvas);',
-    '    }',
-    '  } catch(e) {}',
-    '  fitStatements();',
-    '  setTimeout(function() { window.print(); }, 800);',
+    FIT_WALL_SHEETS_JS,
+    'document.fonts.ready.then(function(){ return waitForImages(4000); }).then(function(){',
+    '  var tooLong = fitWallSheets();',
+    '  if(tooLong.length){ alert("Notes too long to fit at the standard size (they will be cut off):\\n\\n" + tooLong.join("\\n") + "\\n\\nShorten them in Admin and print again, or cancel the print dialog. Flagged sheets have a dashed box on screen."); }',
+    '  setTimeout(function(){ window.print(); }, 400);',
     '});',
     '<'+'/scr'+'ipt>',
     '</body></html>'
@@ -4682,53 +4849,18 @@ function printSingleSlide(idx, playerName){
   w.document.close();
 }
 
-// ── Print ALL slides in one popup window, one A3 page per slide ──────────────
+// ── Print a single slide (wall sheet) ────────────────────────────────────────
+function printSingleSlide(idx, playerName){
+  var players = window._slidePlayers || [];
+  var p = players[idx];
+  if(!p){ alert('Slide not found — reload the team and try again'); return; }
+  openWallSheets([p], window._slideTeam || slidesTeam || '', playerName || 'Player Slide');
+}
+
+// ── Print ALL slides, one A3 landscape wall sheet per player ────────────────
 function printAllSlides(){
-  // Collect all slide-card elements currently rendered in slides-grid
-  const grid = document.getElementById('slides-grid');
-  if(!grid){ alert('No slides loaded — select a team first'); return; }
-  const slideEls = Array.from(grid.querySelectorAll('.slide-card'));
-  if(!slideEls.length){ alert('No slides loaded — select a team first'); return; }
-
-  // Build all clones with print styles applied
-  const clones = slideEls.map(function(el){
-    var c = el.cloneNode(true);
-    applyPrintStyles(c);
-    return c;
-  });
-
-  // Build the script block that re-renders all canvases in print mode
-  var chartScript = [
-    'document.fonts.ready.then(function() {',
-    '  try {',
-    '    var canvases = document.querySelectorAll("canvas");',
-    '    var op = window.opener;',
-    '    if (op && op._playerShotsCache && op.renderPlayerShotChart) {',
-    '      canvases.forEach(function(dst, i) {',
-    '        var shots = op._playerShotsCache[i];',
-    '        var gp    = op._playerGpCache ? op._playerGpCache[i] : 1;',
-    '        if (shots) op.renderPlayerShotChart(shots, null, gp, true, dst);',
-    '      });',
-    '    }',
-    '  } catch(e) {}',
-    '  fitStatements();',
-    '  setTimeout(function() { window.print(); }, 1200);',
-    '});',
-  ].join('\n');
-
-  const styles = collectPageStyles();
-  const w = window.open('','_blank');
-  w.document.write([
-    '<!DOCTYPE html><html><head>',
-    '<meta charset="UTF-8">',
-    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Space+Grotesk:wght@400;600;700;800;900&display=swap" rel="stylesheet">',
-    '<style>', styles, SLIDE_PRINT_CSS, '</style>',
-    '</head><body>',
-    clones.map(function(c){ return c.outerHTML; }).join('\n'),
-    '<scr'+'ipt>', FIT_STATEMENTS_JS, chartScript, '<'+'/scr'+'ipt>',
-    '</body></html>'
-  ].join('\n'));
-  w.document.close();
+  var team = window._slideTeam || slidesTeam || '';
+  openWallSheets(window._slidePlayers || [], team, (fullNameMap[team] || team) + ' — Player Slides');
 }
 
 
