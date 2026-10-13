@@ -116,6 +116,9 @@
   .form-group input, .form-group select, .form-group textarea { background:var(--card2); border:1px solid var(--border); border-radius:8px; color:var(--offwhite); font-size:13px; font-family:inherit; padding:9px 12px; outline:none; transition:border-color 0.15s; width:100%; }
   .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color:var(--green); }
   .form-group textarea { resize:vertical; min-height:76px; line-height:1.55; }
+  .word-count { font-size:11px; font-weight:600; color:var(--muted); text-align:right; margin-top:4px; }
+  .word-count.over { color:#ff8a8a; }
+  textarea.over-limit, textarea.over-limit:focus { border-color:#ff8a8a; }
   .form-group select option { background:#1e1e1e; }
   .photo-row { display:flex; gap:16px; align-items:flex-start; }
   .photo-preview-wrap { width:72px; height:72px; border-radius:10px; border:1px solid var(--border); overflow:hidden; background:var(--card2); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--muted); }
@@ -590,16 +593,19 @@ function renderEditor(){
         <div class="section-label">Scouting Report</div>
         <div class="form-group">
           <label>Who Is He</label>
-          <textarea id="f-who_what" oninput="autoSave()" placeholder="Overview — style of play, tendencies, what makes him dangerous...">${sc.who_what||""}</textarea>
+          <textarea id="f-who_what" oninput="autoSave();updateWordCount(this)" placeholder="Overview — style of play, tendencies, what makes him dangerous...">${sc.who_what||""}</textarea>
+          <div class="word-count" id="wc-f-who_what"></div>
         </div>
         <div class="form-row col2">
           <div class="form-group">
             <label>What To Force</label>
-            <textarea id="f-forcing" oninput="autoSave()" placeholder="Where to push him, what shot we're OK conceding...">${sc.forcing||""}</textarea>
+            <textarea id="f-forcing" oninput="autoSave();updateWordCount(this)" placeholder="Where to push him, what shot we're OK conceding...">${sc.forcing||""}</textarea>
+            <div class="word-count" id="wc-f-forcing"></div>
           </div>
           <div class="form-group">
             <label>What To Stop</label>
-            <textarea id="f-stopping" oninput="autoSave()" placeholder="Primary weapon to take away, key actions to deny...">${sc.stopping||""}</textarea>
+            <textarea id="f-stopping" oninput="autoSave();updateWordCount(this)" placeholder="Primary weapon to take away, key actions to deny...">${sc.stopping||""}</textarea>
+            <div class="word-count" id="wc-f-stopping"></div>
           </div>
         </div>
       </div>
@@ -639,6 +645,23 @@ function renderEditor(){
         <button class="btn btn-green" onclick="savePlayer()">Save</button>
       </div>
     </div>`;
+  ["f-who_what","f-forcing","f-stopping"].forEach(function(id){ updateWordCount(document.getElementById(id)); });
+}
+
+// STATEMENT WORD COUNT
+// The printed A3 wall sheet uses one fixed note size, so each statement has to
+// fit its space. Measured on the print layout: 15 words per box always fits,
+// even with all six How To Guard calls; above that notes start getting cut off.
+const STATEMENT_WORD_LIMIT = 15;
+function countWords(t){ return String(t||"").split(/\s+/).filter(function(w){ return /[A-Za-z0-9]/.test(w); }).length; }
+function updateWordCount(el){
+  if(!el) return;
+  const out=document.getElementById("wc-"+el.id);
+  if(!out) return;
+  const n=countWords(el.value), over=n>STATEMENT_WORD_LIMIT;
+  out.textContent = n+" / "+STATEMENT_WORD_LIMIT+" words"+(over?" — too long for the printed sheet, cut "+(n-STATEMENT_WORD_LIMIT):"");
+  out.classList.toggle("over", over);
+  el.classList.toggle("over-limit", over);
 }
 
 // PHOTO
