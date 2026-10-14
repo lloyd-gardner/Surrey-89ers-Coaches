@@ -3739,7 +3739,16 @@ async function showTeamProfile(teamName){
     b.tpm += r["3PM"]||0;
     b.tpa += r["3PA"]||0;
   });
-  const teamPlayerList = Object.values(byPlayer).filter(b => b.gp >= 5);
+  // Dynamic qualifiers -- same approach as League Leaders: min games is 25%
+  // of the most games anyone on this team has played (floor 1), and the
+  // min attempts for 3P%/FT% scale up to the full 10 once the team has ~10
+  // games (floor 3). A fixed 5-GP / 10-attempt floor left every card empty
+  // for the first few weeks of the season.
+  const teamMaxGP = Object.values(byPlayer).reduce((m,b) => Math.max(m,b.gp), 0);
+  const teamMinGP = Math.max(1, Math.round(teamMaxGP*0.25));
+  const teamAttScale = Math.min(1, teamMaxGP/10);
+  const teamMinAtt = Math.max(3, Math.ceil(10*teamAttScale));
+  const teamPlayerList = Object.values(byPlayer).filter(b => b.gp >= teamMinGP);
 
   function top3(list, valueFn, sortAsc){
     return list.map(b => ({name:b.name, v:valueFn(b)}))
@@ -3754,9 +3763,9 @@ async function showTeamProfile(teamName){
     "Off Rebounds/G":    top3(teamPlayerList, b => b.gp?b.oreb/b.gp:null),
     "Points in Paint/G": top3(teamPlayerList, b => b.gp?b.pip/b.gp:null),
     "Fast Break Pts/G":  top3(teamPlayerList, b => b.gp?b.fbp/b.gp:null),
-    "3P%":               top3(teamPlayerList.filter(b=>b.tpa>=10), b => b.tpa?b.tpm/b.tpa*100:null),
-    "Best FT%":          top3(teamPlayerList.filter(b=>b.fta>=10), b => b.fta?b.ftm/b.fta*100:null),
-    "Worst FT%":         top3(teamPlayerList.filter(b=>b.fta>=10), b => b.fta?b.ftm/b.fta*100:null, true),
+    "3P%":               top3(teamPlayerList.filter(b=>b.tpa>=teamMinAtt), b => b.tpa?b.tpm/b.tpa*100:null),
+    "Best FT%":          top3(teamPlayerList.filter(b=>b.fta>=teamMinAtt), b => b.fta?b.ftm/b.fta*100:null),
+    "Worst FT%":         top3(teamPlayerList.filter(b=>b.fta>=teamMinAtt), b => b.fta?b.ftm/b.fta*100:null, true),
   };
 
   function leaderCardHTML(title, entries, isPct){
