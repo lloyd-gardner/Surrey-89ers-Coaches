@@ -553,14 +553,25 @@ async function todaysCheckins(slugs){
     const rows=parseCSV(await (await fetch(rosterTabURL("WELLNESS LOG"))).text());
     if(rows.length<2) return new Set();
     const head=rows[0].map(h=>h.toLowerCase().replace(/[^a-z_]/g,""));
-    const COLS=["timestamp","date","slug","name"];
+    const COLS=["timestamp","date","slug","name","sleep_quality","soreness","mood",
+                "sleep_duration","stress","energy","treatment","note","treatment_time"];
     const at=n=>{const i=head.indexOf(n);return i>=0?i:COLS.indexOf(n);};
-    const iDate=at("date"), iSlug=at("slug");
+    const iDate=at("date"), iSlug=at("slug"), iTrt=at("treatment"), iTime=at("treatment_time");
     const d=new Date(), z=n=>(n<10?"0":"")+n;
     const today=d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate());
-    return new Set(rows.slice(1)
-      .filter(r=>r[iDate]===today && slugs.includes((r[iSlug]||"").toLowerCase()))
-      .map(r=>(r[iSlug]||"").toLowerCase()));
+    const todays=rows.slice(1)
+      .filter(r=>r[iDate]===today && slugs.includes((r[iSlug]||"").toLowerCase()));
+    const set=new Set(todays.map(r=>(r[iSlug]||"").toLowerCase()));
+    /* treatment slot each player booked at check-in — their latest row
+       for today wins, so a re-submitted check-in moves or cancels it */
+    set.trtTimes={};
+    todays.forEach(r=>{
+      const sl=(r[iSlug]||"").toLowerCase();
+      const yes=(r[iTrt]||"").toLowerCase()==="yes";
+      const m=/^(\d{1,2})[:.](\d{2})/.exec((r[iTime]||"").trim());
+      set.trtTimes[sl]=yes&&m?(m[1].length<2?"0":"")+m[1]+":"+m[2]:"";
+    });
+    return set;
   }catch(e){ console.error("check-ins:",e); return new Set(); }
 }
 
@@ -650,7 +661,8 @@ async function init(){
                      .map(x=>x.m.replace(/_/g," "));
     const treatment=val(rows,"treatment").toLowerCase()==="yes";
     const note=(val(rows,"note")||"").trim();
-    return {...p, avg, low, checkedToday, treatment, note};
+    const trtTime=(checkedSet.trtTimes||{})[(p.slug||"").toLowerCase()]||"";
+    return {...p, avg, low, checkedToday, treatment, trtTime, note};
   });
 
   grid.innerHTML=people.map(p=>{
@@ -671,6 +683,8 @@ async function init(){
      request or something a player wanted a coach to see. Treatment-flagged
      players sort to the top regardless of their average. */
   const flagged=people.filter(isFlagged).sort((a,b)=>{
+    /* treatment requests first, booked ones in appointment order */
+    if(a.treatment&&b.treatment) return (a.trtTime||"99").localeCompare(b.trtTime||"99");
     const av=a.treatment?-1:(a.avg==null?3.5:a.avg);
     const bv=b.treatment?-1:(b.avg==null?3.5:b.avg);
     return av-bv;
@@ -685,7 +699,7 @@ async function init(){
         return `<div class="watch-row" onclick="window.open('https://surrey-89ers-players.vercel.app/${p.slug}','_blank')" style="cursor:pointer">
           <div class="watch-av">${ini(p.name)}${avatarImg(p)}</div>
           <div class="watch-body">
-            <div class="watch-name">${p.name}${p.treatment?'<span class="watch-trt">⚕ Treatment</span>':''}</div>
+            <div class="watch-name">${p.name}${p.treatment?'<span class="watch-trt">⚕ Treatment'+(p.trtTime?' '+p.trtTime:'')+'</span>':''}</div>
             <div class="watch-why">${why}</div>
             ${p.note?`<div class="watch-note">"${p.note}"</div>`:''}
           </div>
