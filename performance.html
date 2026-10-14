@@ -475,6 +475,9 @@ const CFG = {
   siteHost: "surrey89ers.sharepoint.com",
   sitePath: "/sites/performance",
   listName: "Physio Notes",
+  // Pre-filled in "Sports therapist" on every new note (can be changed per note).
+  // "Signed" is always whoever is signed in, so the record shows who actually wrote it.
+  therapist: "Luke Mitchell",
   // The page's own address. Must match a redirect URI on the app registration
   // (Entra ID → App registrations → Surrey 89ers Performance → Authentication).
   redirect: location.origin + "/performance.html",
@@ -856,7 +859,7 @@ function fill(r){
   UPDATED=(r.updated||[]).slice();
   ROM=(r.rom&&r.rom.length?r.rom:[{},{},{}]).map(x=>Object.assign({},x));
   MARKS=(r.marks||[]).map(m=>Object.assign({},m));
-  if(!$("f-therapist").value) $("f-therapist").value=me();
+  if(!$("f-therapist").value) $("f-therapist").value=CFG.therapist;
   paintSegs(); renderRom(); renderChart(); updateSaveBtn();
 }
 function hasContent(r){
@@ -981,7 +984,7 @@ async function saveNote(){
 function resetForm(){
   EDITING=null; SS.removeItem(K.draft);
   const keepTherapist=$("f-therapist").value;
-  fill(null); $("f-therapist").value=keepTherapist||me();
+  fill(null); $("f-therapist").value=keepTherapist||CFG.therapist;
   $("player").value=""; $("note-date").value=todayISO();
   $("cancel-edit").hidden=true; $("tab-form").textContent="New note";
   updatePrevBtn(); updateSaveBtn();
