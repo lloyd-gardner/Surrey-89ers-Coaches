@@ -745,7 +745,7 @@ async function fetchSupabaseDepthChart(teamCaps) {
     // Players (needs teamId) and this season's game IDs (needs only seasonId)
     // don't depend on each other either -- also run together.
     const [players, seasonGames] = await Promise.all([
-      sbFetch(`slb_players?current_team_id=eq.${teamId}&select=*`),  // * so display_name is picked up without breaking if the column is missing
+      sbFetch(`slb_players?current_team_id=eq.${teamId}&season_id=eq.${seasonId}&select=*`),  // this season's records only; * so display_name is picked up without breaking if the column is missing
       sbFetch(`slb_games?season_id=eq.${seasonId}&select=id`)
     ]);
     if (!players.length) return null;

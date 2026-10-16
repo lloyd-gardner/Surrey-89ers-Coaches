@@ -412,7 +412,11 @@ async function selectTeam(team,btn){
   }
 
   console.log("Loading players for team.id=",team.id,"seasonId=",seasonId);
-  players=await sbGet(`slb_players?current_team_id=eq.${team.id}&select=*&order=full_name.asc`);
+  // This season's records only. Every season has its own slb_players row for
+  // the same person (e.g. V. Ndoukou 2025-26 and 2026-27); listing both made
+  // them look like duplicates, and editing or merging into last season's row
+  // pulled this season's notes and stats off the record the site reads.
+  players=await sbGet(`slb_players?current_team_id=eq.${team.id}&season_id=eq.${seasonId}&select=*&order=full_name.asc`);
   console.log("Players loaded:",players.length, players.slice(0,3));
 
   const pids=players.map(p=>p.id).join(",");
@@ -1264,6 +1268,11 @@ async function confirmMerge(){
   const mergeId=keep==="a"?bId:aId;
   const keepName=players.find(p=>p.id===keepId)?.full_name||"?";
   const mergeName=players.find(p=>p.id===mergeId)?.full_name||"?";
+  const keepSeason=players.find(p=>p.id===keepId)?.season_id, mergeSeason=players.find(p=>p.id===mergeId)?.season_id;
+  if(keepSeason!==mergeSeason){
+    document.getElementById("merge-err").textContent="These two records are from different seasons — that's normal, not a duplicate. Only merge two records from the same season.";
+    return;
+  }
 
   if(!confirm(`Merge "${formatName(mergeName)}" into "${formatName(keepName)}"?\n\nThis moves all their stats and events onto the kept record and permanently deletes the duplicate. This cannot be undone.\n\nAre you sure?`)) return;
 
