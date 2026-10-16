@@ -1318,6 +1318,12 @@ async function mergePlayers(keepId,mergeId){
   await sbPatch(`slb_shot_events?assisted_by_player_id=eq.${mergeId}`,{assisted_by_player_id:keepId});
   await sbPatch(`slb_shot_events?blocked_by_player_id=eq.${mergeId}`,{blocked_by_player_id:keepId});
 
+  // 3b. slb_player_stints (substitution patterns) -- no unique constraint, direct repoint
+  // (wrapped so a merge still works before the stints table exists; if the
+  // repoint genuinely failed, the final player delete below stops on the FK)
+  try{ await sbPatch(`slb_player_stints?player_id=eq.${mergeId}`,{player_id:keepId}); }
+  catch(e){ console.warn("[DC] stints repoint skipped:",e.message); }
+
   // 4. slb_player_scouting -- one row per player per season is the intent,
   // so if the keeper already has scouting data for a season the duplicate
   // also has, the keeper's (presumably actively-curated) data wins.

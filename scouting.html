@@ -261,6 +261,35 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
 /* MISC */
 .divider{height:1px;background:var(--border-soft);margin:16px 0}
 .table-scroll{overflow-x:auto}
+/* Substitution pattern heat map (Team Profiles) */
+.subs-select{background:var(--card2);color:var(--offwhite);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;font-family:'Inter',sans-serif;max-width:100%}
+.subs-notes{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:6px;font-size:12px;line-height:1.45;color:rgba(250,249,246,0.85)}
+.subs-notes li{padding-left:12px;position:relative}
+.subs-notes li::before{content:'';position:absolute;left:0;top:7px;width:5px;height:5px;border-radius:50%;background:var(--green)}
+.subs-notes b{color:#fff;font-weight:700}
+.subs-dim{color:var(--muted)}
+.subs-grid{min-width:820px}
+.subs-row{display:grid;grid-template-columns:150px 1fr 42px 46px 150px;align-items:center;gap:8px;padding:2px 0}
+.subs-head{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding-bottom:6px}
+.subs-name{font-size:12px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.subs-num{display:inline-block;width:30px;color:var(--muted);font-weight:500;font-family:'Space Grotesk',sans-serif}
+.subs-track{position:relative;height:22px;border-radius:3px}
+.subs-track-head{display:flex;height:auto}
+.subs-q{text-align:center;border-left:1px solid rgba(250,249,246,0.18)}
+.subs-q:first-child{border-left:none}
+.subs-heat{display:flex;background:rgba(250,249,246,0.03)}
+.subs-cell{flex:1;border-left:1px solid rgba(8,15,11,0.55)}
+.subs-cell:first-child{border-left:none}
+.subs-cell-q{border-left:2px solid rgba(250,249,246,0.35)}
+.subs-game{background:rgba(250,249,246,0.04);overflow:hidden}
+.subs-bar{position:absolute;top:3px;bottom:3px;background:var(--green);border-radius:3px}
+.subs-qline{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:rgba(250,249,246,0.3);z-index:1}
+.subs-stat{font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:600;text-align:right;color:rgba(250,249,246,0.85)}
+.subs-head .subs-stat{font-family:'Inter',sans-serif;font-size:9px;color:var(--muted)}
+.subs-stat-w{text-align:left;font-family:'Inter',sans-serif;font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap}
+.subs-divider{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:10px 0 4px;border-top:1px solid var(--border-soft);margin-top:6px}
+.subs-legend{margin-top:12px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.subs-swatch{display:inline-block;width:14px;height:10px;border-radius:2px;border:1px solid rgba(250,249,246,0.15)}
 .back-btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;margin-bottom:20px;padding:6px 0;background:none;border:none;transition:color 0.15s;font-family:'Inter',sans-serif}
 .back-btn:hover{color:var(--offwhite)}
 
@@ -3930,7 +3959,307 @@ async function showTeamProfile(teamName){
     ${leadersHTML}
 
     ${advancedMetricsHTML}
+
+    <div id="tp-subs" style="margin-bottom:24px"></div>
   `;
+  renderSubPattern(teamName);
+}
+
+// ═══════════════════════════════════════════
+// SUBSTITUTION PATTERN (Team Profiles)
+// ═══════════════════════════════════════════
+// Roster down the left, game clock across the top, shaded by how often each
+// player is on the floor in that minute. Built from slb_player_stints: one
+// row per spell on court (start_sec / end_sec = elapsed game seconds,
+// 0 = tip-off, 2400 = end of Q4), which slb_data.py reconstructs from the
+// LiveStats substitution log and checks against the official minutes.
+const SUBS_CACHE={};
+const SUBS_VIEW={};   // teamName -> "all" | "last5" | <game id>
+
+function subsClock(t){
+  if(t>=2400){
+    const k=Math.floor((t-2400)/300)+1, rem=Math.max(0,Math.round(2400+k*300-t));
+    return "OT"+(k>1?k:"")+" "+Math.floor(rem/60)+":"+String(rem%60).padStart(2,"0");
+  }
+  const q=Math.min(4,Math.floor(t/600)+1), rem=Math.max(0,Math.round(q*600-t));
+  return "Q"+q+" "+Math.floor(rem/60)+":"+String(rem%60).padStart(2,"0");
+}
+function subsMedian(a){
+  if(!a.length) return null;
+  const s=a.slice().sort((x,y)=>x-y), m=Math.floor(s.length/2);
+  return s.length%2?s[m]:(s[m-1]+s[m])/2;
+}
+function subsEsc(s){ return String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+async function loadSubsData(teamName){
+  if(SUBS_CACHE[teamName]) return SUBS_CACHE[teamName];
+  const seasons=await sbFetch(`slb_seasons?is_current=eq.true&select=id`);
+  const sid=seasons[0]?.id;
+  if(!sid) return {games:[],players:{}};
+  const [teams,players,games,nameKeys]=await Promise.all([
+    sbFetchAll("slb_teams","select=id,name"),
+    sbFetchAll("slb_players",`select=id,full_name,jersey_number&season_id=eq.${sid}`),
+    sbFetchAll("slb_games",`select=id,game_date,home_team_id,away_team_id,home_score,away_score,competition&season_id=eq.${sid}&status=eq.final`),
+    getPlayerNameKeys(),
+  ]);
+  const tName={}; teams.forEach(t=>{ tName[t.id]=t.name; });
+  // A club can have more than one slb_teams row (e.g. Manchester) -- take every row that maps to this team
+  const myIds=teams.filter(t=>capsTeam(t.name)===teamName).map(t=>t.id);
+  const myGames=games.filter(g=>myIds.includes(g.home_team_id)||myIds.includes(g.away_team_id));
+  let stints=[];
+  if(myIds.length && myGames.length){
+    stints=await sbFetchAll("slb_player_stints",
+      `select=game_id,player_id,start_sec,end_sec&team_id=in.(${myIds.join(",")})&game_id=in.(${myGames.map(g=>g.id).join(",")})&order=id`);
+  }
+  const pl={}; players.forEach(p=>{ pl[p.id]={name:nameKeys[p.id]||p.full_name, num:p.jersey_number}; });
+  const byGame={};
+  stints.forEach(s=>{
+    (byGame[s.game_id]=byGame[s.game_id]||[]).push(s);
+  });
+  const out=[];
+  myGames.forEach(g=>{
+    const rows=byGame[g.id]; if(!rows||!rows.length) return;
+    const home=myIds.includes(g.home_team_id);
+    const us=home?g.home_score:g.away_score, them=home?g.away_score:g.home_score;
+    const spells={}; let end=2400;
+    rows.forEach(r=>{
+      const s=parseFloat(r.start_sec)||0, e=parseFloat(r.end_sec)||0;
+      if(e<=s) return;
+      (spells[r.player_id]=spells[r.player_id]||[]).push([s,e]);
+      if(e>end) end=e;
+    });
+    Object.values(spells).forEach(a=>a.sort((x,y)=>x[0]-y[0]));
+    out.push({
+      id:g.id, date:g.game_date, home,
+      opp:teamShort(capsTeam(tName[home?g.away_team_id:g.home_team_id]||"")),
+      result:(us!=null&&them!=null)?(us>them?"W":"L"):"", us, them,
+      comp:g.competition||"SLB", spells, end,
+    });
+  });
+  out.sort((a,b)=>String(b.date).localeCompare(String(a.date)));  // newest first
+  SUBS_CACHE[teamName]={games:out, players:pl};
+  return SUBS_CACHE[teamName];
+}
+
+// Per-player minute-by-minute share of court time across a set of games.
+// Heat = seconds on court in that minute / (60 x number of team games), so a
+// player who missed games shows lighter -- that's how often the opponent
+// actually had him out there.
+function subsAggregate(data, games){
+  const N=games.length, per={};
+  games.forEach(g=>{
+    Object.entries(g.spells).forEach(([pid,sp])=>{
+      const p=per[pid]||(per[pid]={pid, mins:new Array(40).fill(0), gp:0, gs:0, secs:0, firstIn:[], firstOut:[]});
+      p.gp++;
+      if(sp[0][0]<0.5){ p.gs++; p.firstOut.push(sp[0][1]); }
+      else p.firstIn.push(sp[0][0]);
+      sp.forEach(([s,e])=>{
+        p.secs+=e-s;
+        for(let m=Math.floor(s/60); m<40 && m*60<e; m++){
+          const ov=Math.min(e,(m+1)*60)-Math.max(s,m*60);
+          if(ov>0) p.mins[m]+=ov;
+        }
+      });
+    });
+  });
+  const list=Object.values(per).map(p=>{
+    const info=data.players[p.pid]||{};
+    return Object.assign(p,{
+      name:info.name||"Unknown", num:info.num,
+      heat:p.mins.map(v=>v/(60*N)),
+      mpg:p.secs/60/p.gp,
+      inMed:subsMedian(p.firstIn), outMed:subsMedian(p.firstOut),
+    });
+  });
+  const isStarter=p=>p.gs*2>=N;   // started at least half the games shown
+  const starters=list.filter(isStarter).sort((a,b)=>b.gs-a.gs||b.mpg-a.mpg);
+  const bench=list.filter(p=>!isStarter(p)).sort((a,b)=>{
+    const ai=a.inMed==null?1e9:a.inMed, bi=b.inMed==null?1e9:b.inMed;
+    return ai-bi||b.mpg-a.mpg;
+  });
+  return {N, starters, bench, list};
+}
+
+// Coach-readable rotation notes for the selected games
+function subsNotes(data, games, agg){
+  const N=games.length, notes=[];
+  const nm=pid=>fmtName((data.players[pid]||{}).name||"?");
+  if(!N) return notes;
+
+  // Most-used starting five
+  const fives={};
+  games.forEach(g=>{
+    const ids=Object.keys(g.spells).filter(pid=>g.spells[pid][0][0]<0.5).sort();
+    if(ids.length===5){ const k=ids.join(","); fives[k]=(fives[k]||0)+1; }
+  });
+  const topFive=Object.entries(fives).sort((a,b)=>b[1]-a[1])[0];
+  if(topFive) notes.push(`<b>Starting five:</b> ${topFive[0].split(",").map(nm).join(", ")} <span class="subs-dim">(${topFive[1]} of ${N} games)</span>`);
+
+  // First sub of the game, and who comes in first off the bench
+  const firstChange=[], firstBench={}, firstBenchT={};
+  games.forEach(g=>{
+    let tOut=1e9, firstIn=null;
+    Object.entries(g.spells).forEach(([pid,sp])=>{
+      if(sp[0][0]<0.5){ if(sp[0][1]<tOut) tOut=sp[0][1]; }
+      else if(!firstIn||sp[0][0]<firstIn.t) firstIn={pid,t:sp[0][0]};
+    });
+    if(tOut<2400) firstChange.push(tOut);
+    if(firstIn){ firstBench[firstIn.pid]=(firstBench[firstIn.pid]||0)+1; (firstBenchT[firstIn.pid]=firstBenchT[firstIn.pid]||[]).push(firstIn.t); }
+  });
+  // One line: when the first sub happens, and who it usually is
+  const fc=subsMedian(firstChange);
+  const fb=Object.entries(firstBench).sort((a,b)=>b[1]-a[1]);
+  if(fc!=null||fb.length){
+    let line=`<b>First sub:</b>`;
+    if(fc!=null) line+=` usually around <b>${subsClock(fc)}</b>`;
+    if(fb.length){
+      const [pid,n]=fb[0];
+      const others=fb.slice(1,3).map(([p,c])=>`${nm(p)} ${c}`).join(", ");
+      line+=`${fc!=null?" —":""} ${nm(pid)} is first in (${n} of ${N} games${others?`; also ${others}`:""})`;
+    }
+    notes.push(line);
+  }
+
+  // How many of that night's starters open Q2 / Q3
+  const openWith=t=>{
+    const c=games.map(g=>Object.values(g.spells).filter(sp=>sp[0][0]<0.5 && sp.some(([s,e])=>s<=t&&e>t)).length);
+    return c.reduce((a,b)=>a+b,0)/c.length;
+  };
+  notes.push(`<b>Quarter openers:</b> on average ${openWith(600.5).toFixed(1)} starters open Q2, ${openWith(1200.5).toFixed(1)} open Q3, ${openWith(1800.5).toFixed(1)} open Q4`);
+
+  // Rotation depth and closers
+  const regular=agg.list.filter(p=>p.secs/60/N>=8).length;
+  notes.push(`<b>Rotation:</b> ${regular} players average 8+ minutes a game`);
+  const close=agg.list.map(p=>({p, v:(p.heat[36]+p.heat[37]+p.heat[38]+p.heat[39])/4}))
+    .filter(x=>x.v>0.05).sort((a,b)=>b.v-a.v).slice(0,5);
+  if(close.length) notes.push(`<b>Closes games</b> <span class="subs-dim">(on court, last 4 min)</span>: ${close.map(x=>`${fmtName(x.p.name)} ${Math.round(x.v*100)}%`).join(", ")}`);
+  return notes;
+}
+
+// Brand green ramp: faint -> Celtic Green at ~60% -> light green at 100%,
+// so "nearly always on" stands out from "on about half the time"
+function subsHeatColor(v){
+  if(v<0.02) return "transparent";
+  v=Math.min(1,v);
+  if(v<=0.6) return `rgba(0,131,72,${(0.12+0.88*v/0.6).toFixed(2)})`;
+  const k=(v-0.6)/0.4, mix=(a,b)=>Math.round(a+(b-a)*k);
+  return `rgb(${mix(0,94)},${mix(131,214)},${mix(72,148)})`;
+}
+
+function subsHeaderHTML(total){
+  const qs=[]; const qLen=n=>n<=4?600:300;
+  let acc=0;
+  for(let q=1; acc<total-0.5; q++){
+    const w=qLen(q)/total*100;
+    qs.push(`<div class="subs-q" style="width:${w}%">${q<=4?"Q"+q:"OT"+(q>5?q-4:"")}</div>`);
+    acc+=qLen(q);
+  }
+  return `<div class="subs-row subs-head">
+    <div class="subs-name"></div>
+    <div class="subs-track subs-track-head">${qs.join("")}</div>
+    <div class="subs-stat">GP</div><div class="subs-stat">MPG</div><div class="subs-stat subs-stat-w">Usually</div>
+  </div>`;
+}
+
+function subsQuarterLines(total){
+  let html="", t=600;
+  while(t<total-0.5){ html+=`<div class="subs-qline" style="left:${t/total*100}%"></div>`; t+= t<2400?600:300; }
+  return html;
+}
+
+function renderSubsAverageGrid(agg){
+  const rowHTML=p=>{
+    const cells=p.heat.map((v,m)=>{
+      const q=Math.floor(m/10)+1, clockMin=10-(m%10);
+      return `<div class="subs-cell${m%10===0&&m?" subs-cell-q":""}" style="background:${subsHeatColor(v)}" title="${subsEsc(fmtName(p.name))} · Q${q} ${clockMin}:00–${clockMin-1}:00 · on court ${Math.round(v*100)}%"></div>`;
+    }).join("");
+    const usually=p.gs*2>=agg.N
+      ? (p.outMed!=null&&p.outMed<2400?`Starts · 1st rest ${subsClock(p.outMed)}`:"Starts")
+      : (p.inMed!=null?`In ${subsClock(p.inMed)}`:"");
+    return `<div class="subs-row">
+      <div class="subs-name"><span class="subs-num">${p.num!=null&&p.num!==""?"#"+subsEsc(p.num):""}</span>${subsEsc(fmtName(p.name))}</div>
+      <div class="subs-track subs-heat">${cells}</div>
+      <div class="subs-stat">${p.gp}</div>
+      <div class="subs-stat">${p.mpg.toFixed(1)}</div>
+      <div class="subs-stat subs-stat-w">${usually}</div>
+    </div>`;
+  };
+  return subsHeaderHTML(2400)
+    + agg.starters.map(rowHTML).join("")
+    + (agg.bench.length?`<div class="subs-divider">Bench — in order they usually come in</div>`:"")
+    + agg.bench.map(rowHTML).join("");
+}
+
+function renderSubsGameGrid(data, g){
+  const total=Math.max(2400,g.end);
+  const rows=Object.entries(g.spells).map(([pid,sp])=>{
+    const info=data.players[pid]||{};
+    return {pid, sp, name:info.name||"Unknown", num:info.num, secs:sp.reduce((a,[s,e])=>a+e-s,0), started:sp[0][0]<0.5};
+  });
+  const starters=rows.filter(r=>r.started).sort((a,b)=>b.secs-a.secs);
+  const bench=rows.filter(r=>!r.started).sort((a,b)=>a.sp[0][0]-b.sp[0][0]);
+  const rowHTML=r=>{
+    const bars=r.sp.map(([s,e])=>`<div class="subs-bar" style="left:${s/total*100}%;width:${(e-s)/total*100}%" title="${subsEsc(fmtName(r.name))} · in ${subsClock(s)} → out ${e>=total-0.5?"end":subsClock(e)} (${((e-s)/60).toFixed(1)} min)"></div>`).join("");
+    return `<div class="subs-row">
+      <div class="subs-name"><span class="subs-num">${r.num!=null&&r.num!==""?"#"+subsEsc(r.num):""}</span>${subsEsc(fmtName(r.name))}</div>
+      <div class="subs-track subs-game">${subsQuarterLines(total)}${bars}</div>
+      <div class="subs-stat">${r.sp.length}</div>
+      <div class="subs-stat">${(r.secs/60).toFixed(1)}</div>
+      <div class="subs-stat subs-stat-w">${r.started?"Started":"In "+subsClock(r.sp[0][0])}</div>
+    </div>`;
+  };
+  return subsHeaderHTML(total).replace(">GP<",">Spells<").replace(">MPG<",">MIN<")
+    + starters.map(rowHTML).join("")
+    + (bench.length?`<div class="subs-divider">Bench — in order they came in</div>`:"")
+    + bench.map(rowHTML).join("");
+}
+
+async function renderSubPattern(teamName){
+  const el=document.getElementById("tp-subs");
+  if(!el) return;
+  el.innerHTML=`<div class="section-header"><div class="section-label">Substitution Pattern</div></div>
+    <div class="card"><div class="card-body"><div class="loading-state"><div class="loading-spinner"></div></div></div></div>`;
+  let data;
+  try{ data=await loadSubsData(teamName); }
+  catch(e){ console.error("[DC] subs load failed:",e); data={games:[],players:{}}; }
+  if(document.getElementById("tp-subs")!==el) return;   // user moved on to another team
+  if(!data.games.length){
+    el.innerHTML=`<div class="section-header"><div class="section-label">Substitution Pattern</div></div>
+      <div class="card"><div class="card-body"><div style="color:var(--muted);font-size:12px">No substitution data for ${subsEsc(teamShort(teamName))} yet. It fills in as games are loaded with the updated scraper.</div></div></div>`;
+    return;
+  }
+  const view=SUBS_VIEW[teamName]||"all";
+  const opts=[`<option value="all"${view==="all"?" selected":""}>All games (${data.games.length})</option>`];
+  if(data.games.length>5) opts.push(`<option value="last5"${view==="last5"?" selected":""}>Last 5 games</option>`);
+  data.games.forEach(g=>{
+    const lbl=`${fmtDate(g.date)} ${g.home?"vs":"@"} ${g.opp}${g.result?` · ${g.result} ${g.us}-${g.them}`:""}${g.comp!=="SLB"?" · "+g.comp:""}`;
+    opts.push(`<option value="${g.id}"${String(view)===String(g.id)?" selected":""}>${subsEsc(lbl)}</option>`);
+  });
+
+  let body, notes=[], legend;
+  const single=data.games.find(g=>String(g.id)===String(view));
+  if(single){
+    body=renderSubsGameGrid(data, single);
+    legend=`<div class="subs-legend"><span class="subs-swatch" style="background:var(--green)"></span>On court · hover a bar for exact in/out times</div>`;
+  }else{
+    const games=view==="last5"?data.games.slice(0,5):data.games;
+    const agg=subsAggregate(data, games);
+    notes=subsNotes(data, games, agg);
+    body=renderSubsAverageGrid(agg);
+    legend=`<div class="subs-legend">On court in that minute:
+      ${[0.1,0.25,0.5,0.75,1].map(v=>`<span class="subs-swatch" style="background:${subsHeatColor(v)}"></span>${Math.round(v*100)}%`).join(" ")}
+      <span class="subs-dim">· share of ${games.length} game${games.length>1?"s":""}</span></div>`;
+  }
+
+  el.innerHTML=`<div class="section-header">
+      <div class="section-label">Substitution Pattern</div>
+      <select class="subs-select no-print" onchange="SUBS_VIEW['${teamName.replace(/'/g,"\\'")}']=this.value;renderSubPattern('${teamName.replace(/'/g,"\\'")}')">${opts.join("")}</select>
+    </div>
+    <div class="card"><div class="card-body">
+      ${notes.length?`<ul class="subs-notes">${notes.map(n=>`<li>${n}</li>`).join("")}</ul>`:""}
+      <div class="table-scroll"><div class="subs-grid">${body}</div></div>
+      ${legend}
+    </div></div>`;
 }
 
 // ═══════════════════════════════════════════
