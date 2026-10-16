@@ -161,12 +161,12 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .tile-s{font-size:12px;color:var(--muted);margin-top:2px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .bars{padding:12px 16px 16px;display:flex;flex-direction:column;gap:8px}
-.bar-row{display:grid;grid-template-columns:minmax(90px,150px) 1fr auto;gap:10px;align-items:center;padding:2px 0;border-radius:6px}
+.bar-row{display:grid;grid-template-columns:minmax(90px,150px) 1fr 11.5em;gap:10px;align-items:center;padding:2px 0;border-radius:6px}
 .bar-row:hover{background:var(--card2)}
 .bar-lab{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bar-track{height:14px;display:flex;align-items:center}
 .bar{height:14px;background:var(--green);border-radius:0 4px 4px 0;min-width:3px}
-.bar-val{font-size:13px;font-weight:700;white-space:nowrap;text-align:right}
+.bar-val{font-size:13px;font-weight:700;text-align:right;line-height:1.3}
 .bar-val span{font-weight:400;color:var(--muted);font-size:12px}
 .tbl-wrap{overflow-x:auto}
 table.tbl{width:100%;border-collapse:collapse;font-size:13px}
@@ -181,7 +181,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
   .grid2{grid-template-columns:1fr}
   .tl-head{grid-template-columns:62px 1fr;gap:10px}
   .tl-head .chip-st{grid-column:2;justify-self:start}
-  .bar-row{grid-template-columns:96px 1fr auto}
+  .bar-row{grid-template-columns:96px 1fr 8.5em}
   .who{display:none}
 }
 </style>
@@ -265,6 +265,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
         <div class="card"><div class="card-header"><div class="card-title">Injuries by type</div><div class="counts">sessions</div></div><div class="bars" id="bars-injury"></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Injuries by body part</div><div class="counts">sessions</div></div><div class="bars" id="bars-part"></div></div>
       </div>
+      <div class="grid2">
+        <div class="card"><div class="card-header"><div class="card-title">Contact or non-contact</div><div class="counts">injury sessions</div></div><div class="bars" id="bars-contact"></div></div>
+        <div class="card"><div class="card-header"><div class="card-title">How injuries happened</div><div class="counts">injury sessions</div></div><div class="bars" id="bars-mech"></div></div>
+      </div>
       <div class="card"><div class="card-header"><div class="card-title">Treatments given</div><div class="counts">sessions, injury and maintenance</div></div><div class="bars" id="bars-treat"></div></div>
       <div class="card"><div class="card-header"><div class="card-title">By player</div></div><div class="tbl-wrap" id="tbl-players"></div></div>
       <div class="card"><div class="card-header"><div class="card-title">Injury log</div><div class="counts" id="log-count"></div></div><div class="tbl-wrap" id="tbl-log"></div></div>
@@ -316,9 +320,12 @@ const DEFAULT_OPTS = {
              "Fracture (suspected)","Dislocation / subluxation","Laceration / cut","Blister","Concussion","Post-surgery"],
   treatment:["Soft tissue / massage","Joint mobilisation","Manipulation","Strapping / taping","Dry needling","Stretching",
              "Rehab exercises","Activation / warm-up","Ice / cryotherapy","Heat","Compression","Electrotherapy / TENS",
-             "Wound care","Assessment only","Advice / education"]
+             "Wound care","Assessment only","Advice / education"],
+  mechanism:["Landing","Jumping / take-off","Cutting / change of direction","Deceleration / stopping","Sprinting / acceleration",
+             "Collision with player","Struck by ball","Fall / slip","Overuse / gradual onset","Unknown / not sure"]
 };
 const SIDES = ["Left","Right","Both","N/A"];
+const CONTACT = ["Contact","Non-contact"];
 const KINDS = [["Maintenance","Maintenance"],["Injury","Injury"],["DNA","Didn't attend"]];
 function saveDraft(){}   // the shared sign-in code calls this; nothing to keep here
 
@@ -627,7 +634,8 @@ function sideShort(s){return s==="Left"?"L":s==="Right"?"R":s==="Both"?"Both":""
 function recSummary(r){
   if(r.kind==="DNA") return "Didn't attend";
   const t=(r.treatments||[]).filter(Boolean).join(", ");
-  const what=r.kind==="Injury"?[[sideShort(r.side),r.bodyPart].filter(Boolean).join(" "),r.injury].filter(Boolean).join(" · "):"Maintenance";
+  const how=[r.contact?r.contact.toLowerCase():"",r.mechanism?r.mechanism.toLowerCase():""].filter(Boolean).join(", ");
+  const what=r.kind==="Injury"?[[sideShort(r.side),r.bodyPart].filter(Boolean).join(" "),r.injury].filter(Boolean).join(" · ")+(how?" ("+how+")":""):"Maintenance";
   return what+(t?" — "+t:"");
 }
 
@@ -671,7 +679,7 @@ function addWalkin(){
 function toggleRow(slug){ OPEN=OPEN===slug?null:slug; ED=null; renderDay(); }
 
 /* ---------------- options with "add new" ---------------- */
-let EXTRA={bodyPart:[],injury:[],treatment:[]};
+let EXTRA={bodyPart:[],injury:[],treatment:[],mechanism:[]};
 function optionsFor(kind){
   const seen=new Set(), out=[];
   const push=v=>{ v=String(v||"").trim(); const k=v.toLowerCase(); if(v&&!seen.has(k)){ seen.add(k); out.push(v); } };
@@ -691,7 +699,7 @@ function selectHTML(kind,val,attrs,placeholder){
 }
 
 /* ---------------- the editor ---------------- */
-function blankRec(){ return {kind:"",bodyPart:"",side:"",injury:"",treatments:[""],notes:""}; }
+function blankRec(){ return {kind:"",bodyPart:"",side:"",injury:"",contact:"",mechanism:"",how:"",treatments:[""],notes:""}; }
 function renderEditor(x){
   const box=$("editor"); if(!box||!x) return;
   let h='';
@@ -711,7 +719,10 @@ function renderEditor(x){
     if(r.kind==="Injury"){
       h+='<div class="f-row"><span class="f-lab">Body part</span><div class="sel-wrap">'+selectHTML("bodyPart",r.bodyPart,'data-sel="bodyPart"',"Choose body part…")+'</div><div id="add-bodyPart"></div></div>'+
          '<div class="f-row"><span class="f-lab">Side</span><div class="seg" data-ed="side">'+SIDES.map(s=>'<button data-v="'+s+'" class="'+(r.side===s?"on":"")+'">'+s+'</button>').join("")+'</div></div>'+
-         '<div class="f-row"><span class="f-lab">Injury</span><div class="sel-wrap">'+selectHTML("injury",r.injury,'data-sel="injury"',"Choose injury…")+'</div><div id="add-injury"></div></div>';
+         '<div class="f-row"><span class="f-lab">Injury</span><div class="sel-wrap">'+selectHTML("injury",r.injury,'data-sel="injury"',"Choose injury…")+'</div><div id="add-injury"></div></div>'+
+         '<div class="f-row"><span class="f-lab">How it happened</span><div class="seg" data-ed="contact">'+CONTACT.map(c=>'<button data-v="'+c+'" class="'+(r.contact===c?"on":"")+'">'+c+'</button>').join("")+'</div></div>'+
+         '<div class="f-row"><span class="f-lab">Mechanism</span><div class="sel-wrap">'+selectHTML("mechanism",r.mechanism,'data-sel="mechanism"',"Choose what happened…")+'</div><div id="add-mechanism"></div></div>'+
+         '<div class="f-row"><span class="f-lab">What happened (optional)</span><input type="text" data-how maxlength="200" style="width:100%;max-width:560px" placeholder="e.g. landed on a defender\'s foot going up for a rebound" value="'+esc(r.how||"")+'"></div>';
     }
     if(r.kind&&r.kind!=="DNA"){
       h+='<div class="f-row"><span class="f-lab">Treatment given</span>'+
@@ -745,12 +756,13 @@ function wireEditor(){
     if(kind==="treatment") ED.r.treatments[+i]=el.value; else ED.r[kind]=el.value;
   }));
   const n=document.querySelector("#editor [data-notes]"); if(n) n.addEventListener("input",()=>{ED.r.notes=n.value;});
+  const hw=document.querySelector("#editor [data-how]"); if(hw) hw.addEventListener("input",()=>{ED.r.how=hw.value;});
 }
 function showAdd(kind,i,sel){
   const prev=kind==="treatment"?ED.r.treatments[+i]:ED.r[kind];
   sel.value=prev||"";
   const host=$(kind==="treatment"?"add-treatment-"+i:"add-"+kind); if(!host) return;
-  const label={bodyPart:"body part",injury:"injury",treatment:"treatment"}[kind];
+  const label={bodyPart:"body part",injury:"injury",treatment:"treatment",mechanism:"mechanism"}[kind];
   host.innerHTML='<div class="add-new"><input type="text" placeholder="New '+label+'" maxlength="60"><button class="btn btn-primary">Add</button><button class="btn">Cancel</button></div>';
   const inp=host.querySelector("input"), [addB,cancelB]=host.querySelectorAll("button");
   inp.focus();
@@ -780,6 +792,7 @@ function recText(r,name,date){
     L.push(r.kind==="Injury"?"Injury — "+[r.side&&r.side!=="N/A"?r.side:"",r.bodyPart].filter(Boolean).join(" ")+" — "+r.injury+".":"Maintenance.");
     L.push("Treatment: "+(r.treatments||[]).join("; ")+".");
   }
+  if(r.kind==="Injury"&&(r.contact||r.mechanism)) L.push("How: "+[r.contact,r.mechanism].filter(Boolean).join(" — ")+"."+(r.how?" "+r.how:""));
   if(r.notes) L.push("Notes: "+r.notes);
   if(r.booked&&r.kind!=="DNA") L.push("Booked "+r.booked+" on check-in.");
   return "TREATMENT — "+name+" — "+prettyDay(date,true)+"\n"+L.join("\n");
@@ -792,8 +805,10 @@ async function saveRec(){
   const bad=m=>{ msg.className="ed-msg bad"; msg.textContent=m; };
   if(!r.kind) return bad("Choose Maintenance, Injury or Didn't attend.");
   if(r.kind==="Injury"&&(!r.bodyPart||!r.side||!r.injury)) return bad("For an injury, choose the body part, side and injury.");
+  if(r.kind==="Injury"&&(!r.contact||!r.mechanism)) return bad("For an injury, say how it happened: contact or non-contact, and the mechanism (or \"Unknown / not sure\").");
   if(r.kind!=="DNA"&&!r.treatments.length) return bad("Choose the treatment given.");
-  if(r.kind!=="Injury"){ r.bodyPart=""; r.side=""; r.injury=""; }
+  if(r.kind!=="Injury"){ r.bodyPart=""; r.side=""; r.injury=""; r.contact=""; r.mechanism=""; r.how=""; }
+  r.how=String(r.how||"").trim();
   if(r.kind==="DNA"){ r.treatments=[]; }
   const orig=ED.id?RECS.find(q=>q.id===ED.id):null;
   r.v=1; r.notes=String(r.notes||"").trim();
@@ -847,11 +862,12 @@ function tally(list,keyFn){
   const m={};
   list.forEach(x=>{ [].concat(keyFn(x)).filter(Boolean).forEach(k=>{ (m[k]=m[k]||{n:0,players:new Set(),sides:{}}); m[k].n++; m[k].players.add(x.slug);
     if(x.r.side) m[k].sides[x.r.side]=(m[k].sides[x.r.side]||0)+1; }); });
-  return Object.keys(m).map(k=>({k,n:m[k].n,p:m[k].players.size,sides:m[k].sides})).sort((a,b)=>b.n-a.n||a.k.localeCompare(b.k));
+  return Object.keys(m).map(k=>({k,n:m[k].n,p:m[k].players.size,sides:m[k].sides}))
+    .sort((a,b)=>(a.k==="Not recorded")-(b.k==="Not recorded")||b.n-a.n||a.k.localeCompare(b.k));   // "Not recorded" always last
 }
 function barsHTML(rows,subFn,empty){
   if(!rows.length) return '<div class="empty" style="padding:14px 0">'+empty+'</div>';
-  const max=rows[0].n;
+  const max=Math.max.apply(null,rows.map(r=>r.n));
   return rows.map(r=>{ const sub=subFn(r);
     return '<div class="bar-row" title="'+esc(r.k+": "+r.n+" session"+(r.n===1?"":"s")+(sub?" · "+sub:""))+'"><div class="bar-lab">'+esc(r.k)+'</div>'+
       '<div class="bar-track"><div class="bar" style="width:'+Math.max(2,Math.round(r.n/max*100))+'%"></div></div>'+
@@ -872,6 +888,8 @@ function renderReport(){
   const pl=r=>single?"":r.p+" player"+(r.p===1?"":"s");
   $("bars-injury").innerHTML=barsHTML(tally(inj,x=>x.r.injury),pl,"No injuries recorded in this period.");
   $("bars-part").innerHTML=barsHTML(tally(inj,x=>x.r.bodyPart),r=>[["Left","L"],["Right","R"],["Both","both"]].filter(([s])=>r.sides[s]).map(([s,l])=>l+" "+r.sides[s]).join(" · "),"No injuries recorded in this period.");
+  $("bars-contact").innerHTML=barsHTML(tally(inj,x=>x.r.contact||"Not recorded"),r=>{const pct=Math.round(r.n/inj.length*100);return pct+"%"+(single?"":" · "+r.p+" player"+(r.p===1?"":"s"));},"No injuries recorded in this period.");
+  $("bars-mech").innerHTML=barsHTML(tally(inj,x=>x.r.mechanism||"Not recorded"),r=>{const c=inj.filter(x=>(x.r.mechanism||"Not recorded")===r.k);const ct=c.filter(x=>x.r.contact==="Contact").length, nc=c.filter(x=>x.r.contact==="Non-contact").length;return [ct?"contact "+ct:"",nc?"non-contact "+nc:""].filter(Boolean).join(" · ");},"No injuries recorded in this period.");
   $("bars-treat").innerHTML=barsHTML(tally(seen,x=>x.r.treatments||[]),pl,"No treatments recorded in this period.");
 
   // by player
@@ -885,8 +903,8 @@ function renderReport(){
 
   // injury log
   $("log-count").textContent=inj.length?inj.length+" record"+(inj.length===1?"":"s"):"";
-  $("tbl-log").innerHTML=inj.length?'<table class="tbl"><thead><tr><th>Date</th>'+(single?'':'<th>Player</th>')+'<th>Body part</th><th>Side</th><th>Injury</th><th>Treatment</th></tr></thead><tbody>'+
-    inj.slice(0,300).map(x=>'<tr><td style="white-space:nowrap">'+esc(prettyDay(x.date))+'</td>'+(single?'':'<td>'+esc(playerName(x.slug))+'</td>')+'<td>'+esc(x.r.bodyPart)+'</td><td>'+esc(x.r.side)+'</td><td>'+esc(x.r.injury)+'</td><td>'+esc((x.r.treatments||[]).join(", "))+(x.r.notes?'<div class="tl-sub">'+esc(x.r.notes)+'</div>':'')+'</td></tr>').join("")+'</tbody></table>'
+  $("tbl-log").innerHTML=inj.length?'<table class="tbl"><thead><tr><th>Date</th>'+(single?'':'<th>Player</th>')+'<th>Body part</th><th>Side</th><th>Injury</th><th>How</th><th>Treatment</th></tr></thead><tbody>'+
+    inj.slice(0,300).map(x=>'<tr><td style="white-space:nowrap">'+esc(prettyDay(x.date))+'</td>'+(single?'':'<td>'+esc(playerName(x.slug))+'</td>')+'<td>'+esc(x.r.bodyPart)+'</td><td>'+esc(x.r.side)+'</td><td>'+esc(x.r.injury)+'</td><td>'+(x.r.contact||x.r.mechanism?esc([x.r.contact,x.r.mechanism].filter(Boolean).join(" · ")):'<span class="muted">–</span>')+(x.r.how?'<div class="tl-sub">'+esc(x.r.how)+'</div>':'')+'</td><td>'+esc((x.r.treatments||[]).join(", "))+(x.r.notes?'<div class="tl-sub">'+esc(x.r.notes)+'</div>':'')+'</td></tr>').join("")+'</tbody></table>'
     :'<div class="empty">No injuries recorded in this period.</div>';
 }
 function pickPlayer(slug){ $("rep-player").value=slug; renderReport(); window.scrollTo({top:0,behavior:"smooth"}); }
