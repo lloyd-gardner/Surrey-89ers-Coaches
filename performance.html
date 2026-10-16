@@ -573,11 +573,16 @@ async function handleRedirect(){
   if(!h.has("code")&&!h.has("error")) return false;
   history.replaceState(null,"",location.pathname+location.search);
   const pk=readJSON(K.pkce); SS.removeItem(K.pkce);
+  // Other staff pages (e.g. the Treatment Log) sign in through this page, the one address
+  // registered with Microsoft. They leave their own file name in "next"; send the browser back there.
+  const next=(pk&&/^[a-z0-9-]+\.html$/i.test(pk.next||"")&&pk.next!==(location.pathname.split("/").pop()||""))?pk.next:"";
   if(h.get("error")){
+    if(next){ location.replace(next+"#auth_error="+encodeURIComponent(h.get("error_description")||h.get("error"))); return new Promise(()=>{}); }
     const e=new Error(h.get("error_description")||h.get("error")); e.code=h.get("error"); throw e;
   }
   if(!pk||pk.state!==h.get("state")) throw new Error("The sign-in response didn't match this page. Please sign in again.");
   await tokenRequest({grant_type:"authorization_code",code:h.get("code"),redirect_uri:CFG.redirect,code_verifier:pk.verifier});
+  if(next){ location.replace(next); return new Promise(()=>{}); }
   return true;
 }
 
