@@ -3543,6 +3543,67 @@ function computeCrunchTimeStats(db, teamName){
   };
 }
 
+// Momentum + offensive-rebound metrics for EVERY team, so each Team
+// Profile tile can show where that team sits in the league. Uses the exact
+// same functions as the tiles, so the value shown always matches its rank.
+// Cached on db -- worked out once per page load, not per profile opened.
+function computeLeagueAdvanced(db){
+  if(db._advLeague) return db._advLeague;
+  var teams = Object.keys(db.teamAgg||{});
+  var per = {}, raw = {};
+  teams.forEach(function(t){
+    var jb = computeJailbreakSteals(db, t);
+    var ss = computeDefensiveStopStreaks(db, t);
+    var ps = computePointStreaks(db, t, 10);
+    var ob = computeOffensiveReboundOutcomes(db, t);
+    var g  = db.teamAgg[t].games || [];
+    raw[t] = {jailbreak:jb, stopStreaks:ss, pointStreaks:ps, oreb:ob};
+    per[t] = {
+      jailbreak: jb.perGame,
+      stopHigh:  ss.avgGameHigh,
+      knockouts: ss.games ? ss.threeStraightCount/ss.games : 0,
+      runs:      ps.perGame,
+      orebPG:    g.length ? g.reduce(function(s,r){ return s+(parseFloat(r.OREB)||0); },0)/g.length : 0,
+      putback:   ob.putbackPct,
+      kickout3:  ob.kickout3Pct,
+      recycle:   ob.recyclePct,
+    };
+  });
+  var ranks = {}, avg = {};
+  ['jailbreak','stopHigh','knockouts','runs','orebPG','putback','kickout3','recycle'].forEach(function(k){
+    ranks[k] = getRanks(per, k);
+    avg[k] = teams.length ? teams.reduce(function(s,t){ return s+per[t][k]; },0)/teams.length : 0;
+  });
+  db._advLeague = {per:per, raw:raw, ranks:ranks, avg:avg, n:teams.length};
+  return db._advLeague;
+}
+
+function ordinal(n){
+  var s=['th','st','nd','rd'], v=n%100;
+  return n+(s[(v-20)%10]||s[v]||s[0]);
+}
+
+// One advanced-metric tile with league rank + league average underneath.
+// judged=true: higher is better, so top 3 go green and bottom 3 go red
+// (same colouring as Next Opponent Key Stats). judged=false: it's a style
+// mix (e.g. putback share) where "most" isn't good or bad, so neutral.
+function advTileHTML(L, teamName, key, valStr, label, fmtAvg, judged){
+  var r = L.ranks[key] ? L.ranks[key][teamName] : null;
+  var n = L.n;
+  var top = r && r<=3, bottom = r && r>=n-2;
+  var bg = judged && top ? 'rgba(0,131,72,0.12)' : judged && bottom ? 'rgba(226,75,74,0.10)' : '';
+  var border = judged && top ? 'rgba(0,131,72,0.45)' : judged && bottom ? 'rgba(226,75,74,0.35)' : '';
+  var valCol = judged && top ? 'var(--green)' : judged && bottom ? '#ff8a8a' : '#fff';
+  var rankTxt = r ? (r===1 ? 'Most in league' : r===n ? 'Fewest in league' : ordinal(r)+' of '+n) : '—';
+  if(!judged && r){ rankTxt = r===1 ? 'Highest in league' : r===n ? 'Lowest in league' : ordinal(r)+' of '+n; }
+  return '<div class="card" style="padding:16px;text-align:center;'+(bg?'background:'+bg+';':'')+(border?'border:1px solid '+border+';':'')+'">'
+    +'<div class="stat-val" style="color:'+valCol+'">'+valStr+'</div>'
+    +'<div class="stat-label">'+label+'</div>'
+    +'<div style="margin-top:8px;font-size:11px;font-weight:800;color:'+(judged&&(top||bottom)?valCol:'#fff')+'">'+rankTxt+'</div>'
+    +'<div style="font-size:10px;color:var(--muted);margin-top:2px">Lg avg '+fmtAvg(L.avg[key])+'</div>'
+  +'</div>';
+}
+
 function showTPSelector(){
   document.getElementById("tp-selector").style.display="block";
   document.getElementById("tp-detail").style.display="none";
@@ -3562,12 +3623,63 @@ function shotEffLabel(fg, is3){
   return fg>=60?'ELITE %':fg>=50?'GOOD %':fg>=40?'AVERAGE %':'POOR %';
 }
 
+// Shot categories shared by the player shot profile and the league
+// averages it is compared against.
+var SHOT_CATS_3 = [
+  {label:'Catch & Shoot', keys:['jump shot']},
+  {label:'Pull-Up',       keys:['pull-up']},
+  {label:'Step-Back',     keys:['step-back']},
+];
+var SHOT_CATS_2 = [
+  {label:'Layup/Drive', keys:['layup','driving layup','reverse layup']},
+  {label:'Dunk',        keys:['dunk','alley-oop dunk','alley-oop','tip-in dunk','tip-in layup']},
+  {label:'Mid-Range',   keys:['jump shot']},
+  {label:'Pull-Up Mid', keys:['pull-up','step-back']},
+  // Floater and Hook/Post intentionally left out -- too low-volume to be
+  // a meaningful "best" or "worst" shot for almost any player.
+];
+function shotIsMade(s){ return s.Success==1||s.Success==='1'||s.Success===true; }
+
+// League-wide FG% for each shot category (every player, every team),
+// cached on db so it is only worked out once per page load.
+function leagueShotTypeAvgs(db){
+  if(db._shotLg) return db._shotLg;
+  var out = {};
+  ((db&&db.raw&&db.raw.shots)||[]).forEach(function(s){
+    var cats = s.Action==='3pt' ? SHOT_CATS_3 : s.Action==='2pt' ? SHOT_CATS_2 : null;
+    if(!cats) return;
+    var st = (s['Sub Type']||'').toLowerCase();
+    for(var i=0;i<cats.length;i++){
+      if(cats[i].keys.indexOf(st)>=0){
+        var k = (s.Action==='3pt'?'3|':'2|')+cats[i].label;
+        if(!out[k]) out[k] = {n:0, made:0};
+        out[k].n++;
+        if(shotIsMade(s)) out[k].made++;
+        break;
+      }
+    }
+  });
+  Object.keys(out).forEach(function(k){ out[k].fg = out[k].n ? out[k].made/out[k].n : 0; });
+  db._shotLg = out;
+  return out;
+}
+
+// Best/worst shot for a player.
+// WORST: unchanged -- lowest volume x efficiency score.
+// BEST: the shot type where he scores the most points ABOVE what an average
+// SLB player gets from that same shot. Ranking on raw FG% put Layup/Drive
+// top for almost everyone, because layups go in at a high rate for all
+// players -- that told coaches nothing. His make rate is pulled toward the
+// league average (10 "average" attempts added) so 3-from-4 in a couple of
+// games can't beat a proven 40-attempt sample. If nothing beats the league
+// average yet, best is null and the card says so rather than faking one.
 function computeShotProfile(db, playerName){
   var shots = ((db&&db.raw&&db.raw.shots)||[]).filter(function(r){
     return matchPlayerName(r.Player||'', playerName);
   });
   var shots3 = shots.filter(function(r){ return r.Action==='3pt'; });
   var shots2 = shots.filter(function(r){ return r.Action==='2pt'; });
+  var lg = leagueShotTypeAvgs(db);
 
   function pbpTypes(shotsArr, types){
     if(!shotsArr.length) return [];
@@ -3576,40 +3688,48 @@ function computeShotProfile(db, playerName){
         var st=(s['Sub Type']||'').toLowerCase();
         return t.keys.indexOf(st)>=0;
       });
-      var made = ms.filter(function(s){ return s.Success==1||s.Success==='1'||s.Success===true; }).length;
+      var made = ms.filter(shotIsMade).length;
       return {
-        label: t.label, n: ms.length,
+        label: t.label, n: ms.length, made: made,
         pct: shotsArr.length ? Math.round(ms.length/shotsArr.length*100) : 0,
         madeRate: ms.length ? Math.round(made/ms.length*100) : 0,
       };
     }).filter(function(t){ return t.n>0; });
   }
 
-  var types3 = pbpTypes(shots3, [
-    {label:'Catch & Shoot', keys:['jump shot']},
-    {label:'Pull-Up',       keys:['pull-up']},
-    {label:'Step-Back',     keys:['step-back']},
-  ]);
-  var types2 = pbpTypes(shots2, [
-    {label:'Layup/Drive', keys:['layup','driving layup','reverse layup']},
-    {label:'Dunk',        keys:['dunk','alley-oop dunk','alley-oop','tip-in dunk','tip-in layup']},
-    {label:'Mid-Range',   keys:['jump shot']},
-    {label:'Pull-Up Mid', keys:['pull-up','step-back']},
-    // Floater and Hook/Post intentionally left out -- too low-volume to be
-    // a meaningful "best" or "worst" shot for almost any player.
-  ]);
+  var types3 = pbpTypes(shots3, SHOT_CATS_3);
+  var types2 = pbpTypes(shots2, SHOT_CATS_2);
 
   var allTypes = [];
-  types3.forEach(function(t){ allTypes.push({label:t.label, pct:t.pct, fg:t.madeRate, is3:true, score:t.pct*t.madeRate}); });
-  types2.forEach(function(t){ allTypes.push({label:t.label, pct:t.pct, fg:t.madeRate, is3:false, score:t.pct*t.madeRate}); });
+  function add(t, is3){
+    var l = lg[(is3?'3|':'2|')+t.label];
+    allTypes.push({label:t.label, pct:t.pct, fg:t.madeRate, is3:is3, score:t.pct*t.madeRate,
+      n:t.n, made:t.made, lgFg: l ? l.fg : null});
+  }
+  types3.forEach(function(t){ add(t, true); });
+  types2.forEach(function(t){ add(t, false); });
 
   var qualified = allTypes.filter(function(t){ return t.pct >= 5; });
   qualified.sort(function(a,b){ return b.score - a.score; });
+  var worst = qualified.length ? qualified[qualified.length-1] : null;
 
-  return {
-    best:  qualified.length ? qualified[0] : null,
-    worst: qualified.length ? qualified[qualified.length-1] : null,
-  };
+  var K = 10, MIN_ATT = 5;
+  var best = null;
+  qualified.forEach(function(t){
+    if(t===worst || t.lgFg==null || t.n < MIN_ATT) return;
+    var adj = (t.made + K*t.lgFg) / (t.n + K);
+    var ptsAbove = t.n * (adj - t.lgFg) * (t.is3 ? 3 : 2);
+    if(ptsAbove <= 0) return;
+    if(!best || ptsAbove > best.ptsAbove){
+      best = Object.assign({}, t, {
+        ptsAbove: ptsAbove,
+        lgPct: Math.round(t.lgFg*100),
+        vsLg: t.fg - Math.round(t.lgFg*100),
+      });
+    }
+  });
+
+  return { best: best, worst: worst, hasShots: qualified.length>0 };
 }
 
 // Isolation vs Assisted % -- of this player's own made shots, what share
@@ -3714,6 +3834,31 @@ async function showTeamProfile(teamName){
     +'</div>';
   }
 
+  // Best shot card: shows his FG% on that shot against the league average
+  // for the same shot, since that comparison is the whole point of the pick.
+  function bestShotPill(sp){
+    var t = sp.best;
+    if(!t){
+      if(!sp.hasShots) return '';
+      return '<div style="background:rgba(250,249,246,0.03);border:1px dashed rgba(255,255,255,0.15);border-radius:8px;padding:8px 10px;margin-bottom:6px">'
+        +'<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.55)">No shot above league average yet</div>'
+        +'<div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:3px">Needs 5+ attempts of one type beating the SLB rate</div>'
+      +'</div>';
+    }
+    var shotType = t.is3 ? '3PT' : '2PT';
+    return '<div style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:8px;padding:8px 10px;margin-bottom:6px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">'
+        +'<div style="font-size:12px;font-weight:800;color:#fff">'+t.label+'</div>'
+        +'<div style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">'+shotType+'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:4px;flex-wrap:wrap">'
+        +'<div style="background:rgba(255,255,255,0.08);border-radius:3px;padding:2px 6px;font-size:8px;font-weight:700;color:rgba(255,255,255,0.65)">'+shotVolLabel(t.pct)+'</div>'
+        +'<div style="background:rgba(255,255,255,0.08);border-radius:3px;padding:2px 6px;font-size:8px;font-weight:700;color:#4ade80">'+t.fg+'% · +'+t.vsLg+' VS LGE</div>'
+      +'</div>'
+      +'<div style="font-size:8px;color:rgba(255,255,255,0.35);margin-top:4px">'+t.made+'/'+t.n+' · league '+t.lgPct+'%</div>'
+    +'</div>';
+  }
+
   function playerPillHTML(pl){
     const sp = computeShotProfile(db, pl.name);
     const ia = computeIsoAssistPct(db, pl.name);
@@ -3730,7 +3875,7 @@ async function showTeamProfile(teamName){
         <div style="font-size:16px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:3px">${fmtName(pl.name||"")}</div>
         ${meta?`<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">${meta}</div>`:'<div style="margin-bottom:12px"></div>'}
         ${isoAssistedHTML(ia)}
-        ${miniShotPill(sp.best, true)}
+        ${bestShotPill(sp)}
         ${miniShotPill(sp.worst, false)}
       </div>
     </div>`;
@@ -3825,47 +3970,27 @@ async function showTeamProfile(teamName){
     </div>
   `;
 
-  const jailbreak = computeJailbreakSteals(db, teamName);
-  const oreb = computeOffensiveReboundOutcomes(db, teamName);
-  const stopStreaks = computeDefensiveStopStreaks(db, teamName);
-  const knockoutsPerGame = stopStreaks.games ? stopStreaks.threeStraightCount/stopStreaks.games : 0;
-  const pointStreaks = computePointStreaks(db, teamName, 10);
+  const L = computeLeagueAdvanced(db);
+  const A = L.per[teamName];
+  const f2 = v => v.toFixed(2), f1 = v => v.toFixed(1), fpc = v => Math.round(v)+'%';
   const crunch = computeCrunchTimeStats(db, teamName);
   const advancedMetricsHTML = `
     <div class="section-header"><div class="section-label">Momentum</div></div>
+    <div style="font-size:10px;color:var(--muted);margin:-4px 0 12px">ranked against all ${L.n} SLB teams · green = top 3, red = bottom 3</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-      <div class="card" style="padding:16px;text-align:center">
-        <div class="stat-val">${jailbreak.perGame.toFixed(2)}</div>
-        <div class="stat-label">Jailbreak Steals/G</div>
-      </div>
-      <div class="card" style="padding:16px;text-align:center">
-        <div class="stat-val">${stopStreaks.avgGameHigh.toFixed(1)}</div>
-        <div class="stat-label">Avg Best Stop Streak/G</div>
-      </div>
-      <div class="card" style="padding:16px;text-align:center">
-        <div class="stat-val">${knockoutsPerGame.toFixed(2)}</div>
-        <div class="stat-label">3+ Stop Streaks ("Knockouts")/G</div>
-      </div>
-      <div class="card" style="padding:16px;text-align:center">
-        <div class="stat-val">${pointStreaks.perGame.toFixed(2)}</div>
-        <div class="stat-label">10-0 Runs/G</div>
-      </div>
+      ${advTileHTML(L, teamName, 'jailbreak', f2(A.jailbreak), 'Jailbreak Steals/G', f2, true)}
+      ${advTileHTML(L, teamName, 'stopHigh',  f1(A.stopHigh),  'Avg Best Stop Streak/G', f1, true)}
+      ${advTileHTML(L, teamName, 'knockouts', f2(A.knockouts), '3+ Stop Streaks ("Knockouts")/G', f2, true)}
+      ${advTileHTML(L, teamName, 'runs',      f2(A.runs),      '10-0 Runs/G', f2, true)}
     </div>
 
     <div class="section-header"><div class="section-label">Offensive Rebounds</div></div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">
-      <div class="card" style="padding:16px;text-align:center">
-        <div class="stat-val">${oreb.putbackPct}%</div>
-        <div class="stat-label">OREB → Putback</div>
-      </div>
-      <div class="card" style="padding:16px;text-align:center">
-        <div class="stat-val">${oreb.kickout3Pct}%</div>
-        <div class="stat-label">OREB → Kick-out 3</div>
-      </div>
-      <div class="card" style="padding:16px;text-align:center">
-        <div class="stat-val">${oreb.recyclePct}%</div>
-        <div class="stat-label">OREB → Recycled</div>
-      </div>
+    <div style="font-size:10px;color:var(--muted);margin:-4px 0 12px">OREB/G is judged (green/red) · what happens after the rebound is style, so ranked but not coloured</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+      ${advTileHTML(L, teamName, 'orebPG',   f1(A.orebPG),     'Off Rebounds/G', f1, true)}
+      ${advTileHTML(L, teamName, 'putback',  A.putback+'%',    'OREB → Putback', fpc, false)}
+      ${advTileHTML(L, teamName, 'kickout3', A.kickout3+'%',   'OREB → Kick-out 3', fpc, false)}
+      ${advTileHTML(L, teamName, 'recycle',  A.recycle+'%',    'OREB → Recycled', fpc, false)}
     </div>
 
     <div class="section-header"><div class="section-label">Crunch Time</div></div>
