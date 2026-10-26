@@ -199,7 +199,7 @@
 <div class="modal-overlay hidden" id="merge-modal">
   <div class="modal">
     <h2>Merge Duplicate Players</h2>
-    <div class="modal-sub">Pick the two records that are actually the same person, then choose which one to keep. All game stats, play-by-play events, and scouting notes from the other record move onto the one you keep — the duplicate is then removed. <b>This cannot be undone.</b></div>
+    <div class="modal-sub">Pick the two records that are actually the same person (e.g. a different shirt number for one game), then choose which one to keep. Every game from both records ends up on the one you keep, and the slide info is combined as you choose below — the duplicate is then removed. <b>This cannot be undone.</b></div>
     <div class="form-group">
       <label>Record A</label>
       <select id="merge-a" onchange="renderMergePreview()"></select>
@@ -213,6 +213,14 @@
       <select id="merge-keep" onchange="renderMergePreview()">
         <option value="a">Record A</option>
         <option value="b">Record B</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Slide info (statements, photo, depth, grades)</label>
+      <select id="merge-slide" onchange="renderMergePreview()">
+        <option value="combine">Combine both — kept record wins, blanks filled from the other (recommended)</option>
+        <option value="other">Combine both — the other record wins where both have something</option>
+        <option value="keep">Kept record's slide info only</option>
       </select>
     </div>
     <div id="merge-preview" style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.6"></div>
@@ -767,6 +775,8 @@ function openMergeModal(){
   document.getElementById("merge-b").innerHTML=opts;
   if(players.length>1) document.getElementById("merge-b").selectedIndex=1;
   document.getElementById("merge-keep").selectedIndex=0;
+  document.getElementById("merge-slide").value="combine";
+  _mergeInfo={};
   document.getElementById("merge-err").textContent="";
   document.getElementById("merge-modal").classList.remove("hidden");
   renderMergePreview();
@@ -1235,10 +1245,72 @@ async function generateSynergyReport(){
 }
 
 
-function renderMergePreview(){
+// ═══════════════════════════════════════════
+// MERGE DUPLICATE PLAYERS — v2 (26 Oct 2026)
+// ═══════════════════════════════════════════
+// Combines two records for the same person (e.g. a different uniform number
+// for one game) into one:
+//  • Game stats: every game from both records ends up on the kept record.
+//    If BOTH records have a line for the same game, the fuller line (more
+//    seconds played / points) is kept rather than blindly the kept record's.
+//  • Play-by-play, shots, substitution stints: moved across.
+//  • Slide info (statements, photo, depth chart, grades, position etc.):
+//    combined field-by-field according to the chosen option, so nothing
+//    written on either record is lost.
+//  • Before the duplicate is deleted, every table is re-checked; if anything
+//    still points at it the merge stops and nothing is deleted.
+const MERGE_SKIP_SCOUT=new Set(["id","player_id","season_id","updated_at","updated_by"]);
+const MERGE_SKIP_PLAYER=new Set(["id","season_id","current_team_id","full_name","livestats_names","jersey_number","created_at","updated_at"]);
+const isBlankVal=(k,v)=>v==null||v===""||(k==="depth_pos"&&(v===99||v==="99"));
+
+async function sbGetStrict(path){
+  const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{headers:{"apikey":SUPABASE_SERVICE,"Authorization":`Bearer ${SUPABASE_SERVICE}`}});
+  if(!r.ok) throw new Error(`Read failed (${path.split("?")[0]}): `+await r.text());
+  return r.json();
+}
+
+// Combine two slide-info rows. mode: "combine" (kept wins where both filled,
+// blanks filled from the other), "other" (other record wins where both
+// filled), "keep" (kept record's info only).
+function combineSlideInfo(keepRow,otherRow,mode,skip){
+  const out={};
+  if(mode==="keep"||!otherRow) return out;
+  const keys=new Set([...Object.keys(keepRow||{}),...Object.keys(otherRow||{})]);
+  keys.forEach(k=>{
+    if(skip.has(k)) return;
+    const kv=keepRow?keepRow[k]:null, ov=otherRow[k];
+    if(k==="active"){ if(kv!==true&&ov===true) out[k]=true; return; }
+    if(mode==="combine"){ if(isBlankVal(k,kv)&&!isBlankVal(k,ov)) out[k]=ov; }
+    else if(mode==="other"){ if(!isBlankVal(k,ov)&&ov!==kv) out[k]=ov; }
+  });
+  return out;
+}
+
+function slideSummary(sc){
+  if(!sc) return "no slide info";
+  const notes=["who_what","forcing","stopping","iso","cs","dribble","post","screener","ballhandler"].filter(k=>!isBlankVal(k,sc[k])).length;
+  const bits=[];
+  bits.push(notes?`${notes} statement field${notes>1?"s":""}`:"no statements");
+  bits.push(sc.image_url?"photo":"no photo");
+  if(!isBlankVal("depth_pos",sc.depth_pos)) bits.push(`depth #${sc.depth_pos}`);
+  return bits.join(" · ");
+}
+
+let _mergeInfo={};
+async function loadMergeInfo(pid){
+  if(_mergeInfo[pid]) return _mergeInfo[pid];
+  const [games,sc]=await Promise.all([
+    sbGet(`slb_player_game_stats?player_id=eq.${pid}&select=game_id,seconds_played,pts,dnp`),
+    sbGet(`slb_player_scouting?player_id=eq.${pid}&season_id=eq.${seasonId}&select=*`),
+  ]);
+  return (_mergeInfo[pid]={games,sc:sc[0]||null});
+}
+
+async function renderMergePreview(){
   const aId=document.getElementById("merge-a").value;
   const bId=document.getElementById("merge-b").value;
   const keep=document.getElementById("merge-keep").value;
+  const mode=document.getElementById("merge-slide").value;
   const errEl=document.getElementById("merge-err");
   const confirmBtn=document.getElementById("merge-confirm-btn");
   const previewEl=document.getElementById("merge-preview");
@@ -1251,112 +1323,150 @@ function renderMergePreview(){
   }
   errEl.textContent="";
   confirmBtn.disabled=false;
-
-  const aName=players.find(p=>String(p.id)===aId)?.full_name||"?";
-  const bName=players.find(p=>String(p.id)===bId)?.full_name||"?";
-  const keepName=keep==="a"?aName:bName;
-  const dropName=keep==="a"?bName:aName;
-  previewEl.innerHTML=`Keeping <b style="color:var(--offwhite)">${formatName(keepName)}</b> — all stats and events from <b style="color:var(--offwhite)">${formatName(dropName)}</b> will move onto this record, then that duplicate record will be removed.`;
+  const pA=players.find(p=>String(p.id)===aId), pB=players.find(p=>String(p.id)===bId);
+  const label=p=>`${escHtml(shownName(p))}${p?.jersey_number?" #"+escHtml(p.jersey_number):""}`;
+  previewEl.innerHTML="Checking both records…";
+  const [iA,iB]=await Promise.all([loadMergeInfo(aId),loadMergeInfo(bId)]);
+  // Bail if the selection changed while we were loading
+  if(document.getElementById("merge-a").value!==aId||document.getElementById("merge-b").value!==bId) return;
+  const played=i=>i.games.filter(g=>!g.dnp).length;
+  const keepP=keep==="a"?pA:pB, dropP=keep==="a"?pB:pA;
+  const keepI=keep==="a"?iA:iB, dropI=keep==="a"?iB:iA;
+  const allGames=new Set([...iA.games,...iB.games].map(g=>g.game_id));
+  const both=iA.games.filter(g=>iB.games.some(h=>h.game_id===g.game_id)).length;
+  const playedAll=new Set([...iA.games,...iB.games].filter(g=>!g.dnp).map(g=>g.game_id)).size;
+  const resultSc={...(keepI.sc||dropI.sc||{}),...combineSlideInfo(keepI.sc,dropI.sc,mode,MERGE_SKIP_SCOUT)};
+  const finalSc=keepI.sc||dropI.sc?resultSc:null;
+  const row=(t,p,i)=>`<div style="display:flex;justify-content:space-between;gap:10px"><span>${t}: <b style="color:var(--offwhite)">${label(p)}</b></span><span>${played(i)} game${played(i)===1?"":"s"} played · ${slideSummary(i.sc)}</span></div>`;
+  previewEl.innerHTML=`
+    ${row("Record A",pA,iA)}${row("Record B",pB,iB)}
+    <div style="margin-top:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card2)">
+      <div style="font-size:9px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--green);margin-bottom:6px">After merge</div>
+      <div><b style="color:var(--offwhite)">${label(keepP)}</b> — <b style="color:var(--offwhite)">${playedAll} game${playedAll===1?"":"s"} played</b> (${allGames.size} game rows)${both?` · ${both} game${both>1?"s are":" is"} on both records, the fuller stat line is kept`:""}</div>
+      <div>Slide info: ${slideSummary(finalSc)}</div>
+      <div style="margin-top:4px">${label(dropP)} is then removed.</div>
+    </div>`;
 }
 
 async function confirmMerge(){
   const aId=parseInt(document.getElementById("merge-a").value);
   const bId=parseInt(document.getElementById("merge-b").value);
   const keep=document.getElementById("merge-keep").value;
+  const mode=document.getElementById("merge-slide").value;
   if(aId===bId) return;
   const keepId=keep==="a"?aId:bId;
   const mergeId=keep==="a"?bId:aId;
-  const keepName=players.find(p=>p.id===keepId)?.full_name||"?";
-  const mergeName=players.find(p=>p.id===mergeId)?.full_name||"?";
-  const keepSeason=players.find(p=>p.id===keepId)?.season_id, mergeSeason=players.find(p=>p.id===mergeId)?.season_id;
-  if(keepSeason!==mergeSeason){
+  const keepP=players.find(p=>p.id===keepId), mergeP=players.find(p=>p.id===mergeId);
+  if(keepP?.season_id!==mergeP?.season_id){
     document.getElementById("merge-err").textContent="These two records are from different seasons — that's normal, not a duplicate. Only merge two records from the same season.";
     return;
   }
-
-  if(!confirm(`Merge "${formatName(mergeName)}" into "${formatName(keepName)}"?\n\nThis moves all their stats and events onto the kept record and permanently deletes the duplicate. This cannot be undone.\n\nAre you sure?`)) return;
+  if(!confirm(`Merge "${shownName(mergeP)}${mergeP?.jersey_number?" #"+mergeP.jersey_number:""}" into "${shownName(keepP)}${keepP?.jersey_number?" #"+keepP.jersey_number:""}"?\n\nAll games from both records end up on the kept one, slide info is combined as chosen, then the duplicate is deleted. This cannot be undone.`)) return;
 
   const confirmBtn=document.getElementById("merge-confirm-btn");
   const errEl=document.getElementById("merge-err");
   confirmBtn.disabled=true;
   confirmBtn.textContent="Merging...";
   errEl.textContent="";
-
   try{
-    await mergePlayers(keepId,mergeId);
+    const summary=await mergePlayers(keepId,mergeId,mode);
+    _mergeInfo={};
     confirmBtn.textContent="Merge Players";
     closeMergeModal();
-    // Refresh the roster so the merged-away player disappears from the list
     await selectTeam(selectedTeam,document.querySelector(".team-btn.active"));
+    alert(`Merged into ${shownName(keepP)}.\n\n${summary}`);
   }catch(e){
-    console.error(e);
-    errEl.textContent="Merge failed — check console for details";
+    console.error("[DC] merge failed",e);
+    errEl.textContent="Merge stopped — "+(e.message||"check console")+". Nothing was deleted.";
     confirmBtn.disabled=false;
     confirmBtn.textContent="Merge Players";
+    _mergeInfo={};
   }
 }
 
-// Repoints every reference from mergeId onto keepId across all 4 tables
-// that track player_id, then deletes the now-unreferenced duplicate.
-// Handles the one real conflict case directly: if BOTH records already
-// have a row for the exact same game (slb_player_game_stats) or season
-// (slb_player_scouting) -- which can happen if a name-variant caused a
-// genuinely duplicate entry for that specific game/season -- the keeper's
-// existing row wins and the duplicate's conflicting row is discarded,
-// rather than attempting an update that would violate the table's unique
-// constraint.
-async function mergePlayers(keepId,mergeId){
-  // 1. slb_player_game_stats -- unique on (game_id, player_id)
-  const dupGames=await sbGet(`slb_player_game_stats?player_id=eq.${mergeId}&select=id,game_id`);
-  const keepGameIds=new Set((await sbGet(`slb_player_game_stats?player_id=eq.${keepId}&select=game_id`)).map(r=>r.game_id));
+async function mergePlayers(keepId,mergeId,mode="combine"){
+  const notes=[];
+  // 1. Game stats — unique on (game_id, player_id)
+  const dupGames=await sbGetStrict(`slb_player_game_stats?player_id=eq.${mergeId}&select=id,game_id,seconds_played,pts,dnp`);
+  const keepGames=await sbGetStrict(`slb_player_game_stats?player_id=eq.${keepId}&select=id,game_id,seconds_played,pts,dnp`);
+  const keepByGame={}; keepGames.forEach(r=>{keepByGame[r.game_id]=r;});
+  const fuller=r=>(r.dnp?0:1)*1e6+(+r.seconds_played||0)*10+(+r.pts||0);
+  let moved=0, clashes=0;
   for(const row of dupGames){
-    if(keepGameIds.has(row.game_id)){
-      await sbDelete(`slb_player_game_stats?id=eq.${row.id}`);
+    const k=keepByGame[row.game_id];
+    if(k){
+      clashes++;
+      if(fuller(row)>fuller(k)){
+        await sbDelete(`slb_player_game_stats?id=eq.${k.id}`);
+        await sbPatch(`slb_player_game_stats?id=eq.${row.id}`,{player_id:keepId});
+      }else{
+        await sbDelete(`slb_player_game_stats?id=eq.${row.id}`);
+      }
     }else{
       await sbPatch(`slb_player_game_stats?id=eq.${row.id}`,{player_id:keepId});
+      moved++;
     }
   }
+  notes.push(`${moved} game${moved===1?"":"s"} moved across${clashes?`, ${clashes} game${clashes===1?"":"s"} on both records (fuller line kept)`:""}.`);
 
-  // 2. slb_pbp_events -- no unique constraint tied to player, safe direct repoint
+  // 2. Play-by-play, shots, substitution stints — no player-unique constraints
   await sbPatch(`slb_pbp_events?player_id=eq.${mergeId}`,{player_id:keepId});
   await sbPatch(`slb_pbp_events?sub_in_player_id=eq.${mergeId}`,{sub_in_player_id:keepId});
   await sbPatch(`slb_pbp_events?sub_out_player_id=eq.${mergeId}`,{sub_out_player_id:keepId});
-
-  // 3. slb_shot_events -- same, no unique constraint tied to player
   await sbPatch(`slb_shot_events?player_id=eq.${mergeId}`,{player_id:keepId});
   await sbPatch(`slb_shot_events?assisted_by_player_id=eq.${mergeId}`,{assisted_by_player_id:keepId});
   await sbPatch(`slb_shot_events?blocked_by_player_id=eq.${mergeId}`,{blocked_by_player_id:keepId});
-
-  // 3b. slb_player_stints (substitution patterns) -- no unique constraint, direct repoint
-  // (wrapped so a merge still works before the stints table exists; if the
-  // repoint genuinely failed, the final player delete below stops on the FK)
   try{ await sbPatch(`slb_player_stints?player_id=eq.${mergeId}`,{player_id:keepId}); }
   catch(e){ console.warn("[DC] stints repoint skipped:",e.message); }
 
-  // 4. slb_player_scouting -- one row per player per season is the intent,
-  // so if the keeper already has scouting data for a season the duplicate
-  // also has, the keeper's (presumably actively-curated) data wins.
-  const dupScouting=await sbGet(`slb_player_scouting?player_id=eq.${mergeId}&select=id,season_id`);
-  const keepSeasonIds=new Set((await sbGet(`slb_player_scouting?player_id=eq.${keepId}&select=season_id`)).map(r=>r.season_id));
-  for(const row of dupScouting){
-    if(keepSeasonIds.has(row.season_id)){
-      await sbDelete(`slb_player_scouting?id=eq.${row.id}`);
-    }else{
+  // 3. Slide info (slb_player_scouting) — one row per player per season
+  const dupScout=await sbGetStrict(`slb_player_scouting?player_id=eq.${mergeId}&select=*`);
+  const keepScout=await sbGetStrict(`slb_player_scouting?player_id=eq.${keepId}&select=*`);
+  for(const row of dupScout){
+    const k=keepScout.find(r=>r.season_id===row.season_id);
+    if(!k){
       await sbPatch(`slb_player_scouting?id=eq.${row.id}`,{player_id:keepId});
+      notes.push("Slide info moved across.");
+    }else{
+      const patch=combineSlideInfo(k,row,mode,MERGE_SKIP_SCOUT);
+      if(Object.keys(patch).length){
+        await sbPatch(`slb_player_scouting?id=eq.${k.id}`,{...patch,updated_at:new Date().toISOString(),updated_by:"merge"});
+        notes.push(`Slide info combined (${Object.keys(patch).length} field${Object.keys(patch).length===1?"":"s"} taken from the other record).`);
+      }else notes.push("Slide info: kept record's info kept (nothing extra on the other record).");
+      await sbDelete(`slb_player_scouting?id=eq.${row.id}`);
     }
   }
 
-  // 5. Merge the LiveStats name variants onto the keeper -- this is the
-  // actual root cause of duplicates, so folding both spellings into one
-  // record's livestats_names means future scrapes recognise either
-  // variant as this same player, reducing new duplicates going forward.
-  const keepRows=await sbGet(`slb_players?id=eq.${keepId}&select=livestats_names`);
-  const dupRows=await sbGet(`slb_players?id=eq.${mergeId}&select=livestats_names`);
-  const mergedNames=Array.from(new Set([...(keepRows[0]?.livestats_names||[]),...(dupRows[0]?.livestats_names||[])]));
-  if(mergedNames.length) await sbPatch(`slb_players?id=eq.${keepId}`,{livestats_names:mergedNames});
+  // 4. Player record fields (display name, position, etc.) + LiveStats name
+  // variants, so future scrapes match either spelling to this player.
+  const keepP=(await sbGetStrict(`slb_players?id=eq.${keepId}&select=*`))[0]||{};
+  const dupP=(await sbGetStrict(`slb_players?id=eq.${mergeId}&select=*`))[0]||{};
+  const pPatch=combineSlideInfo(keepP,dupP,mode==="keep"?"keep":"combine",MERGE_SKIP_PLAYER);
+  const mergedNames=Array.from(new Set([...(keepP.livestats_names||[]),...(dupP.livestats_names||[])]));
+  if(mergedNames.length) pPatch.livestats_names=mergedNames;
+  if(Object.keys(pPatch).length) await sbPatch(`slb_players?id=eq.${keepId}`,pPatch);
 
-  // 6. Everything now points at keepId -- safe to remove the duplicate.
+  // 5. Safety check — nothing may still point at the duplicate
+  const checks=[
+    `slb_player_game_stats?player_id=eq.${mergeId}`,
+    `slb_pbp_events?or=(player_id.eq.${mergeId},sub_in_player_id.eq.${mergeId},sub_out_player_id.eq.${mergeId})`,
+    `slb_shot_events?or=(player_id.eq.${mergeId},assisted_by_player_id.eq.${mergeId},blocked_by_player_id.eq.${mergeId})`,
+    `slb_player_scouting?player_id=eq.${mergeId}`,
+  ];
+  for(const c of checks){
+    const left=await sbGetStrict(`${c}&select=id&limit=1`);
+    if(left.length) throw new Error(`some ${c.split("?")[0].replace("slb_","").replace(/_/g," ")} rows didn't move`);
+  }
+  try{
+    const leftSt=await sbGetStrict(`slb_player_stints?player_id=eq.${mergeId}&select=id&limit=1`);
+    if(leftSt.length) throw new Error("some substitution stint rows didn't move");
+  }catch(e){ if(String(e.message).includes("didn't move")) throw e; }
+
+  // 6. Everything now points at keepId — safe to remove the duplicate.
   await sbDelete(`slb_players?id=eq.${mergeId}`);
+  const total=(await sbGetStrict(`slb_player_game_stats?player_id=eq.${keepId}&dnp=eq.false&select=id`)).length;
+  notes.push(`${total} game${total===1?"":"s"} played now on this record. Grades update on the next grade_players.py run.`);
+  return notes.join("\n");
 }
 
 // ADD PLAYER MODAL
