@@ -617,6 +617,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
         <div class="card"><div class="card-header"><div class="card-title">Shot Profile</div></div><div class="card-body" id="ss-shots"></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Season Averages</div></div><div class="card-body" id="ss-avgs"></div></div>
       </div>
+      <div class="section-header"><div class="section-label" style="color:var(--offwhite)">Player On / Off Ratings</div></div>
+      <div id="ss-onoff" style="margin-bottom:24px"></div>
       <div class="section-header"><div class="section-label">Key Lineups</div></div>
       <div id="ss-lineups" style="margin-bottom:24px"></div>
       <div class="section-header"><div class="section-label">Game Log</div></div>
@@ -1301,6 +1303,7 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       "P4":          names[3] || "",
       "P5":          names[4] || "",
       "Poss":        r.possessions_off,
+      "Poss Def":    r.possessions_def,
       "OFFRTG":      r.off_rtg,
       "DEFRTG":      r.def_rtg,
       "NETRTG":      r.net_rtg,
@@ -5850,6 +5853,203 @@ async function renderPlayerTrending(db,SURREY){
   </div>`;
 }
 
+// ═══════════════════════════════════════════
+// PLAYER ON / OFF RATINGS (Surrey 89ers tab)
+// ═══════════════════════════════════════════
+// Built from lineup stints (db.raw.lu). Every stint is a 5-man unit with the
+// points scored/allowed and offensive/defensive possessions while it was on
+// the floor. For each player:
+//   ON  = sum of every stint that includes him
+//   OFF = team totals in the games he played, minus his ON totals
+// Games he didn't appear in are left out of OFF entirely, so an injury spell
+// doesn't get counted as "Surrey without him".
+// Ratings are per 100 possessions: OFF RTG = pts / off poss, DEF RTG =
+// pts allowed / def poss, NET = OFF - DEF. ON−OFF shows his impact; for DEF
+// a negative number is good (fewer points allowed with him on).
+const ONOFF_MIN_ON=50, ONOFF_MIN_OFF=25;
+let _onoffRows=[], _onoffSort={key:"dNet",dir:-1};
+
+async function renderPlayerOnOff(db,SURREY){
+  const el=document.getElementById("ss-onoff");
+  if(!el) return;
+  try{
+    const stints=(db.raw.lu||[]).filter(r=>matchTeam(r.Team||"",SURREY));
+    if(!stints.length){
+      el.innerHTML=`<div class="card" style="padding:16px"><div style="color:var(--muted);font-size:12px">No lineup data loaded for Surrey yet.</div></div>`;
+      return;
+    }
+    // Defensive possessions fall back to offensive possessions if a row has none
+    const pd=r=>{const v=parseFloat(r["Poss Def"]);return isNaN(v)?(parseFloat(r.Poss)||0):v;};
+    const po=r=>parseFloat(r.Poss)||0;
+    const pf=r=>parseFloat(r["Pts Scored"])||0;
+    const pa=r=>parseFloat(r["Pts Allowed"])||0;
+
+    const gameTot={}, team={pf:0,pa:0,po:0,pd:0};
+    const on={};   // player -> {pf,pa,po,pd,games:Set}
+    stints.forEach(r=>{
+      const g=r["Game id"];
+      if(!gameTot[g]) gameTot[g]={pf:0,pa:0,po:0,pd:0};
+      const v={pf:pf(r),pa:pa(r),po:po(r),pd:pd(r)};
+      ["pf","pa","po","pd"].forEach(k=>{gameTot[g][k]+=v[k];team[k]+=v[k];});
+      [r.P1,r.P2,r.P3,r.P4,r.P5].filter(Boolean).forEach(name=>{
+        if(!on[name]) on[name]={pf:0,pa:0,po:0,pd:0,games:new Set()};
+        ["pf","pa","po","pd"].forEach(k=>{on[name][k]+=v[k];});
+        on[name].games.add(g);
+      });
+    });
+
+    // Same active convention as League Leaders / Player Trending: only players
+    // explicitly marked active=false are hidden.
+    let inactiveNames=new Set();
+    try{
+      const seasonRow=await sbFetch(`slb_seasons?is_current=eq.true&select=id`);
+      const seasonId=seasonRow[0]?.id;
+      if(seasonId){
+        const [players,scout,keys]=await Promise.all([
+          sbFetchAll("slb_players",`select=id,full_name&season_id=eq.${seasonId}`),
+          sbFetchAll("slb_player_scouting",`season_id=eq.${seasonId}&select=player_id,active`),
+          getPlayerNameKeys(),
+        ]);
+        const inactiveIds=new Set(scout.filter(r=>r.active===false).map(r=>r.player_id));
+        players.forEach(p=>{ if(inactiveIds.has(p.id)) inactiveNames.add(keys[p.id]||p.full_name); });
+      }
+    }catch(e){ console.warn("[DC] on/off active filter skipped",e); }
+
+    const rtg=(pts,poss)=>poss>0?pts/poss*100:null;
+    const teamOff=rtg(team.pf,team.po), teamDef=rtg(team.pa,team.pd);
+
+    _onoffRows=Object.entries(on).filter(([n])=>!inactiveNames.has(n)).map(([name,o])=>{
+      const off={pf:0,pa:0,po:0,pd:0};
+      o.games.forEach(g=>{["pf","pa","po","pd"].forEach(k=>{off[k]+=gameTot[g][k];});});
+      ["pf","pa","po","pd"].forEach(k=>{off[k]-=o[k];});
+      const onO=rtg(o.pf,o.po), onD=rtg(o.pa,o.pd);
+      const offO=rtg(off.pf,off.po), offD=rtg(off.pa,off.pd);
+      const onN=onO!=null&&onD!=null?onO-onD:null;
+      const offN=offO!=null&&offD!=null?offO-offD:null;
+      const totPoss=o.po+off.po;
+      return {
+        name, gp:o.games.size, possOn:o.po, possOff:off.po,
+        share:totPoss>0?o.po/totPoss*100:0,
+        onO,onD,onN, offO,offD,offN,
+        dOff:onO!=null&&offO!=null?onO-offO:null,
+        dDef:onD!=null&&offD!=null?onD-offD:null,
+        dNet:onN!=null&&offN!=null?onN-offN:null,
+        qualified:o.po>=ONOFF_MIN_ON&&off.po>=ONOFF_MIN_OFF,
+      };
+    });
+
+    const q=_onoffRows.filter(r=>r.qualified&&r.dNet!=null);
+    const best=(key,dir)=>q.slice().sort((a,b)=>dir*(b[key]-a[key]))[0];
+    const bNet=best("dNet",1), bOff=best("dOff",1), bDef=best("dDef",-1), worst=best("dNet",-1);
+    const sg=v=>v==null?"—":(v>0?"+":"")+v.toFixed(1);
+    const tile=(lbl,r,key,good,color)=>r?`<div class="card" style="padding:14px;border-left:3px solid ${color}">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${color};margin-bottom:6px">${lbl}</div>
+        <div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:2px">${r.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${good}: <span style="color:${color};font-weight:800;font-size:14px">${sg(r[key])}</span> per 100</div>
+      </div>`:"";
+
+    el.innerHTML=`
+      <div style="font-size:10px;color:var(--muted);margin-bottom:12px">
+        Team ratings with each player on the floor vs off it (games he played only) · per 100 possessions ·
+        Team overall: Offensive ${fmt(teamOff)} · Defensive ${fmt(teamDef)} · Net ${sg(teamOff-teamDef)}
+      </div>
+      ${q.length?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px">
+        ${tile("Biggest Net Impact",bNet,"dNet","On − Off Net","#4ade80")}
+        ${tile("Best Offensive Impact",bOff,"dOff","On − Off Offensive","#60c8fa")}
+        ${tile("Best Defensive Impact",bDef,"dDef","On − Off Defensive","#a78bfa")}
+        ${worst&&worst!==bNet?tile("Team Better Without",worst,"dNet","On − Off Net","#ff8a8a"):""}
+      </div>`:""}
+      <div class="card"><div class="table-scroll">
+        <table class="data-table" id="onoff-table">
+          <thead>
+            <tr>
+              <th colspan="4"></th>
+              <th colspan="3" style="text-align:center;color:var(--green);border-left:1px solid var(--border-soft)">On Court</th>
+              <th colspan="3" style="text-align:center;border-left:1px solid var(--border-soft)">Off Court</th>
+              <th colspan="3" style="text-align:center;color:#fff;border-left:1px solid var(--border-soft)">On − Off (Impact)</th>
+            </tr>
+            <tr id="onoff-head"></tr>
+          </thead>
+          <tbody id="onoff-body"></tbody>
+        </table>
+      </div></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px">
+        Ranked players need ${ONOFF_MIN_ON}+ possessions on court and ${ONOFF_MIN_OFF}+ off court; smaller samples are shown faded at the bottom.
+        Defensive rating: lower is better, so a negative On − Off defensive number is good. Click any column to sort.
+      </div>`;
+    drawOnOffTable();
+  }catch(e){
+    console.error("[DC] on/off failed",e);
+    el.innerHTML=`<div class="card" style="padding:16px"><div style="color:var(--muted);font-size:12px">Couldn't build on/off ratings — see console.</div></div>`;
+  }
+}
+
+function sortOnOff(key){
+  if(_onoffSort.key===key) _onoffSort.dir*=-1;
+  else _onoffSort={key,dir:(key==="name"||key==="onD"||key==="offD"||key==="dDef")?1:-1};
+  drawOnOffTable();
+}
+
+function drawOnOffTable(){
+  const head=document.getElementById("onoff-head"), body=document.getElementById("onoff-body");
+  if(!head||!body) return;
+  const {key,dir}=_onoffSort;
+  const cols=[
+    ["rank","Rank"],["name","Player"],["gp","Games"],["possOn","Poss On"],
+    ["onO","Offensive"],["onD","Defensive"],["onN","Net"],
+    ["offO","Offensive"],["offD","Defensive"],["offN","Net"],
+    ["dOff","Offensive"],["dDef","Defensive"],["dNet","Net"],
+  ];
+  const groupStart=new Set(["onO","offO","dOff"]);
+  head.innerHTML=cols.map(([k,l])=>`<th ${k==="rank"?"":`onclick="sortOnOff('${k}')"`} style="${k==="rank"?"":"cursor:pointer;"}${groupStart.has(k)?"border-left:1px solid var(--border-soft);":""}${k===key?"color:var(--offwhite);":""}">${l}${k===key?(dir>0?" ▲":" ▼"):""}</th>`).join("");
+
+  // Rank is always by On − Off Net among qualified players
+  const netRank={};
+  _onoffRows.filter(r=>r.qualified&&r.dNet!=null).sort((a,b)=>b.dNet-a.dNet).forEach((r,i)=>{netRank[r.name]=i+1;});
+  const nQual=Object.keys(netRank).length;
+
+  const val=r=>key==="rank"?(netRank[r.name]||999):r[key];
+  const sorted=_onoffRows.slice().sort((a,b)=>{
+    if(a.qualified!==b.qualified) return a.qualified?-1:1;
+    const va=val(a), vb=val(b);
+    if(key==="name") return dir*String(va).localeCompare(String(vb));
+    if(va==null) return 1; if(vb==null) return -1;
+    return dir*(va-vb);
+  });
+
+  const n1=v=>v==null?"—":v.toFixed(1);
+  const sg=v=>v==null?"—":(v>0?"+":"")+v.toFixed(1);
+  // Colour an impact number: green = good for Surrey, red = bad
+  const imp=(v,lowerBetter,extra="")=>{
+    if(v==null) return `<td class="td-num" style="${extra}">—</td>`;
+    const good=lowerBetter?v<0:v>0, mag=Math.min(Math.abs(v)/15,1);
+    const bg=good?`rgba(74,222,128,${0.06+mag*0.22})`:`rgba(255,138,138,${0.06+mag*0.22})`;
+    return `<td class="td-num" style="${extra};background:${bg};font-weight:800;color:${good?"#4ade80":"#ff8a8a"}">${sg(v)}</td>`;
+  };
+  const netC=v=>v==null?"":(v>0?"td-green":"td-red");
+  const bl="border-left:1px solid var(--border-soft)";
+
+  body.innerHTML=sorted.map(r=>{
+    const rk=netRank[r.name];
+    const rankCell=rk?`<span style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:800;color:${rk===1?"var(--green)":rk>nQual-2&&nQual>3?"#ff8a8a":"#fff"}">#${rk}</span>`:`<span style="color:var(--muted);font-size:10px">${r.possOn<ONOFF_MIN_ON?"small sample":"rarely off"}</span>`;
+    return `<tr style="${r.qualified?"":"opacity:0.45"}">
+      <td>${rankCell}</td>
+      <td style="font-weight:700">${r.name}</td>
+      <td class="td-num">${r.gp}</td>
+      <td class="td-num">${Math.round(r.possOn)} <span style="color:var(--muted);font-size:10px">(${r.share.toFixed(0)}%)</span></td>
+      <td class="td-num" style="${bl}">${n1(r.onO)}</td>
+      <td class="td-num">${n1(r.onD)}</td>
+      <td class="td-num ${netC(r.onN)}" style="font-weight:700">${sg(r.onN)}</td>
+      <td class="td-num" style="${bl}">${n1(r.offO)}</td>
+      <td class="td-num">${n1(r.offD)}</td>
+      <td class="td-num ${netC(r.offN)}" style="font-weight:700">${sg(r.offN)}</td>
+      ${imp(r.dOff,false,bl)}
+      ${imp(r.dDef,true)}
+      ${imp(r.dNet,false)}
+    </tr>`;
+  }).join("");
+}
+
 async function renderSelfScout(){
   const db=await loadData();
   const SURREY="SURREY 89ERS";
@@ -5959,6 +6159,7 @@ async function renderSelfScout(){
   }
 
   await renderPlayerTrending(db,SURREY);
+  renderPlayerOnOff(db,SURREY);
 
   const wlEl=document.getElementById("ss-winloss");
   if(wlEl){
