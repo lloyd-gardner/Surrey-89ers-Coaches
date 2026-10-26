@@ -1985,7 +1985,7 @@ function compactLineupHTML(l,statField,color,showSign){
     <div style="display:flex;flex-wrap:wrap;gap:4px;flex:1">
       ${ps.map(p=>`<span style="font-size:10px;background:rgba(255,255,255,0.06);padding:3px 7px;border-radius:4px;color:#fff">${p}</span>`).join("")}
     </div>
-    <div style="font-size:9px;color:var(--muted);flex-shrink:0;text-align:right;line-height:1.4">${fmt(poss,0)} poss${l.Mins?`<br>${fmt(l.Mins,0)} min · ${l.Games||1} gm`:""}</div>
+    <div style="font-size:9px;color:var(--muted);flex-shrink:0;text-align:right;line-height:1.4">${l.Mins?`<span style="color:var(--offwhite);font-weight:700">${l["Pts Scored"]}–${l["Pts Allowed"]}</span> · `:""}${fmt(poss,0)} poss${l.Mins?`<br>${fmt(l.Mins,0)} min · ${l.Games||1} gm`:""}</div>
     <div style="font-size:13px;font-weight:800;color:${color};min-width:50px;text-align:right;flex-shrink:0">${showSign&&val>0?"+":""}${fmt(val,statField==="Mins"?0:1)}${statField==="Mins"?'<span style="font-size:9px;font-weight:600"> min</span>':""}</div>
   </div>`;
 }
@@ -5840,6 +5840,42 @@ async function renderPlayerTrending(db,SURREY){
   </div>`;
 }
 
+// ── Shared PBP helpers for on/off + lineups (v3, 26 Oct 2026) ──
+// The feed stores some plays out of order (a block of late-Q1 plays saved
+// after Q2, Q3 plays saved mid-Q4, late-logged misses carrying an older
+// score). Processing by action_number credited those points to whichever
+// five was on court when the score next moved. Sort chronologically
+// instead: game time (centisecond precision), then running score (the score
+// can only go up in real time), then action_number.
+function pbpElapsed(q,clock){
+  const p=String(clock||"0:0:0").split(":");
+  const left=(+p[0]||0)*60+(+p[1]||0);
+  return q<=4?(q-1)*600+(600-left):2400+(q-5)*300+(300-left);
+}
+function pbpChrono(ev){
+  const fine=e=>{const p=String(e.game_clock||"0:0:0").split(":");return pbpElapsed(e.quarter,e.game_clock)-((+p[2]||0)/100);};
+  return ev.slice().sort((a,b)=>fine(a)-fine(b)||((+a.score_home||0)+(+a.score_away||0))-((+b.score_home||0)+(+b.score_away||0))||a.action_number-b.action_number);
+}
+// Who was on court for an event at second t. A sub sharing the same clock
+// second is ambiguous. Default: free throws go to the incoming five (FIBA subs
+// come in before the first FT), everything else to the outgoing five. If the
+// event is by one of our players and he's only in the other five, use that
+// one (e.g. a shooter who takes his FTs and is then subbed out).
+// Validated against official box-score +/- across all 593 player-games:
+// 424 exact, 503 within 1 point (previous rule: 405 / 486).
+function pbpOnCourt(st,t,e,tid,keyOfPid){
+  const norm=[...new Set(st.filter(s=>s.start_sec<t&&t<=s.end_sec).map(s=>s.key))];
+  const inc=[...new Set(st.filter(s=>s.start_sec<=t&&t<s.end_sec).map(s=>s.key))];
+  const ft=e.action_type==="freethrow";
+  const first=ft?inc:norm, second=ft?norm:inc;
+  if(e.team_id===tid&&e.player_id){
+    const k=keyOfPid(e.player_id);
+    if(first.length===5&&first.includes(k)) return first;
+    if(second.length===5&&second.includes(k)) return second;
+  }
+  return first.length===5?first:norm;
+}
+
 // ═══════════════════════════════════════════
 // PLAYER ON / OFF RATINGS (Surrey 89ers tab)
 // ═══════════════════════════════════════════
@@ -5855,18 +5891,14 @@ async function renderPlayerTrending(db,SURREY){
 // game gets it in their OFF totals. Games a player missed are left out.
 // Possessions = FGA − OREB + TOV + 0.44×FTA, ratings per 100 possessions.
 //
-// Free throws: a sub at the foul shares the same game-clock second as the
-// free throws, so FTs are credited to the INCOMING player (FIBA subs come in
-// before the first FT). Checked against official box-score +/-: 30 of 40
-// player-games exact, the rest within 1-2 points.
+// Who-was-on-court at sub boundaries: see pbpOnCourt(). Events are processed
+// in true game order via pbpChrono() (the feed stores some plays out of order).
 // Points come from running score deltas with a monotonic guard (score blips
 // are ignored), same rule as the scraper.
 const ONOFF_MIN_ON=50, ONOFF_MIN_OFF=25;
 let _onoffRows=[], _onoffSort={key:"dNet",dir:-1};
 
 function computeOnOff(games, stints, pbp, tid, keyOf){
-  const clockSec=c=>{const p=String(c||"0:0").split(":");return (+p[0]||0)*60+(+p[1]||0);};
-  const elapsed=(q,clock)=>q<=4?(q-1)*600+(600-clockSec(clock)):2400+(q-5)*300+(300-clockSec(clock));
   const blank=()=>({pf:0,pa:0,fgaU:0,ftaU:0,orU:0,toU:0,fgaT:0,ftaT:0,orT:0,toT:0});
   const add=(a,b)=>{for(const k in b)a[k]+=b[k];};
   const players={}, team=blank(), audit=[];
@@ -5876,21 +5908,15 @@ function computeOnOff(games, stints, pbp, tid, keyOf){
   games.forEach(g=>{
     const home=g.home_team_id===tid;
     const final=home?[g.home_score,g.away_score]:[g.away_score,g.home_score];
-    const ev=(pbpByGame[g.id]||[]).slice().sort((a,b)=>a.action_number-b.action_number);
+    const ev=pbpChrono(pbpByGame[g.id]||[]);
     const st=(stByGame[g.id]||[]).map(s=>({...s,key:keyOf(s.player_id)}));
     if(!ev.length||!st.length){audit.push({game:g,final,skipped:true});return;}
     const keys=[...new Set(st.map(s=>s.key))];
     keys.forEach(k=>{if(!players[k])players[k]={on:blank(),off:blank(),games:new Set(),secs:0};players[k].games.add(g.id);});
     st.forEach(s=>{players[s.key].secs+=s.end_sec-s.start_sec;});
-    const onAt=(t,ft)=>{
-      const norm=new Set(st.filter(s=>s.start_sec<t&&t<=s.end_sec).map(s=>s.key));
-      if(!ft) return norm;
-      const inc=new Set(st.filter(s=>s.start_sec<=t&&t<s.end_sec).map(s=>s.key));
-      return inc.size===5?inc:norm;
-    };
     let mh=0,ma=0,ptsU=0,ptsT=0,bad=0;
     ev.forEach(e=>{
-      const t=elapsed(e.quarter,e.game_clock);
+      const t=pbpElapsed(e.quarter,e.game_clock);
       const d=blank();
       const sh=+e.score_home||0, sa=+e.score_away||0;
       const dh=Math.max(0,sh-mh), da=Math.max(0,sa-ma);
@@ -5902,7 +5928,7 @@ function computeOnOff(games, stints, pbp, tid, keyOf){
       else if(a==="rebound"&&e.sub_type==="offensive"){ if(mine)d.orU=1; else d.orT=1; }
       else if(a==="turnover"){ if(mine)d.toU=1; else d.toT=1; }
       if(!(d.pf||d.pa||d.fgaU||d.fgaT||d.ftaU||d.ftaT||d.orU||d.orT||d.toU||d.toT)) return;
-      const on=onAt(t,a==="freethrow");
+      const on=new Set(pbpOnCourt(st,t,e,tid,keyOf));
       if((d.pf||d.pa)&&on.size!==5) bad++;
       add(team,d);
       keys.forEach(k=>add(on.has(k)?players[k].on:players[k].off,d));
@@ -5948,7 +5974,7 @@ async function renderPlayerOnOff(db,SURREY){
     const gin=games.map(g=>g.id).join(",");
     const [stints,pbp,players,scout]=await Promise.all([
       sbFetchAll("slb_player_stints",`game_id=in.(${gin})&team_id=eq.${tid}&select=game_id,team_id,player_id,start_sec,end_sec`),
-      sbFetchAll("slb_pbp_events",`game_id=in.(${gin})&select=game_id,action_number,team_id,quarter,game_clock,action_type,sub_type,score_home,score_away`),
+      sbFetchAll("slb_pbp_events",`game_id=in.(${gin})&select=game_id,action_number,team_id,player_id,quarter,game_clock,action_type,sub_type,score_home,score_away`),
       sbFetchAll("slb_players",`season_id=eq.${seasonId}&select=*`),  // * so display_name is used if the column exists
       sbFetchAll("slb_player_scouting",`season_id=eq.${seasonId}&select=player_id,active`),
     ]);
@@ -6105,8 +6131,6 @@ function drawOnOffTable(){
 const LINEUP_MIN_POSS=20;
 
 function computeLineups(games, stints, pbp, tid, keyOf){
-  const clockSec=c=>{const p=String(c||"0:0").split(":");return (+p[0]||0)*60+(+p[1]||0);};
-  const elapsed=(q,clock)=>q<=4?(q-1)*600+(600-clockSec(clock)):2400+(q-5)*300+(300-clockSec(clock));
   const units={};
   const unit=keys=>{const k=keys.slice().sort().join("|");
     return units[k]=units[k]||{players:keys.slice().sort(),secs:0,pf:0,pa:0,fgaU:0,ftaU:0,orU:0,toU:0,fgaT:0,ftaT:0,orT:0,toT:0,paint:0,three:0,games:new Set()};};
@@ -6117,7 +6141,7 @@ function computeLineups(games, stints, pbp, tid, keyOf){
   const PAINT=/layup|dunk|tip|alley|hook|post|driving|floater|putback/i;
   games.forEach(g=>{
     const st=(stByGame[g.id]||[]).map(s=>({...s,key:keyOf(s.player_id)}));
-    const ev=(pbpByGame[g.id]||[]).slice().sort((a,b)=>a.action_number-b.action_number);
+    const ev=pbpChrono(pbpByGame[g.id]||[]);
     if(!st.length||!ev.length) return;
     gamesUsed++;
     const home=g.home_team_id===tid;
@@ -6129,12 +6153,6 @@ function computeLineups(games, stints, pbp, tid, keyOf){
       teamSecs+=b-a;
       if(on.length===5){ const u=unit(on); u.secs+=b-a; u.games.add(g.id); coveredSecs+=b-a; }
     }
-    const onAt=(t,ft)=>{
-      const norm=[...new Set(st.filter(s=>s.start_sec<t&&t<=s.end_sec).map(s=>s.key))];
-      if(!ft) return norm;
-      const inc=[...new Set(st.filter(s=>s.start_sec<=t&&t<s.end_sec).map(s=>s.key))];
-      return inc.length===5?inc:norm;
-    };
     let mh=0,ma=0;
     ev.forEach(e=>{
       const sh=+e.score_home||0, sa=+e.score_away||0;
@@ -6145,7 +6163,7 @@ function computeLineups(games, stints, pbp, tid, keyOf){
       const isFGA=a==="2pt"||a==="3pt", isFT=a==="freethrow";
       const isOR=a==="rebound"&&e.sub_type==="offensive", isTO=a==="turnover";
       if(!(pf||pa||isFGA||isFT||isOR||isTO)) return;
-      const on=onAt(elapsed(e.quarter,e.game_clock),isFT);
+      const on=pbpOnCourt(st,pbpElapsed(e.quarter,e.game_clock),e,tid,keyOf);
       if(on.length!==5) return;
       const u=unit(on);
       u.pf+=pf; u.pa+=pa;
@@ -6184,7 +6202,7 @@ async function renderKeyLineups(containerId, teamCaps){
     const gin=games.map(g=>g.id).join(",");
     const [stints,pbp,nameKeys,roster]=await Promise.all([
       sbFetchAll("slb_player_stints",`game_id=in.(${gin})&team_id=eq.${tid}&select=game_id,team_id,player_id,start_sec,end_sec`),
-      sbFetchAll("slb_pbp_events",`game_id=in.(${gin})&select=game_id,action_number,team_id,quarter,game_clock,action_type,sub_type,score_home,score_away`),
+      sbFetchAll("slb_pbp_events",`game_id=in.(${gin})&select=game_id,action_number,team_id,player_id,quarter,game_clock,action_type,sub_type,score_home,score_away`),
       getPlayerNameKeys(),
       sbFetchAll("slb_players",`season_id=eq.${seasonId}&current_team_id=eq.${tid}&select=*`),  // * so display_name is used if set
     ]);
