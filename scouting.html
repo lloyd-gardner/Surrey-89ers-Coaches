@@ -1985,8 +1985,8 @@ function compactLineupHTML(l,statField,color,showSign){
     <div style="display:flex;flex-wrap:wrap;gap:4px;flex:1">
       ${ps.map(p=>`<span style="font-size:10px;background:rgba(255,255,255,0.06);padding:3px 7px;border-radius:4px;color:#fff">${p}</span>`).join("")}
     </div>
-    <div style="font-size:9px;color:var(--muted);flex-shrink:0">${fmt(poss,0)} poss</div>
-    <div style="font-size:13px;font-weight:800;color:${color};min-width:50px;text-align:right;flex-shrink:0">${showSign&&val>0?"+":""}${fmt(val)}</div>
+    <div style="font-size:9px;color:var(--muted);flex-shrink:0;text-align:right;line-height:1.4">${fmt(poss,0)} poss${l.Mins?`<br>${fmt(l.Mins,0)} min · ${l.Games||1} gm`:""}</div>
+    <div style="font-size:13px;font-weight:800;color:${color};min-width:50px;text-align:right;flex-shrink:0">${showSign&&val>0?"+":""}${fmt(val,statField==="Mins"?0:1)}${statField==="Mins"?'<span style="font-size:9px;font-weight:600"> min</span>':""}</div>
   </div>`;
 }
 function lineupSection(title,color,list,statField,showSign){
@@ -2745,21 +2745,8 @@ async function fillNextOpponent(){
       : "<div class='loading-state'>No player data</div>";
   }
 
-  // Lineups -- same compact format as Self Scout: 4 categories, top 3 each
-  const lineupPool = db.raw.lu.filter(r=>matchTeam(r.Team||"",NEXT_OPP)&&(parseFloat(r.Poss)||0)>=20);
-  const topNet=lineupPool.slice().sort((a,b)=>(parseFloat(b.NETRTG)||0)-(parseFloat(a.NETRTG)||0)).slice(0,3);
-  const topOff=lineupPool.slice().sort((a,b)=>(parseFloat(b.OFFRTG)||0)-(parseFloat(a.OFFRTG)||0)).slice(0,3);
-  const topDef=lineupPool.slice().sort((a,b)=>(parseFloat(a.DEFRTG)||0)-(parseFloat(b.DEFRTG)||0)).slice(0,3);
-  const topUsed=lineupPool.slice().sort((a,b)=>(parseFloat(b.Poss)||0)-(parseFloat(a.Poss)||0)).slice(0,3);
-  const lineupContainer = document.getElementById("no-lineups");
-  lineupContainer.innerHTML = lineupPool.length
-    ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px">
-        ${lineupSection("Best Net Rating (Top 3)","var(--green)",topNet,"NETRTG",true)}
-        ${lineupSection("Best Offense (Top 3)","#60c8fa",topOff,"OFFRTG",false)}
-        ${lineupSection("Best Defense (Top 3)","#ff8a8a",topDef,"DEFRTG",false)}
-        ${lineupSection("Most Used (Top 3)","#f59e0b",topUsed,"Poss",false)}
-      </div>`
-    : "<div class='loading-state'>No lineup data with 20+ possessions</div>";
+  // Lineups -- season-long 5-man units from player stints + PBP (v2)
+  renderKeyLineups("no-lineups",NEXT_OPP);
 
   // Key stats
   // Pre-compute all ranks
@@ -6104,6 +6091,127 @@ function drawOnOffTable(){
   }).join("");
 }
 
+// ═══════════════════════════════════════════
+// KEY LINEUP UNITS — v2 (26 Oct 2026)
+// ═══════════════════════════════════════════
+// Season-long 5-man units built from PLAYER STINTS (who is on court, verified
+// against box-score minutes) + PLAY-BY-PLAY, replacing slb_lineup_stints,
+// which only covered part of each game and listed single-game rows (so the
+// same five could appear twice and a hot 20-possession night ranked "best").
+// Minutes come from the stint timeline; points/possessions from PBP events,
+// credited to whichever five were on court at that moment (free throws to
+// the incoming five when a sub shares the same clock second — same rule as
+// the on/off ratings). Possessions = FGA − OREB + TOV + 0.44×FTA.
+const LINEUP_MIN_POSS=20;
+
+function computeLineups(games, stints, pbp, tid, keyOf){
+  const clockSec=c=>{const p=String(c||"0:0").split(":");return (+p[0]||0)*60+(+p[1]||0);};
+  const elapsed=(q,clock)=>q<=4?(q-1)*600+(600-clockSec(clock)):2400+(q-5)*300+(300-clockSec(clock));
+  const units={};
+  const unit=keys=>{const k=keys.slice().sort().join("|");
+    return units[k]=units[k]||{players:keys.slice().sort(),secs:0,pf:0,pa:0,fgaU:0,ftaU:0,orU:0,toU:0,fgaT:0,ftaT:0,orT:0,toT:0,paint:0,three:0,games:new Set()};};
+  let teamSecs=0, coveredSecs=0, gamesUsed=0;
+  const pbpByGame={}, stByGame={};
+  pbp.forEach(e=>{(pbpByGame[e.game_id]=pbpByGame[e.game_id]||[]).push(e);});
+  stints.forEach(s=>{ if(s.team_id===tid)(stByGame[s.game_id]=stByGame[s.game_id]||[]).push(s);});
+  const PAINT=/layup|dunk|tip|alley|hook|post|driving|floater|putback/i;
+  games.forEach(g=>{
+    const st=(stByGame[g.id]||[]).map(s=>({...s,key:keyOf(s.player_id)}));
+    const ev=(pbpByGame[g.id]||[]).slice().sort((a,b)=>a.action_number-b.action_number);
+    if(!st.length||!ev.length) return;
+    gamesUsed++;
+    const home=g.home_team_id===tid;
+    // Minutes: walk the timeline between every sub boundary
+    const cuts=[...new Set(st.flatMap(s=>[s.start_sec,s.end_sec]))].sort((a,b)=>a-b);
+    for(let i=0;i<cuts.length-1;i++){
+      const a=cuts[i], b=cuts[i+1];
+      const on=[...new Set(st.filter(s=>s.start_sec<=a&&s.end_sec>=b).map(s=>s.key))];
+      teamSecs+=b-a;
+      if(on.length===5){ const u=unit(on); u.secs+=b-a; u.games.add(g.id); coveredSecs+=b-a; }
+    }
+    const onAt=(t,ft)=>{
+      const norm=[...new Set(st.filter(s=>s.start_sec<t&&t<=s.end_sec).map(s=>s.key))];
+      if(!ft) return norm;
+      const inc=[...new Set(st.filter(s=>s.start_sec<=t&&t<s.end_sec).map(s=>s.key))];
+      return inc.length===5?inc:norm;
+    };
+    let mh=0,ma=0;
+    ev.forEach(e=>{
+      const sh=+e.score_home||0, sa=+e.score_away||0;
+      const dh=Math.max(0,sh-mh), da=Math.max(0,sa-ma);
+      mh=Math.max(mh,sh); ma=Math.max(ma,sa);
+      const pf=home?dh:da, pa=home?da:dh;
+      const mine=e.team_id===tid, a=e.action_type;
+      const isFGA=a==="2pt"||a==="3pt", isFT=a==="freethrow";
+      const isOR=a==="rebound"&&e.sub_type==="offensive", isTO=a==="turnover";
+      if(!(pf||pa||isFGA||isFT||isOR||isTO)) return;
+      const on=onAt(elapsed(e.quarter,e.game_clock),isFT);
+      if(on.length!==5) return;
+      const u=unit(on);
+      u.pf+=pf; u.pa+=pa;
+      if(mine&&pf){ if(a==="3pt") u.three+=pf; else if(a==="2pt"&&PAINT.test(e.sub_type||"")) u.paint+=pf; }
+      if(isFGA){ mine?u.fgaU++:u.fgaT++; }
+      else if(isFT){ mine?u.ftaU++:u.ftaT++; }
+      else if(isOR){ mine?u.orU++:u.orT++; }
+      else if(isTO){ mine?u.toU++:u.toT++; }
+    });
+  });
+  const rows=Object.values(units).map(u=>{
+    const po=u.fgaU-u.orU+u.toU+0.44*u.ftaU, pd=u.fgaT-u.orT+u.toT+0.44*u.ftaT;
+    const off=po>0?u.pf/po*100:null, def=pd>0?u.pa/pd*100:null;
+    return {P1:u.players[0],P2:u.players[1],P3:u.players[2],P4:u.players[3],P5:u.players[4],
+      Lineup:u.players.join(", "),Poss:po,"Poss Def":pd,Mins:u.secs/60,Games:u.games.size,
+      OFFRTG:off,DEFRTG:def,NETRTG:off!=null&&def!=null?off-def:null,
+      "+/-":u.pf-u.pa,"Pts Scored":u.pf,"Pts Allowed":u.pa,
+      "Pts Paint%":u.pf?u.paint/u.pf*100:0,"Pts 3PT%":u.pf?u.three/u.pf*100:0};
+  });
+  return {rows,gamesUsed,coverage:teamSecs?coveredSecs/teamSecs*100:0};
+}
+
+async function renderKeyLineups(containerId, teamCaps){
+  const el=document.getElementById(containerId);
+  if(!el) return;
+  el.innerHTML='<div class="loading-state"><div class="loading-spinner"></div></div>';
+  el.dataset.team=teamCaps;
+  try{
+    const seasonRow=await sbFetch(`slb_seasons?is_current=eq.true&select=id`);
+    const seasonId=seasonRow[0]?.id;
+    const teams=await sbFetchAll("slb_teams","select=id,name");
+    const tid=teams.find(t=>capsTeam(t.name)===teamCaps||t.name.toUpperCase()===teamCaps||matchTeam(t.name,teamCaps))?.id;
+    if(!seasonId||!tid) throw new Error("season or team not found: "+teamCaps);
+    const games=await sbFetchAll("slb_games",`season_id=eq.${seasonId}&status=eq.final&or=(home_team_id.eq.${tid},away_team_id.eq.${tid})&select=id,home_team_id,away_team_id`);
+    if(!games.length){ el.innerHTML="<div class='loading-state'>No completed games this season yet</div>"; return; }
+    const gin=games.map(g=>g.id).join(",");
+    const [stints,pbp,nameKeys,roster]=await Promise.all([
+      sbFetchAll("slb_player_stints",`game_id=in.(${gin})&team_id=eq.${tid}&select=game_id,team_id,player_id,start_sec,end_sec`),
+      sbFetchAll("slb_pbp_events",`game_id=in.(${gin})&select=game_id,action_number,team_id,quarter,game_clock,action_type,sub_type,score_home,score_away`),
+      getPlayerNameKeys(),
+      sbFetchAll("slb_players",`season_id=eq.${seasonId}&current_team_id=eq.${tid}&select=*`),  // * so display_name is used if set
+    ]);
+    if(el.dataset.team!==teamCaps) return; // opponent switched while loading
+    const displayById={}; roster.forEach(p=>{ if(p.display_name) displayById[p.id]=p.display_name; });
+    const res=computeLineups(games,stints,pbp,tid,pid=>displayById[pid]||nameKeys[pid]||`#${pid}`);
+    // Early season few units reach 20 possessions -- drop to 10 rather than show nothing
+    let minPoss=LINEUP_MIN_POSS;
+    if(res.rows.filter(r=>r.Poss>=minPoss&&r.NETRTG!=null).length<3) minPoss=10;
+    const pool=res.rows.filter(r=>r.Poss>=minPoss&&r.NETRTG!=null);
+    const by=(k,dir,list=pool)=>list.slice().sort((a,b)=>dir*((b[k]||0)-(a[k]||0))).slice(0,3);
+    const mostUsed=by("Mins",1,res.rows);
+    const note=`<div style="font-size:10px;color:var(--muted);margin-bottom:10px">Season totals · ${res.gamesUsed} of ${games.length} games with substitution data · 5-man units covering ${res.coverage.toFixed(0)}% of game time · ratings ranked for units with ${minPoss}+ possessions${minPoss<LINEUP_MIN_POSS?" (early-season sample — treat with caution)":""}</div>`;
+    el.innerHTML=res.rows.length
+      ? `${note}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:0 24px">
+          ${lineupSection("Best Net Rating (Top 3)","var(--green)",by("NETRTG",1),"NETRTG",true)}
+          ${lineupSection("Best Offense (Top 3)","#60c8fa",by("OFFRTG",1),"OFFRTG",false)}
+          ${lineupSection("Best Defense (Top 3)","#ff8a8a",by("DEFRTG",-1),"DEFRTG",false)}
+          ${lineupSection("Most Used (Top 3)","#f59e0b",mostUsed,"Mins",false)}
+        </div>`
+      : `${note}<div class='loading-state'>No substitution data for this team yet</div>`;
+  }catch(e){
+    console.error("[DC] key lineups failed",e);
+    el.innerHTML="<div class='loading-state'>Couldn't build lineup data — see console</div>";
+  }
+}
+
 async function renderSelfScout(){
   const db=await loadData();
   const SURREY="SURREY 89ERS";
@@ -6282,19 +6390,7 @@ async function renderSelfScout(){
     <tr><td style="color:var(--muted)">Away</td><td class="td-num">${t.aw}-${t.al}</td></tr>
   </table>`;
 
-  const lineupPool=db.raw.lu.filter(r=>matchTeam(r.Team||"",SURREY)&&(parseFloat(r.Poss)||0)>=20);
-  const topNet=lineupPool.slice().sort((a,b)=>(parseFloat(b.NETRTG)||0)-(parseFloat(a.NETRTG)||0)).slice(0,3);
-  const topOff=lineupPool.slice().sort((a,b)=>(parseFloat(b.OFFRTG)||0)-(parseFloat(a.OFFRTG)||0)).slice(0,3);
-  const topDef=lineupPool.slice().sort((a,b)=>(parseFloat(a.DEFRTG)||0)-(parseFloat(b.DEFRTG)||0)).slice(0,3);
-  const topUsed=lineupPool.slice().sort((a,b)=>(parseFloat(b.Poss)||0)-(parseFloat(a.Poss)||0)).slice(0,3);
-  document.getElementById("ss-lineups").innerHTML=lineupPool.length
-    ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px">
-        ${lineupSection("Best Net Rating (Top 3)","var(--green)",topNet,"NETRTG",true)}
-        ${lineupSection("Best Offense (Top 3)","#60c8fa",topOff,"OFFRTG",false)}
-        ${lineupSection("Best Defense (Top 3)","#ff8a8a",topDef,"DEFRTG",false)}
-        ${lineupSection("Most Used (Top 3)","#f59e0b",topUsed,"Poss",false)}
-      </div>`
-    : "<div class='loading-state'>No lineup data</div>";
+  renderKeyLineups("ss-lineups",SURREY);
 
   const games=t.games.sort((a,b)=>new Date(a.Date)-new Date(b.Date));
   document.getElementById("ss-gamelog").innerHTML=games.map(g=>{
