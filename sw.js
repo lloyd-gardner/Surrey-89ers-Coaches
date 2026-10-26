@@ -1,5 +1,5 @@
 // Surrey 89ers Coaches Hub — Service Worker
-const CACHE = '89ers-hub-v1';
+const CACHE = '89ers-hub-v2';
 const CORE = [
   '/index.html',
   '/practice-plan.html',
@@ -11,7 +11,6 @@ const CORE = [
   '/schedule.html',
   '/game-schedule.html',
   '/video-library.html',
-  '/recruitment.html',
 ];
 
 // Install — cache core pages
