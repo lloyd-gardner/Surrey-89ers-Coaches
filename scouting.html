@@ -607,6 +607,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
     <div class="section-view" id="section-self-scout">
       <div class="page-header"><div class="page-title">Surrey 89ers</div><div class="page-sub">Self scout · 2025-26</div></div>
       <div class="grid-4" id="ss-overview" style="margin-bottom:24px"></div>
+      <div class="card" id="ss-trend-card" style="margin-bottom:24px">
+        <div class="card-header" style="flex-wrap:wrap;gap:10px">
+          <div class="card-title">Season Trend</div>
+          <select id="ss-trend-metric" class="subs-select" aria-label="Choose the stat to chart" onchange="drawSeasonTrend()"></select>
+        </div>
+        <div style="padding:16px">
+          <div id="ss-trend-summary"></div>
+          <div id="ss-trend-chart" tabindex="0" style="position:relative;outline:none"><div class="loading-state"><div class="loading-spinner"></div></div></div>
+          <div id="ss-trend-foot"></div>
+        </div>
+      </div>
       <div class="section-header"><div class="section-label" style="color:var(--offwhite)">What's Trending</div></div>
       <div id="ss-trending" style="margin-bottom:24px"></div>
       <div class="section-header"><div class="section-label" style="color:var(--offwhite)">Win / Loss Splits</div></div>
@@ -6230,11 +6241,277 @@ async function renderKeyLineups(containerId, teamCaps){
   }
 }
 
+// ═══════════════════════════════════════════
+// SEASON TREND CHART (Surrey 89ers tab) — 28 Oct 2026
+// ═══════════════════════════════════════════
+// One line, game by game, for the metric picked in the dropdown, with the
+// Surrey season average and the SLB league average as reference lines.
+// Everything is worked out from box-score totals in db.raw.ts (SLB games
+// only), so a game's value matches the Game Log below, and season / league
+// numbers are true totals (e.g. total points ÷ total possessions), not an
+// average of per-game ratings.
+// Possessions are taken from the stored OFF/DEF RTG (pts ÷ rating), because
+// those include TEAM turnovers (shot clock, 5 sec etc.) that the player TOV
+// column misses — so every game value matches the Game Log exactly. Falls
+// back to FGA − OREB + TOV + 0.44×FTA if a rating is missing.
+const TREND_SURFACE="#0f1f16", TREND_LINE="#008348";
+const _possU=s=>s.PU;
+const _possO=s=>s.PO;
+const _div=(a,b,m=1)=>b>0?a/b*m:null;
+const TREND_METRICS=[
+  {key:"off",  group:"Ratings",    label:"Offensive Rating",          dec:1, better:1,  f:s=>_div(s.PTS,_possU(s),100)},
+  {key:"def",  group:"Ratings",    label:"Defensive Rating",          dec:1, better:-1, f:s=>_div(s.PA,_possO(s),100)},
+  {key:"net",  group:"Ratings",    label:"Net Rating",                dec:1, better:1,  sign:true, f:s=>{const o=_div(s.PTS,_possU(s),100),d=_div(s.PA,_possO(s),100);return o!=null&&d!=null?o-d:null;}},
+  {key:"pace", group:"Ratings",    label:"Pace",                      dec:1, better:0,  f:s=>_div(s.TEMPO,s.n)},
+  {key:"efg",  group:"Shooting",   label:"Effective FG%",             dec:1, pct:true, better:1,  f:s=>_div(s.FGM+0.5*s.TPM,s.FGA,100)},
+  {key:"oefg", group:"Shooting",   label:"Opponent Effective FG%",    dec:1, pct:true, better:-1, f:s=>_div(s.oFGM+0.5*s.oTPM,s.oFGA,100)},
+  {key:"tp",   group:"Shooting",   label:"3-Point %",                 dec:1, pct:true, better:1,  f:s=>_div(s.TPM,s.TPA,100)},
+  {key:"otp",  group:"Shooting",   label:"Opponent 3-Point %",        dec:1, pct:true, better:-1, f:s=>_div(s.oTPM,s.oTPA,100)},
+  {key:"tpr",  group:"Shooting",   label:"3-Point Rate (3PA ÷ FGA)",  dec:1, pct:true, better:0,  f:s=>_div(s.TPA,s.FGA,100)},
+  {key:"ast",  group:"Shooting",   label:"Assist % (AST ÷ FGM)",      dec:1, pct:true, better:1,  f:s=>_div(s.AST,s.FGM,100)},
+  {key:"tov",  group:"Turnovers",  label:"Turnover %",                dec:1, pct:true, better:-1, f:s=>_div(s.TOV,s.FGA+0.44*s.FTA+s.TOV,100)},
+  {key:"otov", group:"Turnovers",  label:"Forced Turnover % (opponent TOV%)",dec:1, pct:true, better:1, f:s=>_div(s.oTOV,s.oFGA+0.44*s.oFTA+s.oTOV,100)},
+  {key:"stl",  group:"Turnovers",  label:"Steals per Game",           dec:1, better:1,  f:s=>_div(s.STL,s.n)},
+  {key:"orb",  group:"Rebounding", label:"Offensive Rebound %",       dec:1, pct:true, better:1,  f:s=>_div(s.OREB,s.OREB+s.oDREB,100)},
+  {key:"drb",  group:"Rebounding", label:"Defensive Rebound %",       dec:1, pct:true, better:1,  f:s=>_div(s.DREB,s.DREB+s.oOREB,100)},
+  {key:"ftr",  group:"Free Throws",label:"Free Throw Rate (FTA ÷ FGA)",dec:1, pct:true, better:1, f:s=>_div(s.FTA,s.FGA,100)},
+  {key:"oftr", group:"Free Throws",label:"Opponent Free Throw Rate",  dec:1, pct:true, better:-1, f:s=>_div(s.oFTA,s.oFGA,100)},
+  {key:"ftp",  group:"Free Throws",label:"Free Throw %",              dec:1, pct:true, better:1,  f:s=>_div(s.FTM,s.FTA,100)},
+  {key:"pts",  group:"Scoring",    label:"Points Scored",             dec:1, better:1,  f:s=>_div(s.PTS,s.n)},
+  {key:"pa",   group:"Scoring",    label:"Points Allowed",            dec:1, better:-1, f:s=>_div(s.PA,s.n)},
+  {key:"pip",  group:"Scoring",    label:"Points in the Paint",       dec:1, better:1,  f:s=>_div(s.PIP,s.n)},
+  {key:"opip", group:"Scoring",    label:"Opponent Points in the Paint",dec:1, better:-1, f:s=>_div(s.oPIP,s.n)},
+  {key:"fbp",  group:"Scoring",    label:"Fast Break Points",         dec:1, better:1,  f:s=>_div(s.FBP,s.n)},
+  {key:"scp",  group:"Scoring",    label:"Second Chance Points",      dec:1, better:1,  f:s=>_div(s.SCP,s.n)},
+  {key:"ptov", group:"Scoring",    label:"Points off Turnovers",      dec:1, better:1,  f:s=>_div(s.PTOV,s.n)},
+];
+const _TREND_FIELDS={FGM:"FGM",FGA:"FGA",TPM:"3PM",TPA:"3PA",FTM:"FTM",FTA:"FTA",OREB:"OREB",DREB:"DREB",
+  AST:"AST",TOV:"TOV",STL:"STL",PTS:"Pts Scored",PA:"Pts Allowed",PIP:"PIP",FBP:"FBP",SCP:"2CP",PTOV:"Pts from TOV",TEMPO:"Tempo"};
+const _rowPoss=(r,rtgField,ptsField)=>{
+  const rt=parseFloat(r[rtgField]), pts=parseFloat(r[ptsField])||0;
+  if(rt>0) return pts/rt;
+  return (parseFloat(r.FGA)||0)-(parseFloat(r.OREB)||0)+(parseFloat(r.TOV)||0)+0.44*(parseFloat(r.FTA)||0);
+};
+function _trendSums(pairs){
+  const s={n:0,PU:0,PO:0};
+  Object.keys(_TREND_FIELDS).forEach(k=>{s[k]=0;s["o"+k]=0;});
+  pairs.forEach(([r,o])=>{
+    s.n++;
+    s.PU+=_rowPoss(r,"OFFRTG","Pts Scored");
+    s.PO+=_rowPoss(r,"DEFRTG","Pts Allowed");
+    Object.entries(_TREND_FIELDS).forEach(([k,f])=>{s[k]+=parseFloat(r[f])||0; s["o"+k]+=parseFloat(o[f])||0;});
+  });
+  return s;
+}
+let _trend=null;
+
+function initSeasonTrend(db,SURREY){
+  const el=document.getElementById("ss-trend-chart");
+  if(!el) return;
+  try{
+    const slb=db.raw.ts.filter(r=>(r._comp||"SLB")==="SLB");
+    const byGame={}; slb.forEach(r=>{(byGame[r["Game id"]]=byGame[r["Game id"]]||[]).push(r);});
+    const pairs=[]; // [row, opponentRow] for every SLB team-game
+    Object.values(byGame).forEach(g=>{ if(g.length===2){ pairs.push([g[0],g[1]]); pairs.push([g[1],g[0]]); } });
+    const ours=pairs.filter(([r])=>r.Team===SURREY).sort((a,b)=>new Date(a[0].Date)-new Date(b[0].Date));
+    const byTeam={}; pairs.forEach(p=>{(byTeam[p[0].Team]=byTeam[p[0].Team]||[]).push(p);});
+    _trend={SURREY,ours,league:_trendSums(pairs),teams:Object.fromEntries(Object.entries(byTeam).map(([t,ps])=>[t,_trendSums(ps)]))};
+    const sel=document.getElementById("ss-trend-metric");
+    if(sel&&!sel.options.length){
+      const groups=[...new Set(TREND_METRICS.map(m=>m.group))];
+      sel.innerHTML=groups.map(g=>`<optgroup label="${g}">${TREND_METRICS.filter(m=>m.group===g).map(m=>`<option value="${m.key}">${m.label}</option>`).join("")}</optgroup>`).join("");
+      let saved=null; try{ saved=localStorage.getItem("ss-trend-metric"); }catch(e){}
+      sel.value=TREND_METRICS.some(m=>m.key===saved)?saved:"off";
+    }
+    if(!window._trendResizeBound){
+      window._trendResizeBound=true;
+      let t; window.addEventListener("resize",()=>{clearTimeout(t);t=setTimeout(()=>{ if(_trend) drawSeasonTrend(); },150);});
+    }
+    drawSeasonTrend();
+  }catch(e){
+    console.error("[DC] season trend failed",e);
+    el.innerHTML="<div class='loading-state'>Couldn't build the season trend — see console</div>";
+  }
+}
+
+function drawSeasonTrend(){
+  if(!_trend) return;
+  const sel=document.getElementById("ss-trend-metric");
+  const m=TREND_METRICS.find(x=>x.key===sel.value)||TREND_METRICS[0];
+  try{ localStorage.setItem("ss-trend-metric",m.key); }catch(e){}
+  const {SURREY,ours,league,teams}=_trend;
+  const el=document.getElementById("ss-trend-chart");
+  const sumEl=document.getElementById("ss-trend-summary");
+  const footEl=document.getElementById("ss-trend-foot");
+  const fv=(v,signed)=>v==null?"—":((signed||m.sign)&&v>0?"+":"")+v.toFixed(m.dec)+(m.pct?"%":"");
+
+  const pts=ours.map(([r,o],i)=>({i,r,o,v:m.f(_trendSums([[r,o]]))}));
+  const seasonV=m.f(_trendSums(ours)), leagueV=m.f(league);
+  const last3=ours.slice(-3), last3V=ours.length>=4?m.f(_trendSums(last3)):null;
+
+  // League rank of Surrey's season value
+  const vals=Object.entries(teams).map(([t,s])=>({t,v:m.f(s)})).filter(x=>x.v!=null);
+  vals.sort((a,b)=>m.better===-1?a.v-b.v:b.v-a.v);
+  const rank=vals.findIndex(x=>x.t===SURREY)+1, nT=vals.length;
+  const rankWord=m.better===0?"highest":"in the league";
+
+  if(!pts.length){
+    sumEl.innerHTML=""; footEl.innerHTML="";
+    el.innerHTML="<div class='loading-state'>No league games played yet</div>";
+    return;
+  }
+
+  // ── Summary row ──
+  const dl=last3V!=null&&seasonV!=null?last3V-seasonV:null;
+  const good=dl==null||m.better===0?null:(m.better>0?dl>0:dl<0);
+  const block=(lbl,val,extra="")=>`<div style="min-width:120px">
+      <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">${lbl}</div>
+      <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;line-height:1">${val}</span>${extra}</div>
+    </div>`;
+  sumEl.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:16px 36px;align-items:flex-end;margin-bottom:14px">
+      ${block("Surrey season",fv(seasonV),rank?`<span style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:${rank<=3&&m.better!==0?"#4ade80":rank>=nT-2&&m.better!==0?"#ff8a8a":"var(--offwhite)"}">#${rank}</span><span style="font-size:11px;color:var(--muted)">of ${nT} ${rankWord}</span>`:"")}
+      ${last3V!=null?block("Last 3 games",fv(last3V),`<span style="font-size:12px;font-weight:700;color:${good==null?"var(--muted)":good?"#4ade80":"#ff8a8a"}">${dl>0?"▲":dl<0?"▼":""} ${fv(dl,true)}</span>`):""}
+      ${block("League average",fv(leagueV))}
+      <div style="font-size:11px;color:var(--muted);margin-left:auto;align-self:flex-end">${m.better===1?"Higher is better":m.better===-1?"Lower is better":""}</div>
+    </div>`;
+
+  // ── Chart geometry ──
+  const W=Math.max(300,el.clientWidth||600), narrow=W<560;
+  const H=narrow?230:280, ML=narrow?36:44, MR=narrow?78:118, MT=18, MB=44;
+  const pw=W-ML-MR, ph=H-MT-MB;
+  const n=pts.length, xAt=i=>ML+pw*(i+0.5)/n;
+  const valid=pts.filter(p=>p.v!=null);
+  const domainVals=valid.map(p=>p.v).concat([seasonV,leagueV].filter(v=>v!=null));
+  let lo=Math.min(...domainVals), hi=Math.max(...domainVals);
+  if(m.sign){ lo=Math.min(lo,0); hi=Math.max(hi,0); }
+  if(hi===lo){ hi+=1; lo-=1; }
+  const pad=(hi-lo)*0.12; lo-=pad; hi+=pad;
+  const rawStep=(hi-lo)/4, mag=Math.pow(10,Math.floor(Math.log10(rawStep))), nrm=rawStep/mag;
+  const step=(nrm<=1?1:nrm<=2?2:nrm<=2.5?2.5:nrm<=5?5:10)*mag;
+  lo=Math.floor(lo/step)*step; hi=Math.ceil(hi/step)*step;
+  if(m.pct){ lo=Math.max(0,lo); }
+  const yAt=v=>MT+ph*(1-(v-lo)/(hi-lo));
+  const ticks=[]; for(let t=lo;t<=hi+step/2;t+=step) ticks.push(+t.toFixed(6));
+  const tickTxt=t=>(Math.abs(step)<1?t.toFixed(1):Math.round(t))+(m.pct?"%":"");
+
+  const parts=[];
+  ticks.forEach(t=>{
+    const y=yAt(t);
+    parts.push(`<line x1="${ML}" x2="${ML+pw}" y1="${y}" y2="${y}" stroke="${m.sign&&t===0?"rgba(250,249,246,0.25)":"rgba(250,249,246,0.07)"}" stroke-width="1"/>`);
+    parts.push(`<text x="${ML-8}" y="${y+3.5}" text-anchor="end" font-size="10" fill="rgba(250,249,246,0.45)" style="font-variant-numeric:tabular-nums">${tickTxt(t)}</text>`);
+  });
+  // Reference lines (league solid, Surrey season dashed), direct-labelled at the right
+  const refs=[];
+  if(leagueV!=null) refs.push({v:leagueV,lbl:"League avg",dash:"",col:"rgba(250,249,246,0.45)"});
+  if(seasonV!=null) refs.push({v:seasonV,lbl:"Surrey avg",dash:"5 4",col:TREND_LINE});
+  refs.forEach(r=>{ r.y=yAt(r.v); r.ly=r.y; });
+  if(refs.length===2&&Math.abs(refs[0].ly-refs[1].ly)<24){
+    const mid=(refs[0].ly+refs[1].ly)/2, up=refs[0].ly<=refs[1].ly?0:1;
+    refs[up].ly=mid-12; refs[1-up].ly=mid+12;
+  }
+  refs.forEach(r=>{
+    parts.push(`<line x1="${ML}" x2="${ML+pw}" y1="${r.y}" y2="${r.y}" stroke="${r.col}" stroke-width="1" ${r.dash?`stroke-dasharray="${r.dash}"`:""}/>`);
+    parts.push(`<line x1="${ML+pw+6}" x2="${ML+pw+18}" y1="${r.ly}" y2="${r.ly}" stroke="${r.col}" stroke-width="2" ${r.dash?`stroke-dasharray="4 3"`:""}/>`);
+    parts.push(`<text x="${ML+pw+22}" y="${r.ly-1}" font-size="10" fill="rgba(250,249,246,0.55)">${narrow?r.lbl.replace(" avg",""):r.lbl}</text>`);
+    parts.push(`<text x="${ML+pw+22}" y="${r.ly+11}" font-size="11" font-weight="700" fill="rgba(250,249,246,0.85)" style="font-variant-numeric:tabular-nums">${fv(r.v)}</text>`);
+  });
+  // x labels (thinned when there are lots of games)
+  const every=Math.max(1,Math.ceil(n/(pw/56)));
+  pts.forEach(p=>{
+    if(p.i%every!==0&&p.i!==n-1) return;
+    const x=xAt(p.i), d=new Date(p.r.Date);
+    const date=d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+    const opp=(p.r.Location==="AWAY"?"@ ":"")+teamShort(p.o.Team);
+    parts.push(`<text x="${x}" y="${MT+ph+17}" text-anchor="middle" font-size="10" fill="rgba(250,249,246,0.55)">${date}</text>`);
+    parts.push(`<text x="${x}" y="${MT+ph+31}" text-anchor="middle" font-size="9.5" font-weight="600" fill="rgba(250,249,246,0.4)">${opp}</text>`);
+  });
+  // The line (breaks over any game where the metric can't be worked out)
+  let d="", pen=false;
+  pts.forEach(p=>{ if(p.v==null){pen=false;return;} d+=(pen?"L":"M")+xAt(p.i).toFixed(1)+","+yAt(p.v).toFixed(1); pen=true; });
+  parts.push(`<path d="${d}" fill="none" stroke="${TREND_LINE}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`);
+  parts.push(`<line id="ss-trend-cross" x1="0" x2="0" y1="${MT}" y2="${MT+ph}" stroke="rgba(250,249,246,0.3)" stroke-width="1" visibility="hidden"/>`);
+  // Dots: win = filled, loss = hollow (shape, not colour, carries the result)
+  valid.forEach(p=>{
+    const win=p.r.Result==="WIN";
+    parts.push(`<circle class="ss-trend-dot" data-i="${p.i}" cx="${xAt(p.i)}" cy="${yAt(p.v)}" r="5" fill="${win?TREND_LINE:TREND_SURFACE}" stroke="${win?TREND_SURFACE:TREND_LINE}" stroke-width="2"/>`);
+  });
+  // Direct label on the most recent game only
+  const last=valid[valid.length-1];
+  if(last){
+    const ly=yAt(last.v), above=ly-MT>22;
+    parts.push(`<text x="${xAt(last.i)}" y="${above?ly-11:ly+20}" text-anchor="middle" font-size="12" font-weight="700" fill="#FAF9F6" style="font-variant-numeric:tabular-nums">${fv(last.v)}</text>`);
+  }
+  parts.push(`<rect id="ss-trend-hit" x="${ML}" y="${MT}" width="${pw}" height="${ph}" fill="transparent"/>`);
+
+  el.innerHTML=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${m.label} by game, ${SURREY}" style="display:block;font-family:Inter,sans-serif;overflow:visible">${parts.join("")}</svg>
+    <div id="ss-trend-tip" role="status" style="position:absolute;pointer-events:none;display:none;background:#08120c;border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:11px;line-height:1.5;color:var(--muted);white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,0.45);z-index:5"></div>`;
+
+  // ── Hover / keyboard ──
+  const svg=el.querySelector("svg"), tip=el.querySelector("#ss-trend-tip"), cross=el.querySelector("#ss-trend-cross");
+  let cur=-1;
+  const show=i=>{
+    const p=pts[i]; if(!p) return; cur=i;
+    const x=xAt(i);
+    cross.setAttribute("x1",x); cross.setAttribute("x2",x); cross.setAttribute("visibility","visible");
+    el.querySelectorAll(".ss-trend-dot").forEach(c=>c.setAttribute("r",+c.dataset.i===i?7:5));
+    tip.textContent="";
+    const line=(txt,style)=>{const dv=document.createElement("div");dv.textContent=txt;if(style)dv.style.cssText=style;tip.appendChild(dv);};
+    line(fv(p.v),"font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:700;color:#FAF9F6");
+    line(m.label,"font-size:10px;margin-bottom:4px");
+    const opp=p.o.Team.replace(/\b\w/g,c=>c).toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+    line(`${p.r.Location==="AWAY"?"at":"vs"} ${opp}`,"color:rgba(250,249,246,0.85);font-weight:600");
+    line(`${p.r.Result==="WIN"?"Won":"Lost"} ${p.r["Pts Scored"]}–${p.r["Pts Allowed"]} · ${new Date(p.r.Date).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}`);
+    if(leagueV!=null&&p.v!=null){
+      const diff=p.v-leagueV;
+      line(`${fv(diff,true)} vs league avg`);
+    }
+    tip.style.display="block";
+    const tw=tip.offsetWidth, th=tip.offsetHeight;
+    let left=x+12; if(left+tw>W) left=x-12-tw;
+    const top=Math.max(0,Math.min(H-th,(p.v!=null?yAt(p.v):MT+ph/2)-th/2));
+    tip.style.left=left+"px"; tip.style.top=top+"px";
+  };
+  const hide=()=>{ cur=-1; tip.style.display="none"; cross.setAttribute("visibility","hidden"); el.querySelectorAll(".ss-trend-dot").forEach(c=>c.setAttribute("r",5)); };
+  svg.addEventListener("pointermove",ev=>{
+    const rect=svg.getBoundingClientRect(), x=ev.clientX-rect.left;
+    if(x<ML-10||x>ML+pw+10){ hide(); return; }
+    show(Math.max(0,Math.min(n-1,Math.floor((x-ML)/pw*n))));
+  });
+  svg.addEventListener("pointerleave",hide);
+  el.onfocus=()=>show(cur>=0?cur:n-1);
+  el.onblur=hide;
+  el.onkeydown=ev=>{
+    if(ev.key==="ArrowRight"){ show(Math.min(n-1,(cur<0?n-1:cur+1))); ev.preventDefault(); }
+    else if(ev.key==="ArrowLeft"){ show(Math.max(0,(cur<0?n-1:cur-1))); ev.preventDefault(); }
+    else if(ev.key==="Escape") hide();
+  };
+
+  // ── Key + numbers table ──
+  footEl.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;font-size:10px;color:var(--muted);margin-top:6px">
+      <span style="display:inline-flex;align-items:center;gap:6px"><svg width="12" height="12"><circle cx="6" cy="6" r="4.5" fill="${TREND_LINE}"/></svg>Win</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="${TREND_SURFACE}" stroke="${TREND_LINE}" stroke-width="2"/></svg>Loss</span>
+      <span>League games only · season and league figures are totals across all games, not averages of the game ratings</span>
+    </div>
+    <details style="margin-top:10px">
+      <summary style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer">Game-by-game numbers</summary>
+      <div class="table-scroll" style="margin-top:8px"><table class="data-table">
+        <thead><tr><th>Date</th><th>Opponent</th><th>Result</th><th>${m.label}</th><th>vs League Avg</th></tr></thead>
+        <tbody>${pts.slice().reverse().map(p=>{
+          const diff=p.v!=null&&leagueV!=null?p.v-leagueV:null;
+          const g=diff==null||m.better===0?"":(m.better>0?diff>0:diff<0)?"td-green":"td-red";
+          return `<tr><td>${fmtDate(p.r.Date)}</td><td style="font-weight:600">${p.r.Location==="AWAY"?"@ ":""}${teamShort(p.o.Team)}</td>
+            <td><span class="result-pill ${p.r.Result==="WIN"?"result-w":"result-l"}">${p.r.Result}</span> <span style="color:var(--muted)">${p.r["Pts Scored"]}–${p.r["Pts Allowed"]}</span></td>
+            <td class="td-num">${fv(p.v)}</td><td class="td-num ${g}">${fv(diff,true)}</td></tr>`;}).join("")}</tbody>
+      </table></div>
+    </details>`;
+}
+
 async function renderSelfScout(){
   const db=await loadData();
   const SURREY="SURREY 89ERS";
   const t=db.teamAgg[SURREY];
   if(!t) return;
+  initSeasonTrend(db,SURREY);
   const total=Object.keys(db.teamAgg).length;
   const offR=getRanks(db.teamAgg,"offrtg");
   const defR=getRanks(db.teamAgg,"defrtg",true);
