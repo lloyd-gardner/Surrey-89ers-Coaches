@@ -102,6 +102,24 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
 .td-red{color:#ff8a8a}
 .td-amber{color:var(--amber)}
 .th-sort{cursor:pointer}
+/* Play Types table */
+.pt-table th,.pt-table td.pt-c{text-align:center}
+.pt-table th.pt-grp{font-size:10px;letter-spacing:1.5px;color:var(--offwhite);border-left:1px solid var(--border-soft);padding-bottom:6px}
+.pt-table th.pt-sub{font-size:9px;color:var(--muted);border-left:1px solid var(--border-soft);padding-top:4px;padding-bottom:4px}
+.pt-table td.pt-edge,.pt-table th.pt-edge{border-left:1px solid var(--border-soft)}
+.pt-table th[data-k]{cursor:pointer}
+.pt-table th[data-k]:hover{color:var(--offwhite)}
+.pt-table th[data-k]::after{content:attr(data-arrow);margin-left:3px;font-size:8px}
+.pt-table th.pt-sorted{color:var(--green)}
+.pt-table tr.pt-league td{border-top:1px solid var(--border);font-weight:700;background:rgba(250,249,246,0.03)}
+.pt-next{font-size:8px;font-weight:700;letter-spacing:1px;color:var(--green);border:1px solid var(--green);border-radius:3px;padding:1px 4px;margin-left:4px}
+.pt-side-btn{background:transparent;border:1px solid var(--border);color:var(--muted);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:6px 14px;cursor:pointer;font-family:inherit}
+.pt-side-btn:first-child{border-radius:4px 0 0 4px}
+.pt-side-btn:last-child{border-radius:0 4px 4px 0;border-left:none}
+.pt-side-btn.active{background:var(--green);border-color:var(--green);color:var(--offwhite)}
+.pt-notes{font-size:11px;line-height:1.6;color:var(--muted);padding:14px 16px;border-top:1px solid var(--border-soft)}
+.pt-notes b{color:var(--offwhite);font-weight:600}
+.pt-notes ul{margin:6px 0 8px 18px;padding:0}
 .th-sort:hover{color:var(--offwhite)}
 
 /* GRADE BADGES */
@@ -394,6 +412,59 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--offwhite);m
             </tr></thead>
             <tbody id="rankings-body"><tr><td colspan="11"><div class="loading-state"><div class="loading-spinner"></div></div></td></tr></tbody>
           </table>
+        </div>
+      </div>
+
+      <div class="section-header" style="flex-wrap:wrap;gap:10px">
+        <div class="section-label">Play Types — How Teams Score</div>
+        <div style="display:flex">
+          <button class="pt-side-btn active" data-side="off" onclick="setPlayTypeSide('off')">Offence</button>
+          <button class="pt-side-btn" data-side="def" onclick="setPlayTypeSide('def')">Defence</button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin:-6px 0 10px" id="pt-side-label">Each team's own offensive plays — Per 100 is points scored (green = best)</div>
+      <div class="card" style="margin-bottom:24px;padding:0">
+        <div class="table-scroll">
+          <table class="data-table pt-table" id="pt-table">
+            <thead>
+              <tr>
+                <th rowspan="3" data-k="team" style="text-align:left">Team</th>
+                <th rowspan="3" data-k="g">G</th>
+                <th rowspan="3" data-k="plays">Plays</th>
+                <th colspan="2" rowspan="2" class="pt-grp">Transition</th>
+                <th colspan="2" rowspan="2" class="pt-grp">Early Offence</th>
+                <th colspan="2" rowspan="2" class="pt-grp">Putbacks</th>
+                <th colspan="6" class="pt-grp">Half Court</th>
+                <th colspan="2" rowspan="2" class="pt-grp">End of Period</th>
+              </tr>
+              <tr>
+                <th colspan="2" class="pt-sub">All</th>
+                <th colspan="2" class="pt-sub">Mid Clock</th>
+                <th colspan="2" class="pt-sub">Late Clock</th>
+              </tr>
+              <tr>
+                <th class="pt-edge" data-k="f_trans">Freq %</th><th data-k="p_trans">Per 100</th>
+                <th class="pt-edge" data-k="f_early">Freq %</th><th data-k="p_early">Per 100</th>
+                <th class="pt-edge" data-k="f_putback">Freq %</th><th data-k="p_putback">Per 100</th>
+                <th class="pt-edge" data-k="f_hc">Freq %</th><th data-k="p_hc">Per 100</th>
+                <th class="pt-edge" data-k="f_mid">Freq %</th><th data-k="p_mid">Per 100</th>
+                <th class="pt-edge" data-k="f_late">Freq %</th><th data-k="p_late">Per 100</th>
+                <th class="pt-edge" data-k="f_eop">Freq %</th><th data-k="p_eop">Per 100</th>
+              </tr>
+            </thead>
+            <tbody id="pt-body"><tr><td colspan="17"><div class="loading-state"><div class="loading-spinner"></div>Building from play-by-play…</div></td></tr></tbody>
+          </table>
+        </div>
+        <div class="pt-notes">
+          A <b>play</b> is a possession, or the stretch after an offensive rebound. It ends at the first shot, turnover or free-throw trip, and free throws count for the play that earned them (and-ones go with the shot). Each play falls into one group, tested in this order:
+          <ul>
+            <li><b>End of period:</b> the final play of a quarter or overtime, started with 24 seconds or less left.</li>
+            <li><b>Putback:</b> ended within 4 seconds of an offensive rebound, or a tip-in.</li>
+            <li><b>Transition:</b> ended with 7 seconds or less of the shot clock used, after a steal or defensive rebound.</li>
+            <li><b>Early offence:</b> ended with 7 seconds or less used, after a made basket, dead ball or any other start.</li>
+            <li><b>Mid clock:</b> 8–17 seconds used. <b>Late clock:</b> 18 or more seconds used. <b>Half court:</b> Mid and Late together.</li>
+          </ul>
+          After an offensive rebound the count starts at 10 seconds used (FIBA 14-second reset), so those plays are Putback, Mid or Late; a defensive foul with under 14 left is treated the same way. Shot clock is estimated from the game clock, so plays near a band edge can fall either side. Per 100 needs 5 plays and excludes technical free throws. SLB games only. Click any column to sort.
         </div>
       </div>
     </div>
@@ -1385,6 +1456,7 @@ const [tgsRows, pgsRows, luRows, pbpRows, shotRows, lrRows, trRows] = await Prom
       "Action":   r.pts_value === 3 ? "3pt" : r.pts_value === 1 ? "freethrow" : "2pt",
       "Sub Type": r.sub_type,
       "Success":  r.made ? 1 : 0,
+      "ActionNum": r.action_number,
       "Zone":     r.zone,
       "Quarter":  r.quarter,
       "x":        r.x,
@@ -1664,6 +1736,7 @@ async function renderLeague(){
   const db=await loadData();
   renderStandings(db);
   renderRankings(db);
+  renderPlayTypes(db);
 }
 async function renderLeagueLeadersStandalone(){
   const db=await loadData();
@@ -1728,6 +1801,335 @@ function doSortRankings(){
     </tr>`;
   }).join("");
 }
+
+// ═══════════════════════════════════════════
+// PLAY TYPES (offensive speed) -- computed from raw PBP
+// ═══════════════════════════════════════════
+// A "play" is a possession, or the stretch after an offensive rebound. It ends
+// at the first field-goal attempt, turnover or free-throw trip; free throws
+// count for the play that earned them (and-ones attach to the shot). Each play
+// is classified, in this order:
+//   eop     -- final play of a period, started with <=24s left
+//   putback -- ended within 4s of an offensive rebound, or a tip-in
+//   trans   -- <=7s of shot clock used, after a steal or defensive rebound
+//   early   -- <=7s used, after a made basket, dead ball or period start
+//   mid     -- 8-17s used
+//   late    -- 18+s used
+// After an offensive rebound the count starts at 10s used (FIBA 14s reset).
+// The PBP feed has no timeouts/jump balls/period markers, so possession is
+// inferred from shots, rebounds, turnovers and FT trips; when the next
+// play-ending event belongs to the other team than expected, the open play is
+// re-assigned to that team (self-correcting for unsportsmanlike-foul
+// possessions etc.). Makes are detected from the running score, as elsewhere.
+var PT_CATS = ["trans","early","putback","mid","late","eop"];
+var PT_TECH_FOULS = { technical:1, coachTechnical:1, benchTechnical:1 };
+
+// madeOf(row) -> true/false/null: shot result from slb_shot_events (by game +
+// action number). Falls back to the running score when null.
+function computePlayTypes(rows, madeOf){
+  var byGame = {};
+  (rows||[]).forEach(function(r){
+    var g = r["Game id"];
+    if(g==null) return;
+    (byGame[g] = byGame[g] || []).push(r);
+  });
+
+  var plays = [];
+  var teamGames = {};
+  var techPts = 0;
+
+  Object.keys(byGame).forEach(function(gid){
+    // Sort by period, then clock (descending), then action number. Action
+    // numbers alone are NOT chronological: events edited/inserted by the
+    // scorer after the fact get high numbers (e.g. a Q1 rebound numbered
+    // between Q3 actions), which breaks any sequence logic.
+    var ev = byGame[gid].slice().sort(function(a,b){
+      var qa = parseInt(a.Quarter,10)||0, qb = parseInt(b.Quarter,10)||0;
+      if(qa!==qb) return qa-qb;
+      var ca = parseClockToSeconds(a.Time), cb = parseClockToSeconds(b.Time);
+      if(ca!=null && cb!=null && ca!==cb) return cb-ca;
+      return (a.ActionNum||0)-(b.ActionNum||0);
+    });
+    var teams = [];
+    ev.forEach(function(e){ if(e.Team && teams.indexOf(e.Team)<0) teams.push(e.Team); });
+    if(teams.length!==2) return;
+    teams.forEach(function(t){ (teamGames[t] = teamGames[t] || {})[gid] = 1; });
+    function other(t){ return t===teams[0] ? teams[1] : teams[0]; }
+
+    var prevTotal = 0, curQ = null, qStartIdx = 0;
+    var open = null, awaitingReb = null, lastPlay = null, ftTrip = null, pendingTech = [];
+
+    function qLen(q){ return (parseInt(q,10)||1) > 4 ? 300 : 600; }
+    function startPlay(team, sec){
+      // Resolve which possession a play-ending event closes.
+      if(awaitingReb){
+        open = { team: team, startSec: awaitingReb.sec, kind: awaitingReb.team===team ? "oreb" : "other" };
+        awaitingReb = null;
+      }
+      if(!open) open = { team: team, startSec: sec, kind: "other" };
+      if(open.team!==team) open.team = team;
+      var p = { gid: gid, q: curQ, team: team, opp: other(team), startSec: open.startSec,
+                endSec: sec, kind: open.kind, reset: !!open.reset, tip: false, pts: 0 };
+      plays.push(p);
+      open = null;
+      lastPlay = p;
+      return p;
+    }
+    function closeQuarter(){
+      // Last play of the period that started with <=24s left -> End of period
+      for(var k=plays.length-1;k>=qStartIdx;k--){
+        if(plays[k].gid!==gid) break;
+        if(plays[k].q===curQ){ if(plays[k].startSec<=24) plays[k].eop = true; break; }
+      }
+    }
+
+    for(var i=0;i<ev.length;i++){
+      var e = ev[i];
+      var q = e.Quarter;
+      if(q!==curQ){
+        if(curQ!==null) closeQuarter();
+        curQ = q; qStartIdx = plays.length;
+        open = { team: null, startSec: qLen(q), kind: "other" };
+        awaitingReb = null; ftTrip = null; pendingTech = []; lastPlay = null;
+      }
+      var total = (e["Score H"]||0) + (e["Score A"]||0);
+      var pts = Math.max(0, total - prevTotal);
+      prevTotal = Math.max(prevTotal, total);
+      if(e.Action==="2pt" || e.Action==="3pt" || e.Action==="freethrow"){
+        var mk = madeOf ? madeOf(e) : null;
+        if(mk!=null) pts = mk ? (e.Action==="3pt" ? 3 : e.Action==="2pt" ? 2 : 1) : 0;
+        else pts = Math.min(pts, e.Action==="3pt" ? 3 : e.Action==="2pt" ? 2 : 1);
+      } else pts = 0;
+      var sec = parseClockToSeconds(e.Time);
+      if(sec==null) continue;
+      var T = e.Team, act = e.Action, sub = e["Sub Type"] || "";
+
+      if(act==="2pt" || act==="3pt"){
+        ftTrip = null;
+        var p = startPlay(T, sec);
+        p.pts = pts;
+        p.tip = act==="2pt" && /tip/i.test(sub);
+        p.fga = true;
+        if(pts>0) open = { team: other(T), startSec: sec, kind: "dead" };
+        else awaitingReb = { team: T, sec: sec };
+      }
+      else if(act==="rebound"){
+        if(awaitingReb){
+          open = { team: T, startSec: sec, kind: T===awaitingReb.team ? "oreb" : "live" };
+          awaitingReb = null;
+        }
+      }
+      else if(act==="turnover"){
+        ftTrip = null;
+        startPlay(T, sec);
+        var stolen = false;
+        for(var j=i+1;j<ev.length && j<=i+4;j++){
+          var n = ev[j];
+          if(n.Quarter!==q) break;
+          var ns = parseClockToSeconds(n.Time);
+          if(ns==null || Math.abs(sec-ns) > 1) break;
+          if(n.Action==="steal" && n.Team!==T){ stolen = true; break; }
+        }
+        open = { team: other(T), startSec: sec, kind: stolen ? "live" : "dead" };
+      }
+      else if(act==="foul"){
+        if(PT_TECH_FOULS[sub]) pendingTech.push({ team: other(T), sec: sec });
+        else if(sub==="personal" && open && open.team && open.team!==T){
+          // FIBA: a defensive foul with under 14s left on the shot clock
+          // resets it to 14 -- re-base the count so this play reads 10s used now.
+          var usedNow = (open.kind==="oreb" ? 10 : 0) + Math.max(0, open.startSec - sec);
+          if(usedNow > 10){ open.startSec = sec; open.kind = "oreb"; open.reset = true; }
+        }
+      }
+      else if(act==="freethrow"){
+        // Technical free throws: a 1of1 shot at the moment of a technical by the
+        // other side. Excluded from points and never change possession.
+        if(sub==="1of1"){
+          var ti = -1;
+          for(var k2=0;k2<pendingTech.length;k2++){
+            if(pendingTech[k2].team===T && Math.abs(pendingTech[k2].sec-sec)<=1){ ti = k2; break; }
+          }
+          if(ti>=0){ pendingTech.splice(ti,1); techPts += pts; continue; }
+        }
+        if(!ftTrip || ftTrip.team!==T){
+          var tripPlay;
+          if(lastPlay && lastPlay.fga && lastPlay.team===T && lastPlay.q===q && Math.abs(lastPlay.endSec-sec)<=1){
+            tripPlay = lastPlay;           // and-one / fouled shot: FTs belong to that play
+            open = null; awaitingReb = null;
+          } else {
+            tripPlay = startPlay(T, sec);  // bonus / fouled-on-miss trip ends the play
+          }
+          ftTrip = { team: T, play: tripPlay };
+        }
+        ftTrip.play.pts += pts;
+        var m = /^(\d)of(\d)$/.exec(sub);
+        var isLast;
+        if(m) isLast = m[1]===m[2];
+        else {
+          var nx = ev[i+1];
+          isLast = !(nx && nx.Action==="freethrow" && nx.Team===T);
+        }
+        if(isLast){
+          ftTrip = null;
+          if(pts>0){ open = { team: other(T), startSec: sec, kind: "dead" }; awaitingReb = null; }
+          else { open = null; awaitingReb = { team: T, sec: sec }; }
+        }
+      }
+      // steal / block: no possession effect on their own
+    }
+    if(curQ!==null) closeQuarter();
+  });
+
+  // Classify
+  plays.forEach(function(p){
+    var used = Math.max(0, p.startSec - p.endSec);
+    var sc = Math.floor((p.kind==="oreb" ? 10 + used : used) + 1e-6);
+    if(p.eop) p.cat = "eop";
+    else if((p.kind==="oreb" && !p.reset && Math.floor(used+1e-6)<=4) || p.tip) p.cat = "putback";
+    else if(sc<=7 && p.kind==="live") p.cat = "trans";
+    else if(sc<=7) p.cat = "early";
+    else if(sc<=17) p.cat = "mid";
+    else p.cat = "late";
+  });
+
+  function blank(){ var o = { plays:0, pts:0 }; PT_CATS.forEach(function(c){ o[c] = { n:0, pts:0 }; }); return o; }
+  var teams = {}, league = blank();
+  Object.keys(teamGames).forEach(function(t){
+    teams[t] = { team: t, g: Object.keys(teamGames[t]).length, off: blank(), def: blank() };
+  });
+  plays.forEach(function(p){
+    [[teams[p.team] && teams[p.team].off],[teams[p.opp] && teams[p.opp].def],[league]].forEach(function(x){
+      var o = x[0]; if(!o) return;
+      o.plays++; o.pts += p.pts; o[p.cat].n++; o[p.cat].pts += p.pts;
+    });
+  });
+  return { teams: teams, league: league, plays: plays, techPts: techPts,
+           games: Object.keys(byGame).length };
+}
+
+var ptState = { side: "off", sort: { col: "plays", dir: -1 }, data: null };
+
+async function renderPlayTypes(db){
+  const body = document.getElementById("pt-body");
+  if(!body) return;
+  try{
+    const slb = r => (r._comp || "SLB") === "SLB";
+    const made = {};
+    (db.raw.shots||[]).forEach(s => {
+      if(s.ActionNum!=null) made[s["Game id"]+"|"+s.ActionNum] = !!s.Success;
+    });
+    const madeOf = e => {
+      const k = e["Game id"]+"|"+e.ActionNum;
+      return Object.prototype.hasOwnProperty.call(made,k) ? made[k] : null;
+    };
+    ptState.data = computePlayTypes((db.raw.pbp||[]).filter(slb), madeOf);
+    console.log("[DC] play types:", ptState.data.games, "games,", ptState.data.plays.length, "plays,", ptState.data.techPts, "technical FT pts excluded");
+    drawPlayTypes();
+  }catch(err){
+    console.error("[DC] play types failed", err);
+    body.innerHTML = '<tr><td colspan="16" style="color:var(--muted)">Could not build play types from the play-by-play.</td></tr>';
+  }
+}
+
+function setPlayTypeSide(side){
+  ptState.side = side;
+  document.querySelectorAll(".pt-side-btn").forEach(b => b.classList.toggle("active", b.dataset.side===side));
+  drawPlayTypes();
+}
+function sortPlayTypes(col){
+  if(ptState.sort.col===col) ptState.sort.dir *= -1;
+  else ptState.sort = { col: col, dir: col==="team" ? 1 : -1 };
+  drawPlayTypes();
+}
+
+// value for a table cell: f_<cat> = frequency %, p_<cat> = points per 100
+function ptVal(o, key){
+  if(key==="plays") return o.plays;
+  const m = /^([fp])_(\w+)$/.exec(key); if(!m) return null;
+  const cat = m[2]==="hc" ? { n: o.mid.n + o.late.n, pts: o.mid.pts + o.late.pts } : o[m[2]];
+  if(!cat || !o.plays) return null;
+  if(m[1]==="f") return cat.n / o.plays * 100;
+  return cat.n >= 5 ? cat.pts / cat.n * 100 : null;
+}
+
+function drawPlayTypes(){
+  const D = ptState.data; if(!D) return;
+  const side = ptState.side;
+  const isDef = side==="def";
+  const cols = ["trans","early","putback","hc","mid","late","eop"];
+  const keys = [];
+  cols.forEach(c => { keys.push("f_"+c, "p_"+c); });
+
+  const rows = Object.values(D.teams).filter(t => t[side].plays > 0);
+
+  // Points-per-100 colouring: top 3 / bottom 3 in each column (for defence,
+  // fewer points allowed is better). Frequencies are style, not good/bad.
+  const rankCls = {};
+  keys.filter(k => k[0]==="p").forEach(k => {
+    const vals = rows.map(t => ({ t: t.team, v: ptVal(t[side], k) })).filter(x => x.v!=null);
+    if(vals.length < 6) return;
+    vals.sort((a,b) => isDef ? a.v-b.v : b.v-a.v);
+    vals.forEach((x,i) => {
+      if(i<3) rankCls[x.t+k] = "td-green";
+      else if(i>=vals.length-3) rankCls[x.t+k] = "td-red";
+    });
+  });
+
+  const sc = ptState.sort.col, dir = ptState.sort.dir;
+  rows.sort((a,b) => {
+    if(sc==="team") return a.team.localeCompare(b.team)*dir;
+    if(sc==="g") return (a.g-b.g)*dir;
+    const va = ptVal(a[side], sc), vb = ptVal(b[side], sc);
+    if(va==null && vb==null) return 0;
+    if(va==null) return 1;
+    if(vb==null) return -1;
+    return (va-vb)*dir;
+  });
+
+  const f1 = v => v==null ? "—" : v.toFixed(1);
+  const opp = (typeof NEXT_OPP!=="undefined") ? NEXT_OPP : "";
+  const cells = (o, team) => keys.map((k,i) => {
+    const v = ptVal(o,k);
+    const cls = (team && rankCls[team+k]) || "";
+    const edge = i%2===0 ? " pt-edge" : "";
+    return `<td class="td-num pt-c${edge} ${cls}">${f1(v)}</td>`;
+  }).join("");
+
+  document.getElementById("pt-body").innerHTML = rows.map(t => {
+    const s = t.team==="SURREY 89ERS";
+    const o = t[side];
+    return `<tr class="${s?"surrey-row":""}">
+      <td style="font-weight:600">
+        <div style="display:flex;align-items:center;gap:8px">
+          ${LOGOS[t.team]?`<span style="width:22px;height:22px;border-radius:4px;background:#fff;padding:2px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0"><img src="${LOGOS[t.team]}" style="width:18px;height:18px;object-fit:contain" alt=""></span>`:`<div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div>`}
+          ${teamShort(t.team)}${opp && t.team===opp ? ' <span class="pt-next">NEXT</span>' : ''}
+        </div>
+      </td>
+      <td class="td-num pt-c">${t.g}</td>
+      <td class="td-num pt-c">${o.plays}</td>
+      ${cells(o, t.team)}
+    </tr>`;
+  }).join("") + `<tr class="pt-league">
+      <td style="font-weight:700">League</td><td></td>
+      <td class="td-num pt-c">${D.league.plays}</td>
+      ${cells(D.league, null)}
+    </tr>`;
+
+  document.querySelectorAll("#pt-table th[data-k]").forEach(th => {
+    const k = th.dataset.k;
+    th.classList.toggle("pt-sorted", k===sc);
+    th.dataset.arrow = k===sc ? (dir>0 ? "▲" : "▼") : "";
+  });
+  const lab = document.getElementById("pt-side-label");
+  if(lab) lab.textContent = isDef
+    ? "Plays faced by each defence — Per 100 is points allowed (green = stingiest)"
+    : "Each team's own offensive plays — Per 100 is points scored (green = best)";
+}
+
+document.addEventListener("click", function(ev){
+  const th = ev.target.closest && ev.target.closest("#pt-table th[data-k]");
+  if(th) sortPlayTypes(th.dataset.k);
+});
 
 // LEAGUE LEADERS -- grid of category cards, matching Team Leaders' style
 // and the "League Leaders" tab layout from Scout_Database_2026.xlsx
