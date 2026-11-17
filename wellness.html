@@ -160,6 +160,20 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .wtable td{padding:11px 12px 11px 0;border-bottom:1px solid var(--border-soft);vertical-align:middle}
 .wtable tr:last-child td{border-bottom:0}
 .wtable .num{font-variant-numeric:tabular-nums}
+/* post-game check-in (Nov 2026) */
+.pg-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.pg-table td{vertical-align:top}
+.pg-inj{margin-bottom:8px;line-height:1.45}
+.pg-inj:last-child{margin-bottom:0}
+.pg-where{font-weight:700}
+.pg-sev{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:6px;border:1px solid}
+.pg-sev.s4{color:#e05555;background:rgba(224,85,85,.12);border-color:rgba(224,85,85,.35)}
+.pg-sev.s2{color:#f59e0b;background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3)}
+.pg-det{font-size:12px;color:var(--offwhite-mid,rgba(250,249,246,.6))}
+.pg-det b{font-weight:600;color:var(--muted)}
+.pg-none{color:var(--muted);font-size:12.5px}
+.pg-note{font-size:12px;font-style:italic;color:var(--muted);margin-top:6px}
+.pg-missing{font-size:12px;color:var(--muted);margin-top:12px}
 .reason{display:flex;align-items:center;gap:7px}
 
 .empty{background:var(--card);border:1px dashed var(--border);border-radius:10px;padding:26px 22px;
@@ -257,6 +271,16 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
       </div>
       <div class="sec-sub">Squad average per measure, and how it compares with the squad's own norm for the range. Higher is better on every measure.</div>
       <div id="today-body"></div>
+    </div>
+
+    <!-- POST-GAME CHECK-IN (Nov 2026) — only shown when there's a report from the last week -->
+    <div class="sec" id="sec-postgame" style="display:none">
+      <div class="sec-head">
+        <div class="sec-title" id="pg-title">Post-game check-in</div>
+        <div class="sec-note" id="pg-coverage"></div>
+      </div>
+      <div class="sec-sub">From the check-in the morning after the game. Soreness, tiredness &amp; sleep and mood run 1–5 with 5 the good end. Injury severity runs 1–5 with 5 the worst. Injuries first, worst first.</div>
+      <div id="pg-body"></div>
     </div>
 
     <!-- NEEDS ATTENTION -->
@@ -865,12 +889,101 @@ async function loadLoadSummary(){
   }
 }
 
+/* ============================================================
+   POST-GAME LOG reader (Nov 2026)
+   The day after a game, players fill in a post-game check-in on
+   their portal (soreness, tiredness & sleep, mood — 1-5, 5 good —
+   then any injuries). PostGame.gs writes one row per injury, or one
+   row with injury "No"; every row of one submission shares its
+   timestamp, so each player's LATEST timestamp is their report.
+   -> { slug: {slug, name, date, ts, game, soreness, tiredness, mood,
+               treatment, note, injuries:[{area, side, severity (1-5,
+               5 = severe), mechanism, how, limitations, symptoms}]} }
+   ============================================================ */
+const PG_COLS=["timestamp","date","slug","name","game","soreness","tiredness","mood","injury","injury_no",
+               "area","side","severity","mechanism","how","limitations","symptoms","treatment","note"];
+function pgReports(rows, sinceISO){
+  rows=(rows||[]).filter(r=>r.some(c=>String(c==null?"":c).trim()!==""));
+  if(rows.length<2) return {};
+  const head=rows[0].map(h=>String(h).toLowerCase().replace(/[^a-z_]/g,""));
+  const idx={}; PG_COLS.forEach(n=>{const i=head.indexOf(n); idx[n]=i>=0?i:PG_COLS.indexOf(n);});
+  const g=(r,n)=>String(r[idx[n]]==null?"":r[idx[n]]).trim();
+  const out={};
+  rows.slice(1).forEach(r=>{
+    const slug=g(r,"slug").toLowerCase(), date=g(r,"date").slice(0,10), ts=g(r,"timestamp");
+    if(!slug||slug==="slug"||/^test-/.test(slug)||!/^\d{4}-\d\d-\d\d$/.test(date)||date<(sinceISO||"")) return;   /* test-… = test account */
+    let cur=out[slug];
+    if(!cur||date>cur.date||(date===cur.date&&ts>cur.ts)){
+      cur=out[slug]={slug, name:g(r,"name"), date, ts, game:g(r,"game"),
+        soreness:+g(r,"soreness")||0, tiredness:+g(r,"tiredness")||0, mood:+g(r,"mood")||0,
+        treatment:g(r,"treatment"), note:g(r,"note"), injuries:[]};
+    }
+    if(cur.ts!==ts||cur.date!==date) return;
+    if(g(r,"injury").toLowerCase()==="yes"&&g(r,"area")){
+      cur.injuries.push({area:g(r,"area"), side:g(r,"side"), severity:+g(r,"severity")||0,
+        mechanism:g(r,"mechanism"), how:g(r,"how"), limitations:g(r,"limitations"), symptoms:g(r,"symptoms")});
+    }
+  });
+  Object.values(out).forEach(x=>x.injuries.sort((a,b)=>b.severity-a.severity));
+  return out;
+}
+/* "R Ankle", "Lower back", "Both Calf" */
+function pgWhere(x){const s={Left:"L ",Right:"R ",Both:"Both "}[x.side]||"";return s+x.area;}
+/* one line per injury: "R Ankle · 4/5 · Contact" */
+function pgInjuryLine(x){return [pgWhere(x), x.severity?x.severity+"/5":"", x.mechanism].filter(Boolean).join(" · ");}
+
+/* the most recent game's post-game reports, if there's one in the last week */
+async function loadPostGame(){
+  const sec=document.getElementById("sec-postgame");
+  try{
+    const res=await fetch(rosterTabURL("POST-GAME LOG"));
+    if(!res.ok) return;
+    const text=await res.text();
+    /* a missing tab quietly returns the FIRST sheet instead (ROSTER) — no
+       post-game rows can come out of that, so it just stays hidden */
+    const reps=Object.values(pgReports(rosterParseCSV(text), daysAgoISO(7)));
+    if(!reps.length) return;
+    const last=reps.map(r=>r.date).sort().pop();
+    const mine=reps.filter(r=>r.date===last);
+    const game=(mine.find(r=>r.game)||{}).game||"";
+    const known=new Set(ROSTER.map(p=>p.slug));
+    const nameOf=sl=>(ROSTER.find(p=>p.slug===sl)||{}).name;
+    mine.sort((a,b)=>{
+      const ia=a.injuries.length?a.injuries[0].severity||1:0, ib=b.injuries.length?b.injuries[0].severity||1:0;
+      if(ia!==ib) return ib-ia;
+      return mean([a.soreness,a.tiredness,a.mood].filter(Boolean))-mean([b.soreness,b.tiredness,b.mood].filter(Boolean));
+    });
+    const sc=v=>v?`<span class="t-${scoreClass(v)}"><strong>${v}</strong></span>`:"—";
+    const injCell=r=>r.injuries.length? r.injuries.map(x=>`<div class="pg-inj">
+        <span class="pg-where">${esc(pgWhere(x))}</span>${x.severity?`<span class="pg-sev ${x.severity>=4?"s4":"s2"}">${x.severity}/5</span>`:""}
+        <div class="pg-det">${[x.mechanism?esc(x.mechanism)+(x.how?" — "+esc(x.how):""):(x.how?esc(x.how):""),
+          x.limitations?"<b>Limits:</b> "+esc(x.limitations):"", x.symptoms?"<b>Symptoms:</b> "+esc(x.symptoms):""].filter(Boolean).join("<br>")}</div>
+      </div>`).join("") : `<span class="pg-none">None reported</span>`;
+    const missing=ROSTER.filter(p=>!mine.some(r=>r.slug===p.slug)).map(p=>p.name);
+    document.getElementById("pg-title").textContent="Post-game check-in"+(game?" · "+game:"");
+    document.getElementById("pg-coverage").textContent=prettyDate(last)+" · "+mine.filter(r=>known.has(r.slug)).length+" of "+ROSTER.length+" reported";
+    document.getElementById("pg-body").innerHTML=`<div class="pg-wrap"><table class="wtable pg-table">
+      <thead><tr><th>Player</th><th>Soreness</th><th>Tired / sleep</th><th>Mood</th><th>Injuries</th><th>Treatment</th></tr></thead>
+      <tbody>${mine.map(r=>`<tr>
+        <td><strong>${esc(nameOf(r.slug)||r.name||r.slug)}</strong>${r.note?`<div class="pg-note">“${esc(r.note)}”</div>`:""}</td>
+        <td class="num">${sc(r.soreness)}</td><td class="num">${sc(r.tiredness)}</td><td class="num">${sc(r.mood)}</td>
+        <td>${injCell(r)}</td>
+        <td>${/^yes$/i.test(r.treatment)?'<span class="t-watch">⚕ Yes</span>':'<span class="pg-none">No</span>'}</td>
+      </tr>`).join("")}</tbody></table></div>`+
+      (missing.length&&last===todayISO()?`<div class="pg-missing">Still to check in: ${missing.map(esc).join(", ")}</div>`:"");
+    sec.style.display="";
+  }catch(e){
+    console.error("POST-GAME LOG not readable (normal before the first post-game check-in):",e);
+  }
+}
+
 async function init(){
   const live=await loadRoster();
   if(live) PLAYERS=live;
   ROSTER=PLAYERS;
   ENTRIES=await loadLog();
   renderAll();
+  loadPostGame();
   loadLoadSummary();
 }
 

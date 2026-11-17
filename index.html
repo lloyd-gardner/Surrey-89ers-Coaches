@@ -181,6 +181,12 @@ body{font-family:'Inter',sans-serif;background:#080f0b;color:var(--offwhite);min
 .avail-gray{color:var(--muted);background:rgba(250,249,246,0.04);border-color:var(--border-soft)}
 .avail-foot{font-size:10.5px;color:var(--muted);padding-top:10px;text-align:center}
 .watch-note{font-size:10.5px;color:var(--offwhite-mid);margin-top:3px;font-style:italic;line-height:1.4}
+.watch-inj{font-size:8.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;
+  border-radius:4px;background:rgba(224,85,85,0.12);color:var(--red);border:1px solid rgba(224,85,85,0.3);
+  margin-left:7px;vertical-align:middle;white-space:nowrap}
+.watch-injline{font-size:10.5px;color:var(--offwhite);margin-top:2px;line-height:1.4}
+.watch-injline b{color:var(--red);font-weight:700}
+.watch-injline small{color:var(--muted);font-size:10px}
 
 </style>
 </head>
@@ -441,7 +447,52 @@ function statusLabel(avg){return avg>=3.5?"Good to go":avg>=2.5?"Monitor":"Flag"
 /* a player needs attention if their wellness average is below par, OR they
    ticked "treatment" on today's check-in, OR they left a note — a fine
    average shouldn't hide a treatment request or a note a coach should see */
-function isFlagged(p){return p.checkedToday&&((p.avg!=null&&p.avg<3.5)||p.treatment||!!p.note);}
+/* Nov 2026: and anyone who reported an injury on today's post-game check-in */
+function isFlagged(p){return p.checkedToday&&((p.avg!=null&&p.avg<3.5)||p.treatment||!!p.note||!!(p.pg&&p.pg.injuries.length));}
+
+/* ============================================================
+   POST-GAME LOG reader (Nov 2026)
+   The day after a game, players fill in a post-game check-in on
+   their portal (soreness, tiredness & sleep, mood — 1-5, 5 good —
+   then any injuries). PostGame.gs writes one row per injury, or one
+   row with injury "No"; every row of one submission shares its
+   timestamp, so each player's LATEST timestamp is their report.
+   -> { slug: {slug, name, date, ts, game, soreness, tiredness, mood,
+               treatment, note, injuries:[{area, side, severity (1-5,
+               5 = severe), mechanism, how, limitations, symptoms}]} }
+   ============================================================ */
+const PG_COLS=["timestamp","date","slug","name","game","soreness","tiredness","mood","injury","injury_no",
+               "area","side","severity","mechanism","how","limitations","symptoms","treatment","note"];
+function pgReports(rows, sinceISO){
+  rows=(rows||[]).filter(r=>r.some(c=>String(c==null?"":c).trim()!==""));
+  if(rows.length<2) return {};
+  const head=rows[0].map(h=>String(h).toLowerCase().replace(/[^a-z_]/g,""));
+  const idx={}; PG_COLS.forEach(n=>{const i=head.indexOf(n); idx[n]=i>=0?i:PG_COLS.indexOf(n);});
+  const g=(r,n)=>String(r[idx[n]]==null?"":r[idx[n]]).trim();
+  const out={};
+  rows.slice(1).forEach(r=>{
+    const slug=g(r,"slug").toLowerCase(), date=g(r,"date").slice(0,10), ts=g(r,"timestamp");
+    if(!slug||slug==="slug"||/^test-/.test(slug)||!/^\d{4}-\d\d-\d\d$/.test(date)||date<(sinceISO||"")) return;   /* test-… = test account */
+    let cur=out[slug];
+    if(!cur||date>cur.date||(date===cur.date&&ts>cur.ts)){
+      cur=out[slug]={slug, name:g(r,"name"), date, ts, game:g(r,"game"),
+        soreness:+g(r,"soreness")||0, tiredness:+g(r,"tiredness")||0, mood:+g(r,"mood")||0,
+        treatment:g(r,"treatment"), note:g(r,"note"), injuries:[]};
+    }
+    if(cur.ts!==ts||cur.date!==date) return;
+    if(g(r,"injury").toLowerCase()==="yes"&&g(r,"area")){
+      cur.injuries.push({area:g(r,"area"), side:g(r,"side"), severity:+g(r,"severity")||0,
+        mechanism:g(r,"mechanism"), how:g(r,"how"), limitations:g(r,"limitations"), symptoms:g(r,"symptoms")});
+    }
+  });
+  Object.values(out).forEach(x=>x.injuries.sort((a,b)=>b.severity-a.severity));
+  return out;
+}
+/* "R Ankle", "Lower back", "Both Calf" */
+function pgWhere(x){const s={Left:"L ",Right:"R ",Both:"Both "}[x.side]||"";return s+x.area;}
+/* one line per injury: "R Ankle · 4/5 · Contact" */
+function pgInjuryLine(x){return [pgWhere(x), x.severity?x.severity+"/5":"", x.mechanism].filter(Boolean).join(" · ");}
+
 
 
 /* ============================================================
@@ -565,8 +616,14 @@ async function todaysCheckins(slugs){
     /* treatment slot each player booked at check-in — their latest row
        for today wins, so a re-submitted check-in moves or cancels it */
     set.trtTimes={};
+    /* today's latest answers per player, straight from the log — a post-game
+       check-in only answers three of the six, and the player's own tab would
+       still hold yesterday's figures for the other three */
+    set.metrics={};
+    const MET=["sleep_quality","soreness","mood","sleep_duration","stress","energy"];
     todays.forEach(r=>{
       const sl=(r[iSlug]||"").toLowerCase();
+      set.metrics[sl]={}; MET.forEach(m=>{set.metrics[sl][m]=parseFloat(r[at(m)])||0;});
       const yes=(r[iTrt]||"").toLowerCase()==="yes";
       const m=/^(\d{1,2})[:.](\d{2})/.exec((r[iTime]||"").trim());
       set.trtTimes[sl]=yes&&m?(m[1].length<2?"0":"")+m[1]+":"+m[2]:"";
@@ -637,13 +694,17 @@ async function init(){
   renderAvailability(squad);
 
   const METRICS=["sleep_quality","soreness","mood","sleep_duration","stress","energy"];
-  const [settled, checkedSet]=await Promise.all([
+  const _d=new Date(), _z=n=>(n<10?"0":"")+n;
+  const todayISO=_d.getFullYear()+"-"+_z(_d.getMonth()+1)+"-"+_z(_d.getDate());
+  const [settled, checkedSet, pgToday]=await Promise.all([
     Promise.all(squad.map(p=>{
       const url=p.tab?rosterTabURL(p.tab):(p.gid?PLAYER_PORTAL_BASE+p.gid:null);
       if(!url) return Promise.resolve({p,rows:[]});
       return fetchCSV(url).then(rows=>({p,rows})).catch(()=>({p,rows:[]}));
     })),
-    todaysCheckins(squad.map(p=>p.slug))
+    todaysCheckins(squad.map(p=>p.slug)),
+    /* today's post-game reports (the tab won't exist until the first one) */
+    fetchCSV(rosterTabURL("POST-GAME LOG")).then(rows=>pgReports(rows,todayISO)).catch(()=>({}))
   ]);
 
   const people=settled.map(({p,rows})=>{
@@ -651,18 +712,23 @@ async function init(){
     /* don't surface a player's last-known wellness numbers as if they were
        today's — only count them once they've actually checked in today */
     if(!checkedToday) return {...p, avg:null, low:[], checkedToday, treatment:false, note:""};
-    const scores=METRICS.map(m=>parseFloat(val(rows,m)||0)).filter(n=>n>0);
+    const sl=(p.slug||"").toLowerCase();
+    const live=(checkedSet.metrics||{})[sl];
+    const pg=(pgToday[sl]&&pgToday[sl].date===todayISO)?pgToday[sl]:null;
+    const score=m=>live?live[m]:parseFloat(val(rows,m)||0);
+    const scores=METRICS.map(score).filter(n=>n>0);
     const avg=scores.length?scores.reduce((x,y)=>x+y,0)/scores.length:null;
     /* the worst couple of measures, for the watchlist — naming all six
-       when everything is low tells a coach nothing */
-    const low=METRICS.map(m=>({m,v:parseFloat(val(rows,m)||0)}))
+       when everything is low tells a coach nothing. On a post-game day
+       sleep_quality holds the "tiredness & sleep" answer. */
+    const low=METRICS.map(m=>({m,v:score(m)}))
                      .filter(x=>x.v>0&&x.v<3.5)
                      .sort((a,b)=>a.v-b.v)
-                     .map(x=>x.m.replace(/_/g," "));
+                     .map(x=>pg&&x.m==="sleep_quality"?"tiredness & sleep":x.m.replace(/_/g," "));
     const treatment=val(rows,"treatment").toLowerCase()==="yes";
     const note=(val(rows,"note")||"").trim();
     const trtTime=(checkedSet.trtTimes||{})[(p.slug||"").toLowerCase()]||"";
-    return {...p, avg, low, checkedToday, treatment, trtTime, note};
+    return {...p, avg, low, checkedToday, treatment, trtTime, note, pg};
   });
 
   grid.innerHTML=people.map(p=>{
@@ -682,9 +748,11 @@ async function init(){
      or a note left at check-in — a fine average shouldn't bury a treatment
      request or something a player wanted a coach to see. Treatment-flagged
      players sort to the top regardless of their average. */
+  const injSev=p=>p.pg&&p.pg.injuries.length?p.pg.injuries[0].severity||1:0;
   const flagged=people.filter(isFlagged).sort((a,b)=>{
     /* treatment requests first, booked ones in appointment order */
     if(a.treatment&&b.treatment) return (a.trtTime||"99").localeCompare(b.trtTime||"99");
+    if(!a.treatment&&!b.treatment&&(injSev(a)||injSev(b))) return injSev(b)-injSev(a);
     const av=a.treatment?-1:(a.avg==null?3.5:a.avg);
     const bv=b.treatment?-1:(b.avg==null?3.5:b.avg);
     return av-bv;
@@ -692,21 +760,24 @@ async function init(){
   const wl=document.getElementById("watchlist");
   wl.innerHTML = flagged.length
     ? flagged.map(p=>{
-        const cls=p.treatment?"r":(p.low.length?dotClass(p.avg):"a");
-        const why=p.low.length
+        const inj=p.pg?p.pg.injuries:[];
+        const cls=(p.treatment||inj.length)?"r":(p.low.length?dotClass(p.avg):"a");
+        const why=(p.pg?"Post-game · ":"")+(p.low.length
           ? p.low.slice(0,2).join(", ")+(p.low.length>2?" +"+(p.low.length-2)+" more":"")
-          : (p.avg!=null?statusLabel(p.avg):(p.treatment?"Requested treatment":"Left a note"));
+          : (p.avg!=null?statusLabel(p.avg):(p.treatment?"Requested treatment":"Left a note")));
+        const injHtml=inj.map(x=>`<div class="watch-injline"><b>${esc(pgWhere(x))}</b> · ${x.severity?x.severity+"/5":"?"}${x.mechanism?" · "+esc(x.mechanism):""}${x.limitations?`<br><small>Limits: ${esc(x.limitations)}</small>`:""}</div>`).join("");
         return `<div class="watch-row" onclick="window.open('https://surrey-89ers-players.vercel.app/${p.slug}','_blank')" style="cursor:pointer">
           <div class="watch-av">${ini(p.name)}${avatarImg(p)}</div>
           <div class="watch-body">
-            <div class="watch-name">${p.name}${p.treatment?'<span class="watch-trt">⚕ Treatment'+(p.trtTime?' '+p.trtTime:'')+'</span>':''}</div>
+            <div class="watch-name">${p.name}${inj.length?'<span class="watch-inj">Injury'+(inj.length>1?' ×'+inj.length:'')+'</span>':''}${p.treatment?'<span class="watch-trt">⚕ Treatment'+(p.trtTime?' '+p.trtTime:'')+'</span>':''}</div>
             <div class="watch-why">${why}</div>
+            ${injHtml}
             ${p.note?`<div class="watch-note">"${p.note}"</div>`:''}
           </div>
           <div class="watch-val wlabel-${cls}">${p.avg!=null?p.avg.toFixed(1):"⚕"}</div>
         </div>`;
       }).join("")
-    : `<div class="watch-ok">Nobody flagged today.<br>Every player who has checked in is at 3.5 or above, with no treatment requests or notes.</div>`;
+    : `<div class="watch-ok">Nobody flagged today.<br>Every player who has checked in is at 3.5 or above, with no treatment requests, notes or injuries reported.</div>`;
 
   /* ---------- headline numbers ---------- */
   buildKPIs(people, checkedSet);
