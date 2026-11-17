@@ -963,12 +963,11 @@ async function loadPostGame(){
     document.getElementById("pg-title").textContent="Post-game check-in"+(game?" · "+game:"");
     document.getElementById("pg-coverage").textContent=prettyDate(last)+" · "+mine.filter(r=>known.has(r.slug)).length+" of "+ROSTER.length+" reported";
     document.getElementById("pg-body").innerHTML=`<div class="pg-wrap"><table class="wtable pg-table">
-      <thead><tr><th>Player</th><th>Soreness</th><th>Tired / sleep</th><th>Mood</th><th>Injuries</th><th>Treatment</th></tr></thead>
+      <thead><tr><th>Player</th><th>Soreness</th><th>Tired / sleep</th><th>Mood</th><th>Injuries</th></tr></thead>
       <tbody>${mine.map(r=>`<tr>
         <td><strong>${esc(nameOf(r.slug)||r.name||r.slug)}</strong>${r.note?`<div class="pg-note">“${esc(r.note)}”</div>`:""}</td>
         <td class="num">${sc(r.soreness)}</td><td class="num">${sc(r.tiredness)}</td><td class="num">${sc(r.mood)}</td>
         <td>${injCell(r)}</td>
-        <td>${/^yes$/i.test(r.treatment)?'<span class="t-watch">⚕ Yes</span>':'<span class="pg-none">No</span>'}</td>
       </tr>`).join("")}</tbody></table></div>`+
       (missing.length&&last===todayISO()?`<div class="pg-missing">Still to check in: ${missing.map(esc).join(", ")}</div>`:"");
     sec.style.display="";

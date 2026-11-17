@@ -447,8 +447,33 @@ function statusLabel(avg){return avg>=3.5?"Good to go":avg>=2.5?"Monitor":"Flag"
 /* a player needs attention if their wellness average is below par, OR they
    ticked "treatment" on today's check-in, OR they left a note — a fine
    average shouldn't hide a treatment request or a note a coach should see */
-/* Nov 2026: and anyone who reported an injury on today's post-game check-in */
-function isFlagged(p){return p.checkedToday&&((p.avg!=null&&p.avg<3.5)||p.treatment||!!p.note||!!(p.pg&&p.pg.injuries.length));}
+/* Nov 2026: and anyone who reported an injury on today's post-game check-in,
+   or asked for treatment after yesterday's practice (whether or not they've
+   checked in yet today) */
+function isFlagged(p){return (p.checkedToday&&((p.avg!=null&&p.avg<3.5)||p.treatment||!!p.note||!!(p.pg&&p.pg.injuries.length)))||!!p.trtAhead;}
+/* PRACTICE LOG (post-practice check-in, Nov 2026): treatment heads-ups.
+   Each player's latest submission on a day counts, and a "Yes" there is a
+   request for the NEXT day — no time slot, the physio follows up.
+   -> { slug: {for, name} } for requests made on dateISO */
+const PRAC_COLS=["timestamp","date","slug","name","session","start_time","duration_min","rpe","treatment","treatment_for"];
+function practiceRequests(rows, dateISO){
+  rows=(rows||[]).filter(r=>r.some(c=>String(c==null?"":c).trim()!==""));
+  if(rows.length<2) return {};
+  const head=rows[0].map(h=>String(h).toLowerCase().replace(/[^a-z_]/g,""));
+  const ix={}; PRAC_COLS.forEach((n,k)=>{const i=head.indexOf(n); ix[n]=i>=0?i:k;});
+  const g=(r,n)=>String(r[ix[n]]==null?"":r[ix[n]]).trim();
+  const latest={};
+  rows.slice(1).forEach(r=>{
+    const s=g(r,"slug").toLowerCase();
+    if(!s||s==="slug"||/^test-/.test(s)||g(r,"date").slice(0,10)!==dateISO) return;   /* test-… = test account */
+    const ts=g(r,"timestamp");
+    if(!latest[s]||ts>=latest[s].ts) latest[s]={ts, yes:/^yes$/i.test(g(r,"treatment")), for:g(r,"treatment_for"), name:g(r,"name")};
+  });
+  const out={}; Object.keys(latest).forEach(s=>{ if(latest[s].yes) out[s]={for:latest[s].for, name:latest[s].name}; });
+  return out;
+}
+function isoAddDays(iso,n){const p=iso.split("-");const d=new Date(+p[0],+p[1]-1,+p[2]+n);const z=x=>(x<10?"0":"")+x;return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate());}
+
 
 /* ============================================================
    POST-GAME LOG reader (Nov 2026)
@@ -696,7 +721,7 @@ async function init(){
   const METRICS=["sleep_quality","soreness","mood","sleep_duration","stress","energy"];
   const _d=new Date(), _z=n=>(n<10?"0":"")+n;
   const todayISO=_d.getFullYear()+"-"+_z(_d.getMonth()+1)+"-"+_z(_d.getDate());
-  const [settled, checkedSet, pgToday]=await Promise.all([
+  const [settled, checkedSet, pgToday, trtAhead]=await Promise.all([
     Promise.all(squad.map(p=>{
       const url=p.tab?rosterTabURL(p.tab):(p.gid?PLAYER_PORTAL_BASE+p.gid:null);
       if(!url) return Promise.resolve({p,rows:[]});
@@ -704,14 +729,17 @@ async function init(){
     })),
     todaysCheckins(squad.map(p=>p.slug)),
     /* today's post-game reports (the tab won't exist until the first one) */
-    fetchCSV(rosterTabURL("POST-GAME LOG")).then(rows=>pgReports(rows,todayISO)).catch(()=>({}))
+    fetchCSV(rosterTabURL("POST-GAME LOG")).then(rows=>pgReports(rows,todayISO)).catch(()=>({})),
+    /* treatment asked for after yesterday's practice */
+    fetchCSV(rosterTabURL("PRACTICE LOG")).then(rows=>practiceRequests(rows,isoAddDays(todayISO,-1))).catch(()=>({}))
   ]);
 
   const people=settled.map(({p,rows})=>{
     const checkedToday=checkedSet.has((p.slug||"").toLowerCase());
     /* don't surface a player's last-known wellness numbers as if they were
        today's — only count them once they've actually checked in today */
-    if(!checkedToday) return {...p, avg:null, low:[], checkedToday, treatment:false, note:""};
+    const ahead=trtAhead[(p.slug||"").toLowerCase()]||null;
+    if(!checkedToday) return {...p, avg:null, low:[], checkedToday, treatment:!!ahead, note:"", trtAhead:ahead};
     const sl=(p.slug||"").toLowerCase();
     const live=(checkedSet.metrics||{})[sl];
     const pg=(pgToday[sl]&&pgToday[sl].date===todayISO)?pgToday[sl]:null;
@@ -728,7 +756,7 @@ async function init(){
     const treatment=val(rows,"treatment").toLowerCase()==="yes";
     const note=(val(rows,"note")||"").trim();
     const trtTime=(checkedSet.trtTimes||{})[(p.slug||"").toLowerCase()]||"";
-    return {...p, avg, low, checkedToday, treatment, trtTime, note, pg};
+    return {...p, avg, low, checkedToday, treatment:treatment||!!ahead, trtTime, note, pg, trtAhead:ahead};
   });
 
   grid.innerHTML=people.map(p=>{
@@ -764,7 +792,8 @@ async function init(){
         const cls=(p.treatment||inj.length)?"r":(p.low.length?dotClass(p.avg):"a");
         const why=(p.pg?"Post-game · ":"")+(p.low.length
           ? p.low.slice(0,2).join(", ")+(p.low.length>2?" +"+(p.low.length-2)+" more":"")
-          : (p.avg!=null?statusLabel(p.avg):(p.treatment?"Requested treatment":"Left a note")));
+          : (p.avg!=null?statusLabel(p.avg):(p.treatment?(p.trtAhead?"Asked for treatment after practice":"Requested treatment"):"Left a note")))+
+          (!p.checkedToday?" · not checked in yet":"");
         const injHtml=inj.map(x=>`<div class="watch-injline"><b>${esc(pgWhere(x))}</b> · ${x.severity?x.severity+"/5":"?"}${x.mechanism?" · "+esc(x.mechanism):""}${x.limitations?`<br><small>Limits: ${esc(x.limitations)}</small>`:""}</div>`).join("");
         return `<div class="watch-row" onclick="window.open('https://surrey-89ers-players.vercel.app/${p.slug}','_blank')" style="cursor:pointer">
           <div class="watch-av">${ini(p.name)}${avatarImg(p)}</div>
@@ -772,6 +801,7 @@ async function init(){
             <div class="watch-name">${p.name}${inj.length?'<span class="watch-inj">Injury'+(inj.length>1?' ×'+inj.length:'')+'</span>':''}${p.treatment?'<span class="watch-trt">⚕ Treatment'+(p.trtTime?' '+p.trtTime:'')+'</span>':''}</div>
             <div class="watch-why">${why}</div>
             ${injHtml}
+            ${p.trtAhead&&p.trtAhead.for?`<div class="watch-note">⚕ "${esc(p.trtAhead.for)}"</div>`:''}
             ${p.note?`<div class="watch-note">"${p.note}"</div>`:''}
           </div>
           <div class="watch-val wlabel-${cls}">${p.avg!=null?p.avg.toFixed(1):"⚕"}</div>
