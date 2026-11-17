@@ -299,7 +299,7 @@ async function loadRoster(){
       pos:r[col.position]||"",
       tab:r[col.tab]||r[col.name]||"",
       active:String(r[col.active]||"TRUE").toUpperCase()!=="FALSE"
-    })).filter(p=>p.slug&&p.slug!=="slug"&&p.active);
+    })).filter(p=>p.slug&&p.slug!=="slug"&&p.active&&!/^test-/.test(p.slug));
 
     if(!out.length) throw new Error("no active players");
     return out;
@@ -474,7 +474,7 @@ async function loadLoadLog(){
         duration_min: parseFloat(r[iDur])||0, rpe: parseFloat(r[iRpe])||0,
         load_au: isNaN(load) ? (parseFloat(r[iDur])||0)*(parseFloat(r[iRpe])||0) : load
       };
-    }).filter(e=>e.slug && e.slug!=="slug" && e.date);
+    }).filter(e=>e.slug && e.slug!=="slug" && !/^test-/.test(e.slug) && e.date);   /* test-… = test account */
   }catch(e){
     console.error("LOAD LOG not readable (normal before the first session):",e);
     return [];

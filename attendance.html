@@ -293,7 +293,7 @@ async function loadRoster(){
       pos:r[col.position]||"",
       tab:r[col.tab]||r[col.name]||"",
       active:String(r[col.active]||"TRUE").toUpperCase()!=="FALSE"
-    })).filter(p=>p.slug&&p.slug!=="slug"&&p.active);
+    })).filter(p=>p.slug&&p.slug!=="slug"&&p.active&&!/^test-/.test(p.slug));
 
     if(!out.length) throw new Error("no active players");
     return out;
